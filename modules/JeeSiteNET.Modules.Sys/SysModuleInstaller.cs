@@ -19,6 +19,10 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<IDictTypeRepository, DictTypeRepository>();
         services.AddScoped<IDictDataRepository, DictDataRepository>();
         services.AddScoped<IUserRoleRepository, UserRoleRepository>();
+        services.AddScoped<IPostRepository, PostRepository>();
+        services.AddScoped<IConfigRepository, ConfigRepository>();
+        services.AddScoped<IModuleRepository, ModuleRepository>();
+        services.AddScoped<ILogRepository, LogRepository>();
         services.AddScoped<UserService>();
         services.AddScoped<RoleService>();
         services.AddScoped<MenuService>();
@@ -26,5 +30,9 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<AuthService>();
         services.AddScoped<DictTypeService>();
         services.AddScoped<DictDataService>();
+        services.AddScoped<PostService>();
+        services.AddScoped<ConfigService>();
+        services.AddScoped<ModuleService>();
+        services.AddScoped<LogService>();
     }
 }
