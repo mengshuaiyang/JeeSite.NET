@@ -14,6 +14,7 @@ public class UserDto
     public string? Status { get; set; }
     public DateTime? LoginDate { get; set; }
     public DateTime? CreateDate { get; set; }
+    public List<string>? Permissions { get; set; }
 }
 
 public class UserSaveDto

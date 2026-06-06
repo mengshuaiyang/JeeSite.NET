@@ -1,6 +1,8 @@
 using JeeSiteNET.Core;
+using JeeSiteNET.Core.Security;
 using JeeSiteNET.Modules.Cms.Application.DTOs;
 using JeeSiteNET.Modules.Cms.Application.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JeeSiteNET.Modules.Cms.Controllers;
@@ -12,14 +14,17 @@ public class CategoryController : ControllerBase
     private readonly CategoryService _categoryService;
     public CategoryController(CategoryService categoryService) => _categoryService = categoryService;
 
+    [AllowAnonymous]
     [HttpPost("list")]
     public async Task<ApiResult<List<CategoryDto>>> List()
         => ApiResult<List<CategoryDto>>.Ok(await _categoryService.FindListAsync());
 
+    [AllowAnonymous]
     [HttpGet("tree")]
     public async Task<ApiResult<List<CategoryDto>>> Tree()
         => ApiResult<List<CategoryDto>>.Ok(await _categoryService.FindTreeAsync());
 
+    [AllowAnonymous]
     [HttpGet("get")]
     public async Task<ApiResult<CategoryDto?>> Get([FromQuery] string categoryCode)
     {
@@ -27,9 +32,11 @@ public class CategoryController : ControllerBase
         return dto == null ? ApiResult<CategoryDto?>.NotFound("栏目不存在") : ApiResult<CategoryDto?>.Ok(dto);
     }
 
+    [Permission("cms:category:edit")]
     [HttpPost("save")]
     public async Task<ApiResult> Save([FromBody] CategorySaveDto dto) => await _categoryService.SaveAsync(dto);
 
+    [Permission("cms:category:delete")]
     [HttpPost("delete")]
     public async Task<ApiResult> Delete([FromBody] DeleteCategoryRequest request) => await _categoryService.DeleteAsync(request.CategoryCode);
 }

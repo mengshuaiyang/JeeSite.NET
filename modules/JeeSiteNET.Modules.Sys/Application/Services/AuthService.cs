@@ -13,11 +13,15 @@ namespace JeeSiteNET.Modules.Sys.Application.Services;
 public class AuthService
 {
     private readonly IUserRepository _userRepository;
+    private readonly IUserRoleRepository _userRoleRepository;
+    private readonly IMenuRepository _menuRepository;
     private readonly IConfiguration _configuration;
 
-    public AuthService(IUserRepository userRepository, IConfiguration configuration)
+    public AuthService(IUserRepository userRepository, IUserRoleRepository userRoleRepository, IMenuRepository menuRepository, IConfiguration configuration)
     {
         _userRepository = userRepository;
+        _userRoleRepository = userRoleRepository;
+        _menuRepository = menuRepository;
         _configuration = configuration;
     }
 
@@ -38,6 +42,16 @@ public class AuthService
             return ApiResult<LoginResultDto>.Fail(400, "登录名或密码错误");
 
         var token = GenerateToken(user);
+
+        List<string> permissions;
+        if (user.UserCode == "admin")
+            permissions = ["*"];
+        else
+        {
+            var roleCodes = await _userRoleRepository.GetRoleCodesByUserAsync(user.UserCode);
+            permissions = await _menuRepository.GetPermissionsByRoleCodesAsync(roleCodes);
+        }
+
         return ApiResult<LoginResultDto>.Ok(new LoginResultDto
         {
             Token = token,
@@ -55,7 +69,8 @@ public class AuthService
                 OrgName = user.OrgName,
                 Status = user.Status,
                 LoginDate = user.LoginDate,
-                CreateDate = user.CreateDate
+                CreateDate = user.CreateDate,
+                Permissions = permissions
             }
         });
     }

@@ -1,0 +1,40 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router'
+
+declare module 'vue-router' {
+  interface RouteMeta {
+    permission?: string
+    title?: string
+  }
+}
+
+const routes: RouteRecordRaw[] = [
+  { path: '/login', name: 'Login', component: () => import('@/views/Login.vue'), meta: { title: '登录' } },
+  {
+    path: '/',
+    component: () => import('@/layouts/MainLayout.vue'),
+    redirect: '/dashboard',
+    children: [
+      { path: 'dashboard', name: 'Dashboard', component: () => import('@/views/Dashboard.vue'), meta: { title: '控制台', permission: 'dashboard' } },
+      { path: 'sys/user', name: 'User', component: () => import('@/views/sys/UserList.vue'), meta: { title: '用户管理', permission: 'sys:user' } },
+      { path: 'sys/role', name: 'Role', component: () => import('@/views/sys/RoleList.vue'), meta: { title: '角色管理', permission: 'sys:role' } },
+      { path: 'sys/menu', name: 'Menu', component: () => import('@/views/sys/MenuList.vue'), meta: { title: '菜单管理', permission: 'sys:menu' } },
+      { path: 'sys/org', name: 'Organization', component: () => import('@/views/sys/OrgTree.vue'), meta: { title: '机构管理', permission: 'sys:org' } },
+      { path: 'sys/post', name: 'Post', component: () => import('@/views/sys/PostList.vue'), meta: { title: '岗位管理', permission: 'sys:post' } },
+      { path: 'sys/dict', name: 'Dict', component: () => import('@/views/sys/DictList.vue'), meta: { title: '字典管理', permission: 'sys:dict' } },
+      { path: 'sys/config', name: 'Config', component: () => import('@/views/sys/ConfigList.vue'), meta: { title: '参数配置', permission: 'sys:config' } },
+      { path: 'sys/module', name: 'Module', component: () => import('@/views/sys/ModuleList.vue'), meta: { title: '模块管理', permission: 'sys:module' } },
+      { path: 'sys/log', name: 'Log', component: () => import('@/views/sys/LogList.vue'), meta: { title: '操作日志', permission: 'sys:log' } }
+    ]
+  },
+  { path: '/:pathMatch(.*)*', component: () => import('@/views/error/NotFound.vue'), meta: { title: '404' } }
+]
+
+const router = createRouter({ history: createWebHistory(), routes })
+
+router.beforeEach((to) => {
+  const token = localStorage.getItem('token')
+  if (to.path !== '/login' && !token) return '/login'
+})
+
+export default router

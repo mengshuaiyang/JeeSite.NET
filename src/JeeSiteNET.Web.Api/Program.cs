@@ -9,7 +9,10 @@ using JeeSiteNET.Infrastructure.EntityFrameworkCore;
 using JeeSiteNET.Infrastructure.EntityFrameworkCore.Interceptors;
 using JeeSiteNET.Modules.Sys.Domain.Entities;
 using JeeSiteNET.Modules.Sys.Infrastructure;
+using JeeSiteNET.Modules.Tasks.Application.Services;
+
 using JeeSiteNET.Web.Api.Filters;
+using JeeSiteNET.Web.Api.Swagger;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using ZiggyCreatures.Caching.Fusion;
 using ZiggyCreatures.Caching.Fusion.Serialization.SystemTextJson;
@@ -31,8 +34,7 @@ builder.Services.AddControllers(options =>
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddJeeSiteSwagger();
 
 // JWT Authentication
 var jwtSection = builder.Configuration.GetSection("Jwt");
@@ -51,7 +53,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret))
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+        policy.WithOrigins("http://localhost:5173", "http://localhost:4173", "http://localhost:3000")
+            .AllowAnyHeader().AllowAnyMethod().AllowCredentials());
+});
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
@@ -59,7 +73,11 @@ builder.Services.AddScoped<ITenantContext, TenantContext>();
 
 // Register module assemblies for EF Core configuration discovery
 builder.Services.AddSingleton<IEnumerable<Assembly>>(
-    [typeof(User).Assembly]);
+    [typeof(JeeSiteNET.Modules.Sys.Domain.Entities.User).Assembly,
+     typeof(JeeSiteNET.Modules.Tasks.Domain.Entities.SysJob).Assembly,
+     typeof(JeeSiteNET.Modules.Cms.Domain.Entities.Site).Assembly,
+     typeof(JeeSiteNET.Modules.Bpm.Domain.Entities.ApprovalRecord).Assembly,
+     typeof(JeeSiteNET.Modules.CodeGen.Domain.Entities.GenTable).Assembly]);
 
 // Database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -104,12 +122,19 @@ var app = builder.Build();
 // Seed data
 await JeeSiteNET.Modules.Sys.Infrastructure.SeedData.InitializeAsync(app.Services);
 
-if (app.Environment.IsDevelopment())
+// Init default scheduler jobs
+using (var scope = app.Services.CreateScope())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    var schedulerService = scope.ServiceProvider.GetRequiredService<SchedulerService>();
+    await schedulerService.InitDefaultJobsAsync();
 }
 
+if (app.Environment.IsDevelopment())
+{
+    app.UseJeeSiteSwagger();
+}
+
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<JeeSiteNET.Web.Api.Middleware.RequestLogMiddleware>();

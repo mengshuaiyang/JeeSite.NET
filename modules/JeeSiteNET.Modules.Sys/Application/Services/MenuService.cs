@@ -1,4 +1,5 @@
 using JeeSiteNET.Core;
+using JeeSiteNET.Core.Security;
 using JeeSiteNET.Core.Utils;
 using JeeSiteNET.Modules.Sys.Application.DTOs;
 using JeeSiteNET.Modules.Sys.Domain.Entities;
@@ -12,11 +13,29 @@ public class MenuService
 {
     private readonly IMenuRepository _menuRepository;
     private readonly IFusionCache _cache;
+    private readonly ICurrentUser _currentUser;
 
-    public MenuService(IMenuRepository menuRepository, IFusionCache cache)
+    public MenuService(IMenuRepository menuRepository, IFusionCache cache, ICurrentUser currentUser)
     {
         _menuRepository = menuRepository;
         _cache = cache;
+        _currentUser = currentUser;
+    }
+
+    public async Task<List<MenuDto>> GetUserMenusAsync()
+    {
+        var all = await _menuRepository.Query()
+            .Where(m => m.Status == "0" && m.IsShow != "0")
+            .OrderBy(m => m.TreeSort)
+            .ToListAsync();
+
+        if (_currentUser.IsSuperAdmin || _currentUser.Permissions.Count == 0)
+            return BuildTree(all, "0");
+
+        var perms = new HashSet<string>(_currentUser.Permissions);
+        var filtered = all.Where(m =>
+            string.IsNullOrEmpty(m.Permission) || perms.Contains(m.Permission)).ToList();
+        return BuildTree(filtered, "0");
     }
 
     public async Task<MenuDto?> GetAsync(string menuCode)

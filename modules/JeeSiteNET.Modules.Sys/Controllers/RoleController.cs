@@ -3,6 +3,7 @@ using JeeSiteNET.Modules.Sys.Application.DTOs;
 using JeeSiteNET.Modules.Sys.Application.Services;
 using JeeSiteNET.Modules.Sys.Domain.Entities;
 using JeeSiteNET.Core.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JeeSiteNET.Modules.Sys.Controllers;
@@ -15,6 +16,7 @@ public class RoleController : ControllerBase
 
     public RoleController(RoleService roleService) => _roleService = roleService;
 
+    [Permission("sys:role:list")]
     [HttpPost("list")]
     public async Task<ApiResult<PageResult<RoleDto>>> List([FromBody] PageRequest<Role> request)
     {
@@ -22,6 +24,7 @@ public class RoleController : ControllerBase
         return ApiResult<PageResult<RoleDto>>.Ok(result);
     }
 
+    [Permission("sys:role:list")]
     [HttpGet("get")]
     public async Task<ApiResult<RoleDto?>> Get([FromQuery] string roleCode)
     {
@@ -30,12 +33,14 @@ public class RoleController : ControllerBase
         return ApiResult<RoleDto?>.Ok(role);
     }
 
+    [Permission("sys:role:edit")]
     [HttpPost("save")]
     public async Task<ApiResult> Save([FromBody] RoleSaveDto dto)
     {
         return await _roleService.SaveAsync(dto);
     }
 
+    [Permission("sys:role:delete")]
     [HttpPost("delete")]
     public async Task<ApiResult> Delete([FromBody] DeleteRoleRequest request)
     {
