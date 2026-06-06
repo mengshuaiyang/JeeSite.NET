@@ -39,8 +39,15 @@ public class MenuRepository : IMenuRepository
     }
 
     public async Task<List<string>> GetPermissionsByRoleCodesAsync(List<string> roleCodes)
-        => await _db.Set<Menu>()
-            .Where(m => m.Status == "0" && m.Permission != null)
+    {
+        var menuCodes = await _db.Set<RoleMenu>()
+            .Where(rm => roleCodes.Contains(rm.RoleCode))
+            .Select(rm => rm.MenuCode)
+            .ToListAsync();
+
+        return await _db.Set<Menu>()
+            .Where(m => menuCodes.Contains(m.MenuCode) && m.Status == "0" && m.Permission != null)
             .Select(m => m.Permission!)
             .ToListAsync();
+    }
 }

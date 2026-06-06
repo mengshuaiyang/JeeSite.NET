@@ -23,7 +23,9 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<IConfigRepository, ConfigRepository>();
         services.AddScoped<IModuleRepository, ModuleRepository>();
         services.AddScoped<ILogRepository, LogRepository>();
+        services.AddScoped<IRoleMenuRepository, RoleMenuRepository>();
         services.AddScoped<UserService>();
+        services.AddScoped<RoleMenuService>();
         services.AddScoped<RoleService>();
         services.AddScoped<MenuService>();
         services.AddScoped<OrganizationService>();

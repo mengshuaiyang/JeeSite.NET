@@ -223,6 +223,18 @@ namespace JeeSiteNET.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Sys_Role_Menu",
+                columns: table => new
+                {
+                    RoleCode = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    MenuCode = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Sys_Role_Menu", x => new { x.RoleCode, x.MenuCode });
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Sys_User",
                 columns: table => new
                 {
@@ -320,6 +332,16 @@ namespace JeeSiteNET.Infrastructure.Migrations
                 column: "Sort");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Sys_Role_Menu_MenuCode",
+                table: "Sys_Role_Menu",
+                column: "MenuCode");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Sys_Role_Menu_RoleCode",
+                table: "Sys_Role_Menu",
+                column: "RoleCode");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Sys_User_LoginCode",
                 table: "Sys_User",
                 column: "LoginCode",
@@ -375,6 +397,9 @@ namespace JeeSiteNET.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "Sys_Role");
+
+            migrationBuilder.DropTable(
+                name: "Sys_Role_Menu");
 
             migrationBuilder.DropTable(
                 name: "Sys_User");

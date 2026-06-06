@@ -581,6 +581,25 @@ namespace JeeSiteNET.Infrastructure.Migrations
                     b.ToTable("Sys_Role", (string)null);
                 });
 
+            modelBuilder.Entity("JeeSiteNET.Modules.Sys.Domain.Entities.RoleMenu", b =>
+                {
+                    b.Property<string>("RoleCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("MenuCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("RoleCode", "MenuCode");
+
+                    b.HasIndex("MenuCode");
+
+                    b.HasIndex("RoleCode");
+
+                    b.ToTable("Sys_Role_Menu", (string)null);
+                });
+
             modelBuilder.Entity("JeeSiteNET.Modules.Sys.Domain.Entities.User", b =>
                 {
                     b.Property<string>("UserCode")
