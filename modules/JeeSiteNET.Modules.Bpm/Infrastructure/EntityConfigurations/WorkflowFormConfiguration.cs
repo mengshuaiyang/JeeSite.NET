@@ -1,0 +1,26 @@
+using JeeSiteNET.Modules.Bpm.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace JeeSiteNET.Modules.Bpm.Infrastructure.EntityConfigurations;
+
+public class WorkflowFormConfiguration : IEntityTypeConfiguration<WorkflowForm>
+{
+    public void Configure(EntityTypeBuilder<WorkflowForm> builder)
+    {
+        builder.ToTable("Bpm_WorkflowForm");
+        builder.HasKey(e => e.FormId);
+        builder.Property(e => e.FormId).HasMaxLength(100);
+        builder.Property(e => e.WorkflowInstanceId).HasMaxLength(100);
+        builder.Property(e => e.BusinessKey).HasMaxLength(100);
+        builder.Property(e => e.BusinessType).HasMaxLength(50);
+        builder.Property(e => e.FormData).HasColumnType("nvarchar(max)");
+        builder.Property(e => e.CurrentActivityId).HasMaxLength(100);
+        builder.Property(e => e.CurrentAssignee).HasMaxLength(100);
+        builder.Property(e => e.FormStatus).HasColumnName("Status").HasMaxLength(20);
+        builder.Property(e => e.CreateBy).HasMaxLength(100);
+        builder.Property(e => e.UpdateBy).HasMaxLength(100);
+        builder.Property(e => e.Remarks).HasMaxLength(500);
+        builder.HasIndex(e => e.BusinessKey);
+    }
+}
