@@ -16,10 +16,14 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IMenuRepository, MenuRepository>();
         services.AddScoped<IOrganizationRepository, OrganizationRepository>();
+        services.AddScoped<IDictTypeRepository, DictTypeRepository>();
+        services.AddScoped<IDictDataRepository, DictDataRepository>();
         services.AddScoped<UserService>();
         services.AddScoped<RoleService>();
         services.AddScoped<MenuService>();
         services.AddScoped<OrganizationService>();
         services.AddScoped<AuthService>();
+        services.AddScoped<DictTypeService>();
+        services.AddScoped<DictDataService>();
     }
 }
