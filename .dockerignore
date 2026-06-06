@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/.git/
+**/dist/
+**/.vs/
+**/Migrations/
+*.user
+*.suo
+.gitignore
+README.md

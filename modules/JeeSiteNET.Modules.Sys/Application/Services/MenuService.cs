@@ -4,16 +4,19 @@ using JeeSiteNET.Modules.Sys.Application.DTOs;
 using JeeSiteNET.Modules.Sys.Domain.Entities;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace JeeSiteNET.Modules.Sys.Application.Services;
 
 public class MenuService
 {
     private readonly IMenuRepository _menuRepository;
+    private readonly IFusionCache _cache;
 
-    public MenuService(IMenuRepository menuRepository)
+    public MenuService(IMenuRepository menuRepository, IFusionCache cache)
     {
         _menuRepository = menuRepository;
+        _cache = cache;
     }
 
     public async Task<MenuDto?> GetAsync(string menuCode)
@@ -50,12 +53,16 @@ public class MenuService
 
     public async Task<List<MenuDto>> FindTreeAsync(string? moduleCode = null)
     {
-        var query = _menuRepository.Query().Where(m => m.Status == "0");
-        if (!string.IsNullOrEmpty(moduleCode))
-            query = query.Where(m => m.ModuleCode == moduleCode);
+        var key = CacheKeys.MenuTree(moduleCode ?? "all");
+        return await _cache.GetOrSetAsync(key, async (ct) =>
+        {
+            var query = _menuRepository.Query().Where(m => m.Status == "0");
+            if (!string.IsNullOrEmpty(moduleCode))
+                query = query.Where(m => m.ModuleCode == moduleCode);
 
-        var list = await query.OrderBy(m => m.TreeSort).ToListAsync();
-        return BuildTree(list, "0");
+            var list = await query.OrderBy(m => m.TreeSort).ToListAsync();
+            return BuildTree(list, "0");
+        }, TimeSpan.FromMinutes(10));
     }
 
     public async Task<ApiResult> SaveAsync(MenuSaveDto dto)
@@ -101,6 +108,7 @@ public class MenuService
             await _menuRepository.AddAsync(menu);
         }
 
+        await _cache.RemoveAsync(CacheKeys.MenuTree(menu.ModuleCode ?? "all"));
         return ApiResult.Ok(MapToDto(menu));
     }
 
@@ -109,6 +117,7 @@ public class MenuService
         var menu = await _menuRepository.GetAsync(menuCode);
         if (menu == null) return ApiResult.NotFound("菜单不存在");
         await _menuRepository.DeleteAsync(menu);
+        await _cache.RemoveAsync(CacheKeys.MenuTree(menu.ModuleCode ?? "all"));
         return ApiResult.Ok();
     }
 

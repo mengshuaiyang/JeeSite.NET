@@ -1,9 +1,8 @@
-using JeeSiteNET.Core;
-using JeeSiteNET.Core.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Extensions.DependencyInjection;
 
-namespace JeeSiteNET.Web.Api.Filters;
+namespace JeeSiteNET.Core.Security;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public class PermissionAttribute : Attribute, IAuthorizationFilter
@@ -27,7 +26,7 @@ public class PermissionAttribute : Attribute, IAuthorizationFilter
         if (user.IsSuperAdmin)
             return;
 
-        if (Permissions.Length > 0 && !Permissions.Any(p => user.Permissions.Contains(p)))
+        if (Permissions.Length > 0 && !Permissions.Any(p => user.Permissions.Any(up => up == p || p.StartsWith(up + ":"))))
         {
             context.Result = new JsonResult(ApiResult.Forbidden()) { StatusCode = 403 };
         }

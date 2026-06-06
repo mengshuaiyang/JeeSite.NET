@@ -1,0 +1,19 @@
+@page "/menus"
+@attribute [Authorize]
+@inject MenuService MenuService
+
+<h1>菜单管理</h1>
+<ul class="tree">
+    @foreach (var m in _menus)
+    {
+        <li><span class="node">@m.MenuName (@m.Permission)</span></li>
+    }
+</ul>
+
+@code {
+    private List<MenuDto> _menus = new();
+    protected override async Task OnInitializedAsync()
+    {
+        _menus = await MenuService.FindTreeAsync();
+    }
+}

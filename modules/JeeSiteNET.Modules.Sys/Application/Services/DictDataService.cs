@@ -4,16 +4,19 @@ using JeeSiteNET.Modules.Sys.Application.DTOs;
 using JeeSiteNET.Modules.Sys.Domain.Entities;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace JeeSiteNET.Modules.Sys.Application.Services;
 
 public class DictDataService
 {
     private readonly IDictDataRepository _dictDataRepository;
+    private readonly IFusionCache _cache;
 
-    public DictDataService(IDictDataRepository dictDataRepository)
+    public DictDataService(IDictDataRepository dictDataRepository, IFusionCache cache)
     {
         _dictDataRepository = dictDataRepository;
+        _cache = cache;
     }
 
     public async Task<DictDataDto?> GetAsync(string dictCode)
@@ -50,8 +53,14 @@ public class DictDataService
 
     public async Task<List<DictDataDto>> GetByTypeAsync(string dictType)
     {
-        var list = await _dictDataRepository.GetByTypeAsync(dictType);
-        return list.Select(MapToDto).ToList();
+        return await _cache.GetOrSetAsync(
+            CacheKeys.DictByType(dictType),
+            async (ct) =>
+            {
+                var list = await _dictDataRepository.GetByTypeAsync(dictType);
+                return list.Select(MapToDto).ToList();
+            },
+            TimeSpan.FromMinutes(30));
     }
 
     public async Task<ApiResult> SaveAsync(DictDataSaveDto dto)
@@ -85,6 +94,7 @@ public class DictDataService
             await _dictDataRepository.AddAsync(entity);
         }
 
+        await _cache.RemoveAsync(CacheKeys.DictByType(dto.DictType));
         return ApiResult.Ok(MapToDto(entity));
     }
 
@@ -92,6 +102,8 @@ public class DictDataService
     {
         var entity = await _dictDataRepository.GetAsync(dictCode);
         if (entity == null) return ApiResult.NotFound("字典数据不存在");
+        if (entity.DictType != null)
+            await _cache.RemoveAsync(CacheKeys.DictByType(entity.DictType));
         await _dictDataRepository.DeleteAsync(entity);
         return ApiResult.Ok();
     }

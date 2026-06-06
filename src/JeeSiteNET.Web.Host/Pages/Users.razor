@@ -1,0 +1,46 @@
+@page "/users"
+@attribute [Authorize]
+@inject UserService UserService
+
+<h1>用户管理</h1>
+<button class="btn-primary" @onclick="Add">新增</button>
+<table class="table">
+    <thead>
+        <tr><th>登录名</th><th>用户名</th><th>邮箱</th><th>手机</th><th>状态</th><th>操作</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var u in _users)
+        {
+            <tr>
+                <td>@u.LoginCode</td>
+                <td>@u.UserName</td>
+                <td>@u.Email</td>
+                <td>@u.Phone</td>
+                <td>@u.Status</td>
+                <td><button @onclick="() => Edit(u)">编辑</button></td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<UserDto> _users = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await UserService.FindPageAsync(new Core.PageRequest<JeeSiteNET.Modules.Sys.Domain.Entities.User>
+        {
+            PageNo = 1, PageSize = 20, Entity = new()
+        });
+        _users = result.List;
+    }
+
+    private void Add() { }
+    private void Edit(UserDto u) { }
+}
+
+<style>
+.table { width:100%; border-collapse:collapse; background:#fff; margin-top:16px; }
+.table th,.table td { padding:8px 12px; text-align:left; border-bottom:1px solid #f0f0f0; }
+.table th { background:#fafafa; font-weight:600; }
+</style>

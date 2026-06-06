@@ -1,0 +1,24 @@
+@page "/roles"
+@attribute [Authorize]
+@inject RoleService RoleService
+
+<h1>角色管理</h1>
+<table class="table">
+    <thead><tr><th>编码</th><th>名称</th><th>类型</th><th>状态</th></tr></thead>
+    <tbody>
+        @foreach (var r in _roles)
+        {
+            <tr><td>@r.RoleCode</td><td>@r.RoleName</td><td>@r.RoleType</td><td>@r.Status</td></tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<RoleDto> _roles = new();
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await RoleService.FindPageAsync(new Core.PageRequest<JeeSiteNET.Modules.Sys.Domain.Entities.Role>
+        { PageNo = 1, PageSize = 20, Entity = new() });
+        _roles = result.List;
+    }
+}

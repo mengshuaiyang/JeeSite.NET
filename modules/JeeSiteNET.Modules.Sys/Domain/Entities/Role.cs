@@ -10,4 +10,5 @@ public class Role : DataEntity
     public string? IsSys { get; set; } = "0";
     public string? UserType { get; set; }
     public decimal? Sort { get; set; }
+    public string? DataScope { get; set; }
 }

@@ -1,0 +1,52 @@
+@page "/login"
+@layout LoginLayout
+@inject NavigationManager Navigation
+
+<div class="login-page">
+    <div class="login-card">
+        <h2>JeeSite.NET 登录</h2>
+        <div class="field">
+            <input @bind="_loginCode" placeholder="用户名" />
+        </div>
+        <div class="field">
+            <input @bind="_password" type="password" placeholder="密码" />
+        </div>
+        <div class="field">
+            <button @onclick="DoLogin" class="btn-primary">登 录</button>
+        </div>
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="error">@_error</div>
+        }
+    </div>
+</div>
+
+@code {
+    private string _loginCode = "";
+    private string _password = "";
+    private string _error = "";
+
+    private async Task DoLogin()
+    {
+        _error = "";
+        try
+        {
+            // Blazor Server auth to be implemented via cookie authentication
+            Navigation.NavigateTo("/", true);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}
+
+<style>
+.login-page { display:flex; align-items:center; justify-content:center; height:100vh; background:#f0f2f5; }
+.login-card { width:360px; padding:40px; background:#fff; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.1); }
+.login-card h2 { text-align:center; margin-bottom:24px; }
+.field { margin-bottom:16px; }
+.field input { width:100%; padding:8px 12px; border:1px solid #d9d9d9; border-radius:4px; }
+.btn-primary { width:100%; padding:8px; background:#1890ff; color:#fff; border:none; border-radius:4px; cursor:pointer; }
+.error { color:#ff4d4f; text-align:center; }
+</style>

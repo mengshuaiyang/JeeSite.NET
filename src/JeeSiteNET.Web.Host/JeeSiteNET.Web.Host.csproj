@@ -1,13 +1,1 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\modules\JeeSiteNET.Modules.Sys\JeeSiteNET.Modules.Sys.csproj" />
-  </ItemGroup>
-
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
-
-</Project>
+<Project Sdk="Microsoft.NET.Sdk.Web">  <ItemGroup>    <ProjectReference Include="..\..\modules\JeeSiteNET.Modules.Sys\JeeSiteNET.Modules.Sys.csproj" />  </ItemGroup>  <PropertyGroup>    <TargetFramework>net10.0</TargetFramework>    <Nullable>enable</Nullable>    <ImplicitUsings>enable</ImplicitUsings>  </PropertyGroup></Project>

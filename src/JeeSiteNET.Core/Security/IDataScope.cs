@@ -23,3 +23,14 @@ public interface IDataScopeService
 {
     IQueryable<T> ApplyDataScope<T>(IQueryable<T> query, string targetType) where T : class;
 }
+
+public interface IDataScopeRuleProvider
+{
+    List<DataScopeRule> GetRules(ICurrentUser user, string targetType);
+}
+
+public class DataScopeRule
+{
+    public DataScopeType ScopeType { get; set; }
+    public string? ScopeCustomSql { get; set; }
+}

@@ -6,8 +6,10 @@
 
 - 项目名称: JeeSite.NET
 - 描述: 基于 .NET 10 的企业级快速开发平台，参考 JeeSite 5 架构
-- 技术栈: .NET 9, ASP.NET Core, EF Core, Vue 3, Ant Design Vue
+- 技术栈: .NET 10, ASP.NET Core, EF Core, Vue 3, Ant Design Vue
 - 包管理: NuGet + npm/pnpm
+- 缓存: FusionCache 2.6 (L1 Memory + L2 Redis)
+- 部署: Docker Compose (SQL Server + Redis + WebApi + Vue/nginx)
 
 ## 编码规范
 
@@ -47,3 +49,6 @@ JeeSiteNET.Modules.{Name}/
 - `dotnet test` — 运行测试
 - `dotnet ef migrations add {Name}` — 添加迁移
 - `dotnet ef database update` — 更新数据库
+- `docker compose up -d` — 启动全部 Docker 容器
+- `docker compose down` — 停止全部 Docker 容器
+- `docker compose build webapi` — 单独构建 WebApi 镜像

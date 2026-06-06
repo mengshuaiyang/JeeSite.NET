@@ -1,4 +1,5 @@
 using JeeSiteNET.Core;
+using JeeSiteNET.Core.Security;
 using JeeSiteNET.Core.Utils;
 using JeeSiteNET.Modules.Sys.Application.DTOs;
 using JeeSiteNET.Modules.Sys.Domain.Entities;
@@ -12,17 +13,20 @@ public class UserService
     private readonly IRoleRepository _roleRepository;
     private readonly IMenuRepository _menuRepository;
     private readonly IUserRoleRepository _userRoleRepository;
+    private readonly IDataScopeService _dataScopeService;
 
     public UserService(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IMenuRepository menuRepository,
-        IUserRoleRepository userRoleRepository)
+        IUserRoleRepository userRoleRepository,
+        IDataScopeService dataScopeService)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _menuRepository = menuRepository;
         _userRoleRepository = userRoleRepository;
+        _dataScopeService = dataScopeService;
     }
 
     public async Task<UserDto?> GetAsync(string userCode)
@@ -39,7 +43,7 @@ public class UserService
 
     public async Task<PageResult<UserDto>> FindPageAsync(PageRequest<User> request)
     {
-        var query = _userRepository.Query()
+        var query = _dataScopeService.ApplyDataScope(_userRepository.Query(), "User")
             .WhereIf(!string.IsNullOrEmpty(request.Entity?.UserName),
                 u => u.UserName!.Contains(request.Entity!.UserName!))
             .WhereIf(!string.IsNullOrEmpty(request.Entity?.UserType),

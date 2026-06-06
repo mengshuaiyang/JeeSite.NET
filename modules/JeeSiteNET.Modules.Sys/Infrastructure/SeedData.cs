@@ -27,6 +27,7 @@ public static class SeedData
                 RoleType = "admin",
                 IsSys = "1",
                 Sort = 1,
+                DataScope = "All",
                 Status = "0",
                 CreateDate = now,
                 UpdateDate = now
@@ -40,6 +41,7 @@ public static class SeedData
                 RoleType = "user",
                 IsSys = "1",
                 Sort = 2,
+                DataScope = "CompanyAndChild",
                 Status = "0",
                 CreateDate = now,
                 UpdateDate = now
@@ -156,6 +158,34 @@ public static class SeedData
                 UpdateDate = now
             };
             db.Set<Organization>().Add(rootOrg);
+
+            var defaultTenant = new Tenant
+            {
+                TenantCode = "default",
+                TenantName = "默认租户",
+                IsAvailable = "1",
+                Status = "0",
+                CreateDate = now,
+                UpdateDate = now
+            };
+            db.Set<Tenant>().Add(defaultTenant);
+
+            var tenantMenu = new Menu
+            {
+                MenuCode = IdGenerator.NewId(),
+                MenuName = "租户管理",
+                MenuHref = "/sys/tenant",
+                MenuIcon = "team",
+                Permission = "sys:tenant",
+                IsShow = "1",
+                ParentCode = sysMenu.MenuCode,
+                TreeSort = 50,
+                ModuleCode = "Sys",
+                Status = "0",
+                CreateDate = now,
+                UpdateDate = now
+            };
+            db.Set<Menu>().Add(tenantMenu);
 
             await db.SaveChangesAsync();
         }

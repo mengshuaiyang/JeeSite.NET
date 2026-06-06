@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using JeeSiteNET.Core;
 using JeeSiteNET.Core.Modules;
 using JeeSiteNET.Core.Security;
 using JeeSiteNET.Infrastructure.EntityFrameworkCore;
@@ -10,6 +11,10 @@ using JeeSiteNET.Modules.Sys.Domain.Entities;
 using JeeSiteNET.Modules.Sys.Infrastructure;
 using JeeSiteNET.Web.Api.Filters;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using ZiggyCreatures.Caching.Fusion;
+using ZiggyCreatures.Caching.Fusion.Serialization.SystemTextJson;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -50,6 +55,7 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddScoped<ITenantContext, TenantContext>();
 
 // Register module assemblies for EF Core configuration discovery
 builder.Services.AddSingleton<IEnumerable<Assembly>>(
@@ -73,6 +79,22 @@ builder.Services.AddDbContext<JeeSiteDbContext>((sp, options) =>
         sp.GetRequiredService<SoftDeleteInterceptor>());
 });
 
+// FusionCache with Redis L2
+var redisConnection = builder.Configuration.GetSection("Redis")["Connection"] ?? "localhost:6379";
+var redisInstance = builder.Configuration.GetSection("Redis")["InstanceName"] ?? "JeeSiteNET";
+builder.Services.AddFusionCache()
+    .WithDefaultEntryOptions(new FusionCacheEntryOptions
+    {
+        Duration = TimeSpan.FromMinutes(30),
+        Priority = CacheItemPriority.Normal
+    })
+    .WithSerializer(new FusionCacheSystemTextJsonSerializer())
+    .WithDistributedCache(new RedisCache(new RedisCacheOptions
+    {
+        Configuration = redisConnection,
+        InstanceName = redisInstance
+    }));
+
 // Load modules
 var moduleLoader = new ModuleLoader();
 moduleLoader.LoadModules(builder.Services, builder.Configuration);
@@ -91,5 +113,6 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<JeeSiteNET.Web.Api.Middleware.RequestLogMiddleware>();
+app.UseMiddleware<JeeSiteNET.Web.Api.Middleware.TenantResolutionMiddleware>();
 app.MapControllers();
 app.Run();

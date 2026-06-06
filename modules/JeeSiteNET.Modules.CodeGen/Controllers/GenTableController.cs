@@ -1,0 +1,56 @@
+using JeeSiteNET.Core;
+using JeeSiteNET.Modules.CodeGen.Application.DTOs;
+using JeeSiteNET.Modules.CodeGen.Application.Services;
+using JeeSiteNET.Modules.CodeGen.Domain.Entities;
+using JeeSiteNET.Core.Security;
+using Microsoft.AspNetCore.Mvc;
+
+namespace JeeSiteNET.Modules.CodeGen.Controllers;
+
+[ApiController]
+[Route("api/v1/codegen/table")]
+public class GenTableController : ControllerBase
+{
+    private readonly GenTableService _genTableService;
+    private readonly CodeGenService _codeGenService;
+
+    public GenTableController(GenTableService genTableService, CodeGenService codeGenService)
+    {
+        _genTableService = genTableService;
+        _codeGenService = codeGenService;
+    }
+
+    [HttpPost("list")]
+    public async Task<ApiResult<PageResult<GenTableDto>>> List([FromBody] PageRequest<GenTable> request)
+        => ApiResult<PageResult<GenTableDto>>.Ok(await _genTableService.FindPageAsync(request));
+
+    [HttpGet("get")]
+    public async Task<ApiResult<GenTableDto?>> Get([FromQuery] string tableName)
+    {
+        var dto = await _genTableService.GetAsync(tableName);
+        return dto == null ? ApiResult<GenTableDto?>.NotFound("表配置不存在") : ApiResult<GenTableDto?>.Ok(dto);
+    }
+
+    [HttpPost("save")]
+    public async Task<ApiResult> Save([FromBody] GenTableSaveDto dto) => await _genTableService.SaveAsync(dto);
+
+    [HttpPost("delete")]
+    public async Task<ApiResult> Delete([FromBody] DeleteGenTableRequest request) => await _genTableService.DeleteAsync(request.TableName);
+
+    [HttpGet("db/tables")]
+    public async Task<ApiResult<List<DbTableInfo>>> GetDbTables()
+        => ApiResult<List<DbTableInfo>>.Ok(await _codeGenService.FindDbTablesAsync());
+
+    [HttpGet("db/columns")]
+    public async Task<ApiResult<List<ColumnInfo>>> GetDbColumns([FromQuery] string tableName)
+        => ApiResult<List<ColumnInfo>>.Ok(await _codeGenService.FindDbColumnsAsync(tableName));
+
+    [HttpPost("import")]
+    public async Task<ApiResult> ImportTables([FromBody] ImportTableRequest request) => await _codeGenService.ImportTablesAsync(request);
+
+    [HttpGet("preview")]
+    public async Task<ApiResult<List<GenPreviewItem>>> Preview([FromQuery] string tableName)
+        => ApiResult<List<GenPreviewItem>>.Ok(await _codeGenService.PreviewAsync(tableName));
+}
+
+public class DeleteGenTableRequest { public string TableName { get; set; } = string.Empty; }

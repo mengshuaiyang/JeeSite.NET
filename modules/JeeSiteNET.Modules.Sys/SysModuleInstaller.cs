@@ -1,6 +1,8 @@
 using JeeSiteNET.Core.Modules;
+using JeeSiteNET.Core.Security;
 using JeeSiteNET.Modules.Sys.Application.Services;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
+using JeeSiteNET.Modules.Sys.Infrastructure;
 using JeeSiteNET.Modules.Sys.Infrastructure.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,5 +38,9 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<ConfigService>();
         services.AddScoped<ModuleService>();
         services.AddScoped<LogService>();
+        services.AddScoped<IDataScopeRuleProvider, SysDataScopeRuleProvider>();
+        services.AddScoped<IDataScopeService, DataScopeService>();
+        services.AddScoped<ITenantRepository, TenantRepository>();
+        services.AddScoped<TenantService>();
     }
 }

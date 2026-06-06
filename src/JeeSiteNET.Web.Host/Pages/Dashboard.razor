@@ -1,0 +1,33 @@
+@page "/"
+@attribute [Authorize]
+
+<h1>首页</h1>
+<p>欢迎使用 JeeSite.NET 管理平台。</p>
+
+<div class="card-grid">
+    <div class="card">
+        <h3>用户数</h3>
+        <p class="stat">@_userCount</p>
+    </div>
+    <div class="card">
+        <h3>角色数</h3>
+        <p class="stat">@_roleCount</p>
+    </div>
+</div>
+
+@code {
+    private int _userCount;
+    private int _roleCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load stats from services
+    }
+}
+
+<style>
+.card-grid { display:flex; gap:16px; margin-top:16px; }
+.card { flex:1; padding:24px; background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+.card h3 { font-size:14px; color:#666; margin-bottom:8px; }
+.stat { font-size:32px; font-weight:600; color:#1890ff; }
+</style>
