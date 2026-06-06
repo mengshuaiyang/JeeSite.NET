@@ -11,6 +11,12 @@ public interface IBaseEntity
     string? Remarks { get; set; }
 }
 
+public interface ICorpEntity
+{
+    string? CorpCode { get; set; }
+    string? CorpName { get; set; }
+}
+
 public interface IDataEntity : IBaseEntity
 {
     string? Status { get; set; }

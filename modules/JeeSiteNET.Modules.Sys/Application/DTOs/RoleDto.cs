@@ -62,8 +62,11 @@ public class OrganizationDto
 {
     public string OrgCode { get; set; } = string.Empty;
     public string OrgName { get; set; } = string.Empty;
+    public string? ViewCode { get; set; }
+    public string? FullName { get; set; }
     public string? OrgType { get; set; }
-    public string? OrgTypeName { get; set; }
+    public string? Leader { get; set; }
+    public string? Phone { get; set; }
     public string ParentCode { get; set; } = "0";
     public string ParentCodes { get; set; } = string.Empty;
     public decimal TreeSort { get; set; } = 1000;
@@ -78,8 +81,11 @@ public class OrganizationSaveDto
 {
     public string? OrgCode { get; set; }
     public string OrgName { get; set; } = string.Empty;
+    public string? ViewCode { get; set; }
+    public string? FullName { get; set; }
     public string? OrgType { get; set; }
-    public string? OrgTypeName { get; set; }
+    public string? Leader { get; set; }
+    public string? Phone { get; set; }
     public string ParentCode { get; set; } = "0";
     public decimal TreeSort { get; set; } = 1000;
 }

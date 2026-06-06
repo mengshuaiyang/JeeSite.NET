@@ -24,7 +24,7 @@ public class PostService
             .WhereIf(!string.IsNullOrEmpty(request.Entity?.PostName), p => p.PostName.Contains(request.Entity!.PostName!))
             .WhereIf(!string.IsNullOrEmpty(request.Entity?.OrgCode), p => p.OrgCode == request.Entity!.OrgCode)
             .WhereIf(!string.IsNullOrEmpty(request.Entity?.Status), p => p.Status == request.Entity!.Status)
-            .OrderBy(p => p.Sort);
+            .OrderBy(p => p.PostSort);
         var total = await query.CountAsync();
         var list = await query.Skip((request.PageNo - 1) * request.PageSize).Take(request.PageSize).ToListAsync();
         return new PageResult<PostDto> { List = list.Select(MapToDto).ToList(), Total = total, PageNo = request.PageNo, PageSize = request.PageSize };
@@ -38,12 +38,12 @@ public class PostService
         {
             entity = await _postRepository.GetAsync(dto.PostCode);
             if (entity == null) return ApiResult.NotFound("岗位不存在");
-            entity.PostName = dto.PostName; entity.OrgCode = dto.OrgCode; entity.Sort = dto.Sort; entity.UpdateDate = now;
+            entity.PostName = dto.PostName; entity.OrgCode = dto.OrgCode; entity.PostSort = dto.Sort; entity.UpdateDate = now;
             await _postRepository.UpdateAsync(entity);
         }
         else
         {
-            entity = new Post { PostCode = IdGenerator.NewId(), PostName = dto.PostName, OrgCode = dto.OrgCode, Sort = dto.Sort, CreateDate = now, UpdateDate = now };
+            entity = new Post { PostCode = IdGenerator.NewId(), PostName = dto.PostName, OrgCode = dto.OrgCode, PostSort = dto.Sort, CreateDate = now, UpdateDate = now };
             await _postRepository.AddAsync(entity);
         }
         return ApiResult.Ok(MapToDto(entity));
@@ -57,5 +57,5 @@ public class PostService
         return ApiResult.Ok();
     }
 
-    private static PostDto MapToDto(Post e) => new() { PostCode = e.PostCode, PostName = e.PostName, OrgCode = e.OrgCode, Sort = e.Sort, Status = e.Status };
+    private static PostDto MapToDto(Post e) => new() { PostCode = e.PostCode, PostName = e.PostName, OrgCode = e.OrgCode, Sort = e.PostSort, Status = e.Status };
 }

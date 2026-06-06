@@ -42,8 +42,11 @@ public class OrganizationService
             org = await _organizationRepository.GetAsync(dto.OrgCode);
             if (org == null) return ApiResult.NotFound("机构不存在");
             org.OrgName = dto.OrgName;
+            org.ViewCode = dto.ViewCode;
+            org.FullName = dto.FullName;
             org.OrgType = dto.OrgType;
-            org.OrgTypeName = dto.OrgTypeName;
+            org.Leader = dto.Leader;
+            org.Phone = dto.Phone;
             org.ParentCode = dto.ParentCode;
             org.TreeSort = dto.TreeSort;
             org.UpdateDate = now;
@@ -55,8 +58,11 @@ public class OrganizationService
             {
                 OrgCode = IdGenerator.NewId(),
                 OrgName = dto.OrgName,
+                ViewCode = dto.ViewCode,
+                FullName = dto.FullName,
                 OrgType = dto.OrgType,
-                OrgTypeName = dto.OrgTypeName,
+                Leader = dto.Leader,
+                Phone = dto.Phone,
                 ParentCode = dto.ParentCode,
                 TreeSort = dto.TreeSort,
                 CreateDate = now,
@@ -80,8 +86,11 @@ public class OrganizationService
     {
         OrgCode = org.OrgCode,
         OrgName = org.OrgName,
+        ViewCode = org.ViewCode,
+        FullName = org.FullName,
         OrgType = org.OrgType,
-        OrgTypeName = org.OrgTypeName,
+        Leader = org.Leader,
+        Phone = org.Phone,
         ParentCode = org.ParentCode,
         ParentCodes = org.ParentCodes,
         TreeSort = org.TreeSort,

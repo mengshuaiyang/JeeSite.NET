@@ -1,3 +1,4 @@
+using JeeSiteNET.Infrastructure.EntityFrameworkCore;
 using JeeSiteNET.Modules.Sys.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -12,8 +13,14 @@ public class OrganizationConfiguration : IEntityTypeConfiguration<Organization>
         builder.HasKey(e => e.OrgCode);
         builder.Property(e => e.OrgCode).HasMaxLength(100);
         builder.Property(e => e.OrgName).HasMaxLength(200);
+        builder.Property(e => e.ViewCode).HasMaxLength(100);
+        builder.Property(e => e.FullName).HasMaxLength(200);
         builder.Property(e => e.OrgType).HasMaxLength(100);
-        builder.Property(e => e.OrgTypeName).HasMaxLength(200);
+        builder.Property(e => e.Leader).HasMaxLength(100);
+        builder.Property(e => e.Phone).HasMaxLength(100);
+        builder.Property(e => e.Address).HasMaxLength(300);
+        builder.Property(e => e.ZipCode).HasMaxLength(100);
+        builder.Property(e => e.Email).HasMaxLength(200);
         builder.Property(e => e.TreeSort).HasColumnType("decimal(10,2)");
         builder.Property(e => e.TreeLevel).HasColumnType("decimal(10,2)");
         builder.Property(e => e.ParentCode).HasMaxLength(100);
@@ -25,6 +32,8 @@ public class OrganizationConfiguration : IEntityTypeConfiguration<Organization>
         builder.Property(e => e.UpdateBy).HasMaxLength(100);
         builder.Property(e => e.Remarks).HasMaxLength(500);
         builder.Property(e => e.Status).HasMaxLength(1);
+        builder.ConfigureCorpFields();
+        builder.ConfigureExtendFields();
         builder.HasIndex(e => e.ParentCode);
         builder.HasIndex(e => e.ParentCodes);
         builder.HasIndex(e => e.TreeSorts);

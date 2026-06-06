@@ -1,3 +1,4 @@
+using JeeSiteNET.Infrastructure.EntityFrameworkCore;
 using JeeSiteNET.Modules.Sys.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -12,12 +13,19 @@ public class MenuConfiguration : IEntityTypeConfiguration<Menu>
         builder.HasKey(e => e.MenuCode);
         builder.Property(e => e.MenuCode).HasMaxLength(100);
         builder.Property(e => e.MenuName).HasMaxLength(200);
+        builder.Property(e => e.MenuType).HasMaxLength(1);
         builder.Property(e => e.MenuHref).HasMaxLength(1000);
         builder.Property(e => e.MenuTarget).HasMaxLength(20);
         builder.Property(e => e.MenuIcon).HasMaxLength(100);
+        builder.Property(e => e.MenuColor).HasMaxLength(20);
+        builder.Property(e => e.MenuTitle).HasMaxLength(200);
         builder.Property(e => e.Permission).HasMaxLength(500);
         builder.Property(e => e.IsShow).HasMaxLength(1);
+        builder.Property(e => e.SysCode).HasMaxLength(100);
+        builder.Property(e => e.ModuleCodes).HasMaxLength(500);
         builder.Property(e => e.ModuleCode).HasMaxLength(100);
+        builder.Property(e => e.Component).HasMaxLength(500);
+        builder.Property(e => e.Params).HasMaxLength(500);
         builder.Property(e => e.Weight).HasColumnType("decimal(10,2)");
         builder.Property(e => e.TreeSort).HasColumnType("decimal(10,2)");
         builder.Property(e => e.TreeLevel).HasColumnType("decimal(10,2)");
@@ -30,6 +38,8 @@ public class MenuConfiguration : IEntityTypeConfiguration<Menu>
         builder.Property(e => e.UpdateBy).HasMaxLength(100);
         builder.Property(e => e.Remarks).HasMaxLength(500);
         builder.Property(e => e.Status).HasMaxLength(1);
+        builder.ConfigureCorpFields();
+        builder.ConfigureExtendFields();
         builder.HasIndex(e => e.ParentCode);
     }
 }

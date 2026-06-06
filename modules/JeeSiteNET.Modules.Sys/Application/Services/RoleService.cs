@@ -30,7 +30,7 @@ public class RoleService
                 r => r.RoleType == request.Entity!.RoleType)
             .WhereIf(!string.IsNullOrEmpty(request.Entity?.Status),
                 r => r.Status == request.Entity!.Status)
-            .OrderBy(r => r.Sort);
+            .OrderBy(r => r.RoleSort);
 
         var total = await query.CountAsync();
         var list = await query
@@ -66,7 +66,7 @@ public class RoleService
             role.RoleType = dto.RoleType;
             role.IsSys = dto.IsSys;
             role.UserType = dto.UserType;
-            role.Sort = dto.Sort;
+            role.RoleSort = dto.Sort;
             role.UpdateDate = now;
             await _roleRepository.UpdateAsync(role);
         }
@@ -79,7 +79,7 @@ public class RoleService
                 RoleType = dto.RoleType,
                 IsSys = dto.IsSys ?? "0",
                 UserType = dto.UserType,
-                Sort = dto.Sort,
+                RoleSort = dto.Sort,
                 CreateDate = now,
                 UpdateDate = now
             };
@@ -104,7 +104,7 @@ public class RoleService
         RoleType = role.RoleType,
         IsSys = role.IsSys,
         UserType = role.UserType,
-        Sort = role.Sort,
+        Sort = role.RoleSort,
         Status = role.Status,
         CreateDate = role.CreateDate
     };
