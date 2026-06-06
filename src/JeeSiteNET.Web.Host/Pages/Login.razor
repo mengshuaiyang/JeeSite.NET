@@ -1,5 +1,6 @@
 @page "/login"
 @layout LoginLayout
+@inject BlazorAuthService Auth
 @inject NavigationManager Navigation
 
 <div class="login-page">
@@ -31,8 +32,11 @@
         _error = "";
         try
         {
-            // Blazor Server auth to be implemented via cookie authentication
-            Navigation.NavigateTo("/", true);
+            var (success, error) = await Auth.LoginAsync(_loginCode, _password);
+            if (success)
+                Navigation.NavigateTo("/", true);
+            else
+                _error = error ?? "登录失败";
         }
         catch (Exception ex)
         {

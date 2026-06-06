@@ -1,11 +1,14 @@
+using System.Reflection;
+using JeeSiteNET.Core.Modules;
+using JeeSiteNET.Core.Security;
 using JeeSiteNET.Infrastructure.EntityFrameworkCore;
 using JeeSiteNET.Infrastructure.EntityFrameworkCore.Interceptors;
 using JeeSiteNET.Modules.Sys.Domain.Entities;
-using JeeSiteNET.Core.Modules;
-using JeeSiteNET.Core.Security;
 using JeeSiteNET.Modules.Sys.Infrastructure;
+using JeeSiteNET.Web.Host.Services;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
-using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +17,21 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddScoped<BlazorAuthService>();
+builder.Services.AddScoped<AuthenticationStateProvider, AppAuthenticationStateProvider>();
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.LoginPath = "/login";
+        options.LogoutPath = "/login";
+        options.ExpireTimeSpan = TimeSpan.FromHours(12);
+        options.SlidingExpiration = true;
+    });
+builder.Services.AddAuthorization();
 
 builder.Services.AddSingleton<IEnumerable<Assembly>>(
     [typeof(User).Assembly]);

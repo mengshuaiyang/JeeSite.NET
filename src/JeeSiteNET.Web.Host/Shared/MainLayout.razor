@@ -1,4 +1,7 @@
 @inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject BlazorAuthService Auth
+
 <div class="layout">
     <div class="sidebar">
         <NavMenu />
@@ -6,7 +9,13 @@
     <div class="main-content">
         <header class="topbar">
             <span class="brand">JeeSite.NET</span>
-            <button class="btn-logout" @onclick="Logout">退出</button>
+            <div class="user-info">
+                @if (_user is not null)
+                {
+                    <span class="username">@_user</span>
+                }
+                <button class="btn-logout" @onclick="Logout">退出</button>
+            </div>
         </header>
         <main class="content">
             @Body
@@ -15,10 +24,21 @@
 </div>
 
 @code {
-    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+    private string? _user;
 
-    private void Logout()
+    protected override async Task OnInitializedAsync()
     {
+        if (AuthState is not null)
+        {
+            var state = await AuthState;
+            _user = state.User.Identity?.Name ?? "未登录";
+        }
+    }
+
+    private async Task Logout()
+    {
+        await Auth.LogoutAsync();
         Navigation.NavigateTo("/login", true);
     }
 }
