@@ -20,5 +20,6 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<RoleService>();
         services.AddScoped<MenuService>();
         services.AddScoped<OrganizationService>();
+        services.AddScoped<AuthService>();
     }
 }
