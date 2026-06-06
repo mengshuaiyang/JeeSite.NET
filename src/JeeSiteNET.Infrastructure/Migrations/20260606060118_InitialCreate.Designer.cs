@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace JeeSiteNET.Infrastructure.Migrations
 {
     [DbContext(typeof(JeeSiteDbContext))]
-    [Migration("20260606055324_InitialCreate")]
+    [Migration("20260606060118_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -675,6 +675,25 @@ namespace JeeSiteNET.Infrastructure.Migrations
                     b.HasIndex("UserType");
 
                     b.ToTable("Sys_User", (string)null);
+                });
+
+            modelBuilder.Entity("JeeSiteNET.Modules.Sys.Domain.Entities.UserRole", b =>
+                {
+                    b.Property<string>("UserCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("RoleCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("UserCode", "RoleCode");
+
+                    b.HasIndex("RoleCode");
+
+                    b.HasIndex("UserCode");
+
+                    b.ToTable("Sys_User_Role", (string)null);
                 });
 #pragma warning restore 612, 618
         }

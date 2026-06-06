@@ -18,6 +18,7 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<IOrganizationRepository, OrganizationRepository>();
         services.AddScoped<IDictTypeRepository, DictTypeRepository>();
         services.AddScoped<IDictDataRepository, DictDataRepository>();
+        services.AddScoped<IUserRoleRepository, UserRoleRepository>();
         services.AddScoped<UserService>();
         services.AddScoped<RoleService>();
         services.AddScoped<MenuService>();

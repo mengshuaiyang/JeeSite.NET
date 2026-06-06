@@ -11,15 +11,18 @@ public class UserService
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IMenuRepository _menuRepository;
+    private readonly IUserRoleRepository _userRoleRepository;
 
     public UserService(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
-        IMenuRepository menuRepository)
+        IMenuRepository menuRepository,
+        IUserRoleRepository userRoleRepository)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _menuRepository = menuRepository;
+        _userRoleRepository = userRoleRepository;
     }
 
     public async Task<UserDto?> GetAsync(string userCode)
@@ -62,18 +65,45 @@ public class UserService
 
     public async Task<ApiResult> SaveAsync(UserSaveDto dto)
     {
-        var user = new User
-        {
-            UserCode = dto.UserCode ?? IdGenerator.NewId(),
-            LoginCode = dto.LoginCode,
-            UserName = dto.UserName,
-            UserType = dto.UserType,
-            Email = dto.Email,
-            Phone = dto.Phone,
-            OrgCode = dto.OrgCode,
-        };
+        var now = DateTime.Now;
+        User? user;
 
-        await _userRepository.AddAsync(user);
+        if (!string.IsNullOrEmpty(dto.UserCode))
+        {
+            user = await _userRepository.GetAsync(dto.UserCode);
+            if (user == null) return ApiResult.NotFound("用户不存在");
+            user.LoginCode = dto.LoginCode;
+            user.UserName = dto.UserName;
+            user.UserType = dto.UserType;
+            user.Email = dto.Email;
+            user.Phone = dto.Phone;
+            user.OrgCode = dto.OrgCode;
+            user.UpdateDate = now;
+            await _userRepository.UpdateAsync(user);
+        }
+        else
+        {
+            user = new User
+            {
+                UserCode = IdGenerator.NewId(),
+                LoginCode = dto.LoginCode,
+                UserName = dto.UserName,
+                Password = EncryptUtil.Md5("123456"),
+                UserType = dto.UserType,
+                Email = dto.Email,
+                Phone = dto.Phone,
+                OrgCode = dto.OrgCode,
+                CreateDate = now,
+                UpdateDate = now
+            };
+            await _userRepository.AddAsync(user);
+        }
+
+        if (dto.RoleCodes != null)
+        {
+            await _userRoleRepository.SaveUserRolesAsync(user.UserCode, dto.RoleCodes);
+        }
+
         return ApiResult.Ok();
     }
 
@@ -81,17 +111,18 @@ public class UserService
     {
         var user = await _userRepository.GetAsync(userCode);
         if (user == null) return ApiResult.NotFound("用户不存在");
+        await _userRoleRepository.DeleteByUserAsync(userCode);
         await _userRepository.DeleteAsync(user);
         return ApiResult.Ok();
     }
 
     public async Task<List<string>> GetPermissionsAsync(string userCode)
     {
-        var roleCodes = await _roleRepository.GetRoleCodesByUserAsync(userCode);
+        var roleCodes = await _userRoleRepository.GetRoleCodesByUserAsync(userCode);
         return await _menuRepository.GetPermissionsByRoleCodesAsync(roleCodes);
     }
 
-    private static UserDto MapToDto(User user) => new()
+    public static UserDto MapToDto(User user) => new()
     {
         UserCode = user.UserCode,
         LoginCode = user.LoginCode,

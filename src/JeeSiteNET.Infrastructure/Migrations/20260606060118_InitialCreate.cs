@@ -252,6 +252,18 @@ namespace JeeSiteNET.Infrastructure.Migrations
                     table.PrimaryKey("PK_Sys_User", x => x.UserCode);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "Sys_User_Role",
+                columns: table => new
+                {
+                    UserCode = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    RoleCode = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Sys_User_Role", x => new { x.UserCode, x.RoleCode });
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_Sys_Config_ConfigName",
                 table: "Sys_Config",
@@ -322,6 +334,16 @@ namespace JeeSiteNET.Infrastructure.Migrations
                 name: "IX_Sys_User_UserType",
                 table: "Sys_User",
                 column: "UserType");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Sys_User_Role_RoleCode",
+                table: "Sys_User_Role",
+                column: "RoleCode");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Sys_User_Role_UserCode",
+                table: "Sys_User_Role",
+                column: "UserCode");
         }
 
         /// <inheritdoc />
@@ -356,6 +378,9 @@ namespace JeeSiteNET.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "Sys_User");
+
+            migrationBuilder.DropTable(
+                name: "Sys_User_Role");
         }
     }
 }
