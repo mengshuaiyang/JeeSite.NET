@@ -90,5 +90,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<JeeSiteNET.Web.Api.Middleware.RequestLogMiddleware>();
 app.MapControllers();
 app.Run();
