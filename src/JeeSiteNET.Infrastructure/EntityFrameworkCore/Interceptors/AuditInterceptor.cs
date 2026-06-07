@@ -1,4 +1,5 @@
 using JeeSiteNET.Core;
+using JeeSiteNET.Core.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -6,11 +7,11 @@ namespace JeeSiteNET.Infrastructure.EntityFrameworkCore.Interceptors;
 
 public class AuditInterceptor : SaveChangesInterceptor
 {
-    private readonly string? _currentUserCode;
+    private readonly IServiceProvider _serviceProvider;
 
-    public AuditInterceptor(string? currentUserCode = null)
+    public AuditInterceptor(IServiceProvider serviceProvider)
     {
-        _currentUserCode = currentUserCode;
+        _serviceProvider = serviceProvider;
     }
 
     public override InterceptionResult<int> SavingChanges(
@@ -35,18 +36,29 @@ public class AuditInterceptor : SaveChangesInterceptor
         var now = DateTime.Now;
         var entries = context.ChangeTracker.Entries<IBaseEntity>();
 
+        string? userCode = null;
+        try
+        {
+            var currentUser = _serviceProvider.GetService(typeof(ICurrentUser)) as ICurrentUser;
+            userCode = currentUser?.UserCode;
+        }
+        catch
+        {
+            // Scoped service not available (e.g. background jobs)
+        }
+
         foreach (var entry in entries)
         {
             if (entry.State == EntityState.Added)
             {
-                entry.Entity.CreateBy = _currentUserCode;
+                entry.Entity.CreateBy = userCode;
                 entry.Entity.CreateDate = now;
-                entry.Entity.UpdateBy = _currentUserCode;
+                entry.Entity.UpdateBy = userCode;
                 entry.Entity.UpdateDate = now;
             }
             else if (entry.State == EntityState.Modified)
             {
-                entry.Entity.UpdateBy = _currentUserCode;
+                entry.Entity.UpdateBy = userCode;
                 entry.Entity.UpdateDate = now;
             }
         }

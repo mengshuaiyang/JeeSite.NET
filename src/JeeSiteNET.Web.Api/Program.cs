@@ -135,6 +135,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowFrontend");
+app.UseMiddleware<JeeSiteNET.Web.Api.Middleware.SecurityHeadersMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<JeeSiteNET.Web.Api.Middleware.RequestLogMiddleware>();

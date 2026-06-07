@@ -366,6 +366,22 @@ export interface TestDataDto {
   testSelect?: string; testDate?: string; status?: string
 }
 
+// --- 任务调度 ---
+export interface SysJobDto {
+  jobId: string; jobName: string; jobGroup?: string
+  cronExpression: string; assemblyName?: string; className?: string
+  description?: string; runStatus?: string; status?: string
+}
+export interface SysJobSaveDto {
+  jobId?: string; jobName: string; jobGroup?: string
+  cronExpression: string; assemblyName?: string; className?: string
+  description?: string
+}
+export interface JobLogDto {
+  logId: string; jobName?: string; result?: string
+  errorMessage?: string; duration?: number; runDate?: string
+}
+
 // --- CMS 文章 ---
 export interface CategoryDto {
   categoryCode: string; categoryName: string

@@ -26,3 +26,5 @@ export * from './roleDataScope';
 export * from './roleFieldScope';
 export * from './article';
 export * from './category';
+export * from './tasksJob';
+export * from './profile';

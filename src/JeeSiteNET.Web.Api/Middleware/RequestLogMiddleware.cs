@@ -23,36 +23,47 @@ public class RequestLogMiddleware
         var sw = Stopwatch.StartNew();
         var request = context.Request;
 
-        if (request.Path.StartsWithSegments("/api"))
-        {
-            try
-            {
-                await _next(context);
-            }
-            finally
-            {
-                sw.Stop();
-                var log = new Log
-                {
-                    LogId = IdGenerator.NewId(),
-                    LogType = context.Response.StatusCode >= 400 ? "error" : "access",
-                    LogTitle = $"{request.Method} {request.Path}",
-                    RequestUri = request.Path,
-                    RequestMethod = request.Method,
-                    ExecuteTime = sw.ElapsedMilliseconds,
-                    UserCode = currentUser.UserCode,
-                    UserName = currentUser.UserName,
-                    RemoteIp = context.Connection.RemoteIpAddress?.ToString(),
-                    UserAgent = request.Headers.UserAgent.ToString(),
-                    CreateDate = DateTime.Now
-                };
-                try { db.Set<Log>().Add(log); await db.SaveChangesAsync(); }
-                catch (Exception ex) { _logger.LogWarning(ex, "Failed to save request log"); }
-            }
-        }
-        else
+        if (!request.Path.StartsWithSegments("/api"))
         {
             await _next(context);
+            return;
+        }
+
+        Exception? capturedException = null;
+
+        try
+        {
+            await _next(context);
+        }
+        catch (Exception ex)
+        {
+            capturedException = ex;
+            throw;
+        }
+        finally
+        {
+            sw.Stop();
+
+            var log = new Log
+            {
+                LogId = IdGenerator.NewId(),
+                LogType = context.Response.StatusCode >= 400 ? "error" : "access",
+                LogTitle = $"{request.Method} {request.Path}",
+                RequestUri = request.Path,
+                RequestMethod = request.Method,
+                Params = request.QueryString.ToString(),
+                ExecuteTime = sw.ElapsedMilliseconds,
+                IsException = capturedException != null ? "1" : "0",
+                ExceptionInfo = capturedException?.ToString(),
+                UserCode = currentUser.UserCode,
+                UserName = currentUser.UserName,
+                RemoteIp = context.Connection.RemoteIpAddress?.ToString(),
+                UserAgent = request.Headers.UserAgent.ToString(),
+                CreateDate = DateTime.Now
+            };
+
+            try { db.Set<Log>().Add(log); await db.SaveChangesAsync(); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Failed to save request log"); }
         }
     }
 }
