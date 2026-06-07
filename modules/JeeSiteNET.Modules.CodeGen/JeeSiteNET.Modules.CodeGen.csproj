@@ -5,7 +5,7 @@
     <ProjectReference Include="..\..\src\JeeSiteNET.Infrastructure\JeeSiteNET.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Scriban" Version="7.1.0" />
+    <PackageReference Include="Scriban" Version="7.2.3" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
   </ItemGroup>
   <PropertyGroup>
