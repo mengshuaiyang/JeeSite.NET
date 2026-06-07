@@ -28,6 +28,7 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<IRoleMenuRepository, RoleMenuRepository>();
         services.AddScoped<IRoleDataScopeRepository, RoleDataScopeRepository>();
         services.AddScoped<IUserDataScopeRepository, UserDataScopeRepository>();
+        services.AddScoped<IRoleFieldScopeRepository, RoleFieldScopeRepository>();
         services.AddScoped<UserService>();
         services.AddScoped<RoleMenuService>();
         services.AddScoped<RoleService>();
@@ -41,6 +42,7 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<ModuleService>();
         services.AddScoped<LogService>();
         services.AddScoped<RoleDataScopeService>();
+        services.AddScoped<RoleFieldScopeService>();
         services.AddScoped<IDataScopeRuleProvider, SysDataScopeRuleProvider>();
         services.AddScoped<IDataScopeService, DataScopeService>();
         services.AddScoped<ITenantRepository, TenantRepository>();
