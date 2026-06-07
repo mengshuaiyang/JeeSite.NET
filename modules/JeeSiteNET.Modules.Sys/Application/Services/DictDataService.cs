@@ -25,6 +25,28 @@ public class DictDataService
         return entity == null ? null : MapToDto(entity);
     }
 
+    public async Task<List<DictDataDto>> TreeAsync(string dictType)
+    {
+        var all = await _dictDataRepository.Query()
+            .Where(d => d.DictType == dictType)
+            .OrderBy(d => d.TreeSorts)
+            .ToListAsync();
+        return BuildTree(all, null);
+    }
+
+    private static List<DictDataDto> BuildTree(List<DictData> all, string? parentCode)
+    {
+        return all
+            .Where(d => d.ParentCode == parentCode)
+            .Select(d =>
+            {
+                var dto = MapToDto(d);
+                dto.Children = BuildTree(all, d.DictCode);
+                return dto;
+            })
+            .ToList();
+    }
+
     public async Task<PageResult<DictDataDto>> FindPageAsync(PageRequest<DictData> request)
     {
         var query = _dictDataRepository.Query()
@@ -75,7 +97,9 @@ public class DictDataService
             entity.DictType = dto.DictType;
             entity.DictLabel = dto.DictLabel;
             entity.DictValue = dto.DictValue;
+            entity.ParentCode = dto.ParentCode;
             entity.Sort = dto.Sort;
+            entity.TreeLeaf = "1";
             entity.UpdateDate = now;
             await _dictDataRepository.UpdateAsync(entity);
         }
@@ -87,11 +111,23 @@ public class DictDataService
                 DictType = dto.DictType,
                 DictLabel = dto.DictLabel,
                 DictValue = dto.DictValue,
+                ParentCode = dto.ParentCode,
                 Sort = dto.Sort,
+                TreeLeaf = "1",
                 CreateDate = now,
                 UpdateDate = now
             };
             await _dictDataRepository.AddAsync(entity);
+        }
+
+        if (!string.IsNullOrEmpty(entity.ParentCode))
+        {
+            var parent = await _dictDataRepository.GetAsync(entity.ParentCode);
+            if (parent != null)
+            {
+                parent.TreeLeaf = "0";
+                await _dictDataRepository.UpdateAsync(parent);
+            }
         }
 
         await _cache.RemoveAsync(CacheKeys.DictByType(dto.DictType));
@@ -102,9 +138,9 @@ public class DictDataService
     {
         var entity = await _dictDataRepository.GetAsync(dictCode);
         if (entity == null) return ApiResult.NotFound("字典数据不存在");
+        await _dictDataRepository.DeleteAsync(entity);
         if (entity.DictType != null)
             await _cache.RemoveAsync(CacheKeys.DictByType(entity.DictType));
-        await _dictDataRepository.DeleteAsync(entity);
         return ApiResult.Ok();
     }
 
@@ -115,6 +151,8 @@ public class DictDataService
         DictLabel = entity.DictLabel,
         DictValue = entity.DictValue,
         Sort = entity.Sort,
+        ParentCode = entity.ParentCode,
+        TreeLeaf = entity.TreeLeaf,
         Status = entity.Status
     };
 }

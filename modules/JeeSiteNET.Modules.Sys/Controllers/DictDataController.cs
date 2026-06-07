@@ -33,6 +33,14 @@ public class DictDataController : ControllerBase
     }
 
     [Permission("sys:dict:list")]
+    [HttpGet("tree")]
+    public async Task<ApiResult<List<DictDataDto>>> Tree([FromQuery] string dictType)
+    {
+        var tree = await _dictDataService.TreeAsync(dictType);
+        return ApiResult<List<DictDataDto>>.Ok(tree);
+    }
+
+    [Permission("sys:dict:list")]
     [HttpGet("get")]
     public async Task<ApiResult<DictDataDto?>> Get([FromQuery] string dictCode)
     {

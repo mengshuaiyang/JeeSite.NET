@@ -24,7 +24,10 @@ public class DictDataDto
     public string DictLabel { get; set; } = string.Empty;
     public string DictValue { get; set; } = string.Empty;
     public decimal? Sort { get; set; }
+    public string? ParentCode { get; set; }
+    public string? TreeLeaf { get; set; }
     public string? Status { get; set; }
+    public List<DictDataDto> Children { get; set; } = new();
 }
 
 public class DictDataSaveDto
@@ -33,5 +36,6 @@ public class DictDataSaveDto
     public string DictType { get; set; } = string.Empty;
     public string DictLabel { get; set; } = string.Empty;
     public string DictValue { get; set; } = string.Empty;
+    public string? ParentCode { get; set; }
     public decimal? Sort { get; set; }
 }

@@ -2,7 +2,7 @@ using JeeSiteNET.Core;
 
 namespace JeeSiteNET.Modules.Sys.Domain.Entities;
 
-public class DictData : DataEntity, ICorpEntity, IExtendEntity
+public class DictData : TreeEntity, ICorpEntity, IExtendEntity
 {
     public string DictCode { get; set; } = string.Empty;
     public string DictType { get; set; } = string.Empty;
@@ -16,6 +16,8 @@ public class DictData : DataEntity, ICorpEntity, IExtendEntity
 
     public string? CorpCode { get; set; }
     public string? CorpName { get; set; }
+
+    public override string GetName() => DictLabel;
 
     public string? ExtendS1 { get; set; }
     public string? ExtendS2 { get; set; }
