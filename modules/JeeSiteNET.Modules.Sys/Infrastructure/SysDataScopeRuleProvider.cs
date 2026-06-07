@@ -18,6 +18,33 @@ public class SysDataScopeRuleProvider : IDataScopeRuleProvider
         if (user.IsSuperAdmin || user.RoleCodes.Count == 0)
             return [];
 
+        // 1. User-level data scope (highest priority)
+        var userScopes = _db.Set<UserDataScope>()
+            .Where(u => user.UserCode == u.UserCode)
+            .ToList();
+
+        if (userScopes.Count > 0)
+        {
+            return userScopes
+                .Select(MapToRuleFromUser)
+                .Where(r => r != null)
+                .Cast<DataScopeRule>()
+                .ToList();
+        }
+
+        // 2. Menu-level data scope (per menu override)
+        var menuScopes = _db.Set<MenuDataScope>()
+            .Where(m => user.RoleCodes.Contains(m.RoleCode) && m.MenuCode == targetType)
+            .ToList();
+
+        if (menuScopes.Count > 0)
+        {
+            return menuScopes
+                .Select(MapToRuleFromMenu)
+                .ToList();
+        }
+
+        // 3. Role-level data scope (fallback to Role.DataScope field)
         var roles = _db.Set<Role>()
             .Where(r => user.RoleCodes.Contains(r.RoleCode))
             .ToList();
@@ -38,5 +65,19 @@ public class SysDataScopeRuleProvider : IDataScopeRuleProvider
         }
 
         return rules;
+    }
+
+    private static DataScopeRule? MapToRuleFromUser(UserDataScope u)
+    {
+        if (!Enum.TryParse<DataScopeType>(u.CtrlType, true, out var scopeType))
+            return new DataScopeRule { ScopeType = DataScopeType.Self };
+        return new DataScopeRule { ScopeType = scopeType, ScopeCustomSql = u.CtrlData };
+    }
+
+    private static DataScopeRule MapToRuleFromMenu(MenuDataScope m)
+    {
+        if (!Enum.TryParse<DataScopeType>(m.RuleType, true, out var scopeType))
+            return new DataScopeRule { ScopeType = DataScopeType.All };
+        return new DataScopeRule { ScopeType = scopeType, ScopeCustomSql = m.RuleConfig };
     }
 }
