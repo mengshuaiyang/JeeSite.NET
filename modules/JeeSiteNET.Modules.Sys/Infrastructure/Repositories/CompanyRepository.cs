@@ -19,7 +19,7 @@ public class CompanyRepository : ICompanyRepository
         => await _db.Set<Company>().FindAsync(companyCode);
 
     public async Task<List<CompanyOffice>> GetOfficesAsync(string companyCode)
-        => await _db.Set<CompanyOffice>().Where(e => e.CompanyCode == companyCode).ToListAsync();
+        => await _db.Set<CompanyOffice>().Where(e => e.CompanyCode == companyCode).AsNoTracking().ToListAsync();
 
     public async Task AddAsync(Company entity) => await _db.Set<Company>().AddAsync(entity);
 

@@ -90,7 +90,8 @@ builder.Services.AddSingleton<SoftDeleteInterceptor>();
 builder.Services.AddDbContext<JeeSiteDbContext>((sp, options) =>
 {
     options.UseSqlServer(connectionString, sql =>
-        sql.MigrationsAssembly(typeof(JeeSiteDbContext).Assembly.FullName));
+        sql.MigrationsAssembly(typeof(JeeSiteDbContext).Assembly.FullName)
+           .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery));
     options.AddInterceptors(
         sp.GetRequiredService<AuditInterceptor>(),
         sp.GetRequiredService<TreeEntityInterceptor>(),
@@ -129,7 +130,7 @@ using (var scope = app.Services.CreateScope())
     await schedulerService.InitDefaultJobsAsync();
 }
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Docker"))
 {
     app.UseJeeSiteSwagger();
 }

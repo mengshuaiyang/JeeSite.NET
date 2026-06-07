@@ -12,6 +12,7 @@ public class ArticlePosIdConfiguration : IEntityTypeConfiguration<ArticlePosId>
         builder.HasKey(e => new { e.ArticleCode, e.PosId });
         builder.Property(e => e.ArticleCode).HasMaxLength(100);
         builder.Property(e => e.PosId).HasMaxLength(1);
+        builder.HasIndex(e => e.ArticleCode);
         builder.HasOne(e => e.Article).WithMany(e => e.PosIds).HasForeignKey(e => e.ArticleCode);
     }
 }

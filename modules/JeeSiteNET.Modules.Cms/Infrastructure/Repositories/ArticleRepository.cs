@@ -17,6 +17,7 @@ public class ArticleRepository : IArticleRepository
         .Include(e => e.ArticleData)
         .Include(e => e.PosIds)
         .Include(e => e.ArticleTags)
+        .AsSplitQuery()
         .FirstOrDefaultAsync(e => e.ArticleCode == articleCode);
     public async Task<List<Article>> FindListAsync() => await _db.Set<Article>().AsNoTracking().ToListAsync();
     public async Task AddAsync(Article entity) { _db.Set<Article>().Add(entity); await _db.SaveChangesAsync(); }

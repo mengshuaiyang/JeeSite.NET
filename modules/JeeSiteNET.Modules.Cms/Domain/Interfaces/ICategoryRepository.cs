@@ -6,4 +6,5 @@ namespace JeeSiteNET.Modules.Cms.Domain.Interfaces;
 public interface ICategoryRepository : IRepository<Category>
 {
     Task<List<Category>> FindTreeAsync();
+    Task<List<Category>> FindByCodesAsync(List<string> categoryCodes);
 }

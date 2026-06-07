@@ -40,6 +40,8 @@ public class CategoryConfiguration : IEntityTypeConfiguration<Category>
         builder.Property(e => e.UpdateBy).HasMaxLength(100);
         builder.Property(e => e.Remarks).HasMaxLength(500);
         builder.Property(e => e.Status).HasMaxLength(1);
+        builder.HasIndex(e => e.ParentCode);
+        builder.HasIndex(e => e.SiteCode);
         builder.ConfigureCorpFields();
         builder.ConfigureExtendFields();
     }

@@ -17,4 +17,5 @@ public class CategoryRepository : ICategoryRepository
     public async Task UpdateAsync(Category entity) { _db.Set<Category>().Update(entity); await _db.SaveChangesAsync(); }
     public async Task DeleteAsync(Category entity) { _db.Set<Category>().Remove(entity); await _db.SaveChangesAsync(); }
     public async Task<List<Category>> FindTreeAsync() => await _db.Set<Category>().AsNoTracking().OrderBy(e => e.TreeSort).ToListAsync();
+    public async Task<List<Category>> FindByCodesAsync(List<string> categoryCodes) => await _db.Set<Category>().AsNoTracking().Where(e => categoryCodes.Contains(e.CategoryCode)).ToListAsync();
 }

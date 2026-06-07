@@ -21,7 +21,7 @@ public class GenTableRepository : IGenTableRepository
         => await _db.Set<GenTable>().Include(e => e.Columns.OrderBy(c => c.ColumnSort)).AsNoTracking().ToListAsync();
 
     public async Task<GenTable?> GetWithColumnsAsync(string tableName)
-        => await _db.Set<GenTable>().Include(e => e.Columns.OrderBy(c => c.ColumnSort)).FirstOrDefaultAsync(e => e.TableName == tableName);
+        => await _db.Set<GenTable>().Include(e => e.Columns.OrderBy(c => c.ColumnSort)).AsNoTracking().FirstOrDefaultAsync(e => e.TableName == tableName);
 
     public async Task<List<GenTableColumn>> GetColumnsAsync(string tableName)
         => await _db.Set<GenTableColumn>().Where(c => c.TableName == tableName).OrderBy(c => c.ColumnSort).AsNoTracking().ToListAsync();

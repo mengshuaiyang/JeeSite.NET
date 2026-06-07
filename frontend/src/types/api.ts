@@ -366,6 +366,41 @@ export interface TestDataDto {
   testSelect?: string; testDate?: string; status?: string
 }
 
+// --- 代码生成 ---
+export interface GenTableDto {
+  tableName: string; className: string; moduleCode: string
+  functionName?: string; functionAuthor?: string; tableComment?: string
+  tplCategory?: string; businessName?: string; status?: string
+  columns?: GenTableColumnDto[]
+}
+export interface GenTableColumnDto {
+  columnId: string; columnName: string; columnSort?: number
+  columnComment?: string; columnType?: string; netType?: string
+  propertyName?: string; maxLength?: number; isPk?: string
+  isNullable?: string; isInsert?: string; isEdit?: string
+  isList?: string; isQuery?: string; queryType?: string
+  htmlType?: string; dictType?: string; status?: string
+}
+export interface GenTableSaveDto {
+  tableName: string; className: string; moduleCode: string
+  functionName?: string; functionAuthor?: string; tableComment?: string
+  tplCategory?: string; businessName?: string
+  columns?: GenTableColumnSaveDto[]
+}
+export interface GenTableColumnSaveDto {
+  columnName: string; columnSort?: number; columnComment?: string
+  columnType?: string; netType?: string; propertyName?: string
+  maxLength?: number; isPk?: string; isNullable?: string
+  isInsert?: string; isEdit?: string; isList?: string
+  isQuery?: string; queryType?: string; htmlType?: string; dictType?: string
+}
+export interface DbTableInfo {
+  tableName: string; tableComment?: string
+}
+export interface GenPreviewItem {
+  fileName: string; content: string
+}
+
 // --- 任务调度 ---
 export interface SysJobDto {
   jobId: string; jobName: string; jobGroup?: string

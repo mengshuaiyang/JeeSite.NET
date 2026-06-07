@@ -28,11 +28,12 @@ public class ArticleService
     public async Task<PageResult<ArticleDto>> FindPageAsync(PageRequest<Article> request)
     {
         var result = await _articleRepository.FindPageAsync(request);
-        var dtos = result.List.Select(e =>
-        {
-            var cat = _categoryRepository.GetAsync(e.CategoryCode).Result;
-            return ArticleDto.FromEntity(e, cat?.CategoryName);
-        }).ToList();
+        var catCodes = result.List.Select(e => e.CategoryCode).Where(c => !string.IsNullOrEmpty(c)).Distinct().ToList();
+        var cats = catCodes.Count > 0
+            ? await _categoryRepository.FindByCodesAsync(catCodes)
+            : [];
+        var catMap = cats.ToDictionary(c => c.CategoryCode, c => c.CategoryName);
+        var dtos = result.List.Select(e => ArticleDto.FromEntity(e, catMap.GetValueOrDefault(e.CategoryCode))).ToList();
         return new PageResult<ArticleDto> { List = dtos, Total = result.Total, PageNo = result.PageNo, PageSize = result.PageSize };
     }
 

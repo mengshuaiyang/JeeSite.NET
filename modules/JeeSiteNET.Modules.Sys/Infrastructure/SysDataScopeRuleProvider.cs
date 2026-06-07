@@ -1,6 +1,7 @@
 using JeeSiteNET.Core.Security;
 using JeeSiteNET.Infrastructure.EntityFrameworkCore;
 using JeeSiteNET.Modules.Sys.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace JeeSiteNET.Modules.Sys.Infrastructure;
 
@@ -19,7 +20,7 @@ public class SysDataScopeRuleProvider : IDataScopeRuleProvider
             return [];
 
         // 1. User-level data scope (highest priority)
-        var userScopes = _db.Set<UserDataScope>()
+        var userScopes = _db.Set<UserDataScope>().AsNoTracking()
             .Where(u => user.UserCode == u.UserCode)
             .ToList();
 
@@ -33,7 +34,7 @@ public class SysDataScopeRuleProvider : IDataScopeRuleProvider
         }
 
         // 2. Menu-level data scope (per menu override)
-        var menuScopes = _db.Set<MenuDataScope>()
+        var menuScopes = _db.Set<MenuDataScope>().AsNoTracking()
             .Where(m => user.RoleCodes.Contains(m.RoleCode) && m.MenuCode == targetType)
             .ToList();
 
@@ -45,7 +46,7 @@ public class SysDataScopeRuleProvider : IDataScopeRuleProvider
         }
 
         // 3. Role-level data scope (fallback to Role.DataScope field)
-        var roles = _db.Set<Role>()
+        var roles = _db.Set<Role>().AsNoTracking()
             .Where(r => user.RoleCodes.Contains(r.RoleCode))
             .ToList();
 

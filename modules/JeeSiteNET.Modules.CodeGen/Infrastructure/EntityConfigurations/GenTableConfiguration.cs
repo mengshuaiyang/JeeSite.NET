@@ -29,6 +29,7 @@ public class GenTableConfiguration : IEntityTypeConfiguration<GenTable>
         builder.Property(e => e.UpdateBy).HasMaxLength(100);
         builder.Property(e => e.Remarks).HasMaxLength(500);
         builder.Property(e => e.Status).HasMaxLength(1);
+        builder.HasIndex(e => e.ModuleCode);
         builder.HasMany(e => e.Columns).WithOne().HasForeignKey(c => c.TableName).OnDelete(DeleteBehavior.Cascade);
     }
 }

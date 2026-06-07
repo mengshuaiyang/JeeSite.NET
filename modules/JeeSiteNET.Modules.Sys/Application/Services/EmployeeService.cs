@@ -24,12 +24,16 @@ public class EmployeeService
         if (emp == null) return null;
         var posts = await _empRepo.GetPostsAsync(empCode);
         var offices = await _empRepo.GetOfficesAsync(empCode);
+        var officeCodes = offices.Select(o => o.OfficeCode).Where(c => !string.IsNullOrEmpty(c)).Distinct().ToList();
+        var orgs = officeCodes.Count > 0
+            ? await _db.Set<Organization>().Where(o => officeCodes.Contains(o.OrgCode)).AsNoTracking().ToDictionaryAsync(o => o.OrgCode, o => o.OrgName)
+            : [];
         var officeDtos = offices.Select(o => new EmployeeOfficeDto
         {
             Id = o.Id,
             EmpCode = o.EmpCode,
             OfficeCode = o.OfficeCode,
-            OfficeName = _db.Set<Organization>().FirstOrDefault(x => x.OrgCode == o.OfficeCode)?.OrgName ?? string.Empty,
+            OfficeName = orgs.GetValueOrDefault(o.OfficeCode, string.Empty),
             PostCode = o.PostCode
         }).ToList();
         return emp.ToDto(posts.Select(p => p.PostCode).ToList(), officeDtos);

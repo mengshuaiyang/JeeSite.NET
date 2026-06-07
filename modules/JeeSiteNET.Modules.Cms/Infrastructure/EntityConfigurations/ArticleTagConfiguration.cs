@@ -12,6 +12,7 @@ public class ArticleTagConfiguration : IEntityTypeConfiguration<ArticleTag>
         builder.HasKey(e => new { e.ArticleCode, e.TagName });
         builder.Property(e => e.ArticleCode).HasMaxLength(100);
         builder.Property(e => e.TagName).HasMaxLength(200);
+        builder.HasIndex(e => e.ArticleCode);
         builder.HasOne(e => e.Article).WithMany(e => e.ArticleTags).HasForeignKey(e => e.ArticleCode);
         builder.HasOne(e => e.Tag).WithMany(e => e.ArticleTags).HasForeignKey(e => e.TagName);
     }

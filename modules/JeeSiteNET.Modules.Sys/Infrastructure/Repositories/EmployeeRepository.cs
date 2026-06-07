@@ -19,10 +19,10 @@ public class EmployeeRepository : IEmployeeRepository
         => await _db.Set<Employee>().FindAsync(empCode);
 
     public async Task<List<EmployeePost>> GetPostsAsync(string empCode)
-        => await _db.Set<EmployeePost>().Where(e => e.EmpCode == empCode).ToListAsync();
+        => await _db.Set<EmployeePost>().Where(e => e.EmpCode == empCode).AsNoTracking().ToListAsync();
 
     public async Task<List<EmployeeOffice>> GetOfficesAsync(string empCode)
-        => await _db.Set<EmployeeOffice>().Where(e => e.EmpCode == empCode).ToListAsync();
+        => await _db.Set<EmployeeOffice>().Where(e => e.EmpCode == empCode).AsNoTracking().ToListAsync();
 
     public async Task AddAsync(Employee entity)
         => await _db.Set<Employee>().AddAsync(entity);

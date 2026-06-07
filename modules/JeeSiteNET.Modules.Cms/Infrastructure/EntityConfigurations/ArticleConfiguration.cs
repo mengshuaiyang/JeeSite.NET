@@ -38,5 +38,7 @@ public class ArticleConfiguration : IEntityTypeConfiguration<Article>
         builder.ConfigureCorpFields();
         builder.HasIndex(e => e.CategoryCode);
         builder.HasIndex(e => e.PublishDate);
+        builder.HasIndex(e => e.Status);
+        builder.HasIndex(e => new { e.IsTop, e.PublishDate });
     }
 }
