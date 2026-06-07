@@ -33,12 +33,17 @@ const routes: RouteRecordRaw[] = [
       { path: 'sys/msg/template', name: 'MsgTemplate', component: () => import('@/views/sys/MsgTemplateList.vue'), meta: { title: '消息模板', permission: 'sys:msg' } },
       { path: 'sys/lang', name: 'Lang', component: () => import('@/views/sys/LangList.vue'), meta: { title: '国际化', permission: 'sys:lang' } },
       { path: 'sys/biz-category', name: 'BizCategory', component: () => import('@/views/sys/BizCategoryTree.vue'), meta: { title: '业务分类', permission: 'sys:biz-category' } },
+      { path: 'cms/article', name: 'CmsArticle', component: () => import('@/views/cms/ArticleList.vue'), meta: { title: '文章管理', permission: 'cms:article' } },
+      { path: 'cms/article/edit', name: 'CmsArticleEdit', component: () => import('@/views/cms/ArticleEdit.vue'), meta: { title: '编辑文章', permission: 'cms:article:edit' } },
       { path: 'cms/comment', name: 'CmsComment', component: () => import('@/views/cms/CommentList.vue'), meta: { title: '评论管理', permission: 'cms:comment' } },
       { path: 'cms/guestbook', name: 'CmsGuestbook', component: () => import('@/views/cms/GuestbookList.vue'), meta: { title: '留言管理', permission: 'cms:guestbook' } },
       { path: 'app/comment', name: 'AppComment', component: () => import('@/views/app/AppCommentList.vue'), meta: { title: '意见反馈', permission: 'app:comment' } },
       { path: 'app/upgrade', name: 'AppUpgrade', component: () => import('@/views/app/AppUpgradeList.vue'), meta: { title: '版本管理', permission: 'app:upgrade' } },
       { path: 'test/data', name: 'TestData', component: () => import('@/views/test/TestDataList.vue'), meta: { title: '测试数据', permission: 'test:data' } },
-      { path: 'test/tree', name: 'TestTree', component: () => import('@/views/test/TestTree.vue'), meta: { title: '测试树表', permission: 'test:tree' } }
+      { path: 'test/tree', name: 'TestTree', component: () => import('@/views/test/TestTree.vue'), meta: { title: '测试树表', permission: 'test:tree' } },
+      { path: 'sys/role-data-scope', name: 'RoleDataScope', component: () => import('@/views/sys/RoleDataScope.vue'), meta: { title: '数据权限', permission: 'sys:role:data-scope' } },
+      { path: 'sys/role-field-scope', name: 'RoleFieldScope', component: () => import('@/views/sys/RoleFieldScope.vue'), meta: { title: '字段权限', permission: 'sys:role:field-scope' } },
+      { path: 'sys/file', name: 'File', component: () => import('@/views/sys/FileList.vue'), meta: { title: '文件管理', permission: 'sys:file' } }
     ]
   },
   { path: '/:pathMatch(.*)*', component: () => import('@/views/error/NotFound.vue'), meta: { title: '404' } }

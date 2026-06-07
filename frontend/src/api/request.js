@@ -21,4 +21,12 @@ export async function get(url, params) {
     const res = await request.get(url, { params });
     return res.data;
 }
+export async function del(url) {
+    const res = await request.delete(url);
+    return res.data;
+}
+export async function put(url, data) {
+    const res = await request.put(url, data);
+    return res.data;
+}
 export default request;

@@ -30,4 +30,14 @@ export async function get<T>(url: string, params?: any): Promise<ApiResult<T>> {
   return res.data
 }
 
+export async function del<T>(url: string): Promise<ApiResult<T>> {
+  const res = await request.delete<ApiResult<T>>(url)
+  return res.data
+}
+
+export async function put<T>(url: string, data?: any): Promise<ApiResult<T>> {
+  const res = await request.put<ApiResult<T>>(url, data)
+  return res.data
+}
+
 export default request

@@ -266,8 +266,9 @@ export interface RoleDataScopeDto {
 
 // --- P0-4 字段权限 ---
 export interface RoleFieldScopeDto {
-  id?: string; roleCode: string; menuCode: string
-  entityName: string; fieldConfig?: string
+  id: string; roleCode: string; menuCode: string
+  entityName: string; entityLabel: string; entityClass: string
+  fieldConfig?: string
 }
 
 // --- P2-1 文件管理 ---
@@ -276,10 +277,14 @@ export interface FileDto {
   fileMd5?: string; fileExt?: string; filePath: string
   createBy?: string; createDate?: string
 }
+export interface FileUploadResult {
+  uploadId: string; fileId: string; fileName: string
+  fileSize: number; fileUrl: string
+}
 export interface FileUploadDto {
-  id?: string; fileId: string; fileName: string
-  fileType?: string; bizType?: string; bizKey?: string
-  status?: string
+  uploadId: string; fileId: string; fileName: string
+  fileSize: number; fileUrl: string
+  bizType?: string; bizKey?: string
 }
 
 // --- P2-2 消息 ---
@@ -355,3 +360,38 @@ export interface TestDataDto {
   id: string; testInput?: string; testTextarea?: string
   testSelect?: string; testDate?: string; status?: string
 }
+
+// --- CMS 文章 ---
+export interface CategoryDto {
+  categoryCode: string; categoryName: string
+  parentCode?: string; treeSort?: number
+  children?: CategoryDto[]
+}
+export interface ArticleDataDto {
+  articleCode: string; content?: string
+  relation?: string; isCanComment?: string
+}
+export interface ArticleDto {
+  articleCode: string; categoryCode: string; title: string
+  subtitle?: string; summary?: string; author?: string
+  source?: string; image?: string; tags?: string
+  isTop?: string; isRecommend?: string; isHot?: string
+  clickCount?: number; publishDate?: string
+  categoryName?: string; status?: string
+  articleData?: ArticleDataDto; posIds?: string[]
+}
+export interface ArticleSaveDto {
+  articleCode?: string; categoryCode: string; title: string
+  subtitle?: string; summary?: string; content?: string
+  author?: string; source?: string; image?: string
+  tags?: string; isTop?: string; isRecommend?: string
+  isHot?: string; publishDate?: string
+}
+
+// --- 数据权限 ---
+export interface RoleDataScopeDto {
+  roleCode: string; menuCode: string; ruleName: string
+  ruleType: string; ruleConfig?: string
+}
+
+
