@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace JeeSiteNET.Modules.Cms;
 
-[ModuleDescription(Code = "Cms", Name = "内容管理模块", Version = "1.0.0")]
+[ModuleDescription(Code = "Cms", Name = "内容管理模块", Version = "1.1.0")]
 public class CmsModuleInstaller : IModuleInstaller
 {
     public void ConfigureServices(IServiceCollection services, IConfiguration configuration)
@@ -15,8 +15,16 @@ public class CmsModuleInstaller : IModuleInstaller
         services.AddScoped<ISiteRepository, SiteRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IArticleRepository, ArticleRepository>();
+        services.AddScoped<IArticleDataRepository, ArticleDataRepository>();
+        services.AddScoped<IArticlePosIdRepository, ArticlePosIdRepository>();
+        services.AddScoped<IArticleTagRepository, ArticleTagRepository>();
+        services.AddScoped<ITagRepository, TagRepository>();
+        services.AddScoped<ICommentRepository, CommentRepository>();
+        services.AddScoped<IGuestbookRepository, GuestbookRepository>();
+        services.AddScoped<IVisitLogRepository, VisitLogRepository>();
         services.AddScoped<SiteService>();
         services.AddScoped<CategoryService>();
         services.AddScoped<ArticleService>();
+        services.AddScoped<CmsService>();
     }
 }

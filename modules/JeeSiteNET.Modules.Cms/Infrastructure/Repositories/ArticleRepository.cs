@@ -13,6 +13,11 @@ public class ArticleRepository : IArticleRepository
 
     public IQueryable<Article> Query() => _db.Set<Article>().AsNoTracking();
     public async Task<Article?> GetAsync(object id) => await _db.Set<Article>().FindAsync(id);
+    public async Task<Article?> GetWithDetailAsync(string articleCode) => await _db.Set<Article>()
+        .Include(e => e.ArticleData)
+        .Include(e => e.PosIds)
+        .Include(e => e.ArticleTags)
+        .FirstOrDefaultAsync(e => e.ArticleCode == articleCode);
     public async Task<List<Article>> FindListAsync() => await _db.Set<Article>().AsNoTracking().ToListAsync();
     public async Task AddAsync(Article entity) { _db.Set<Article>().Add(entity); await _db.SaveChangesAsync(); }
     public async Task UpdateAsync(Article entity) { _db.Set<Article>().Update(entity); await _db.SaveChangesAsync(); }

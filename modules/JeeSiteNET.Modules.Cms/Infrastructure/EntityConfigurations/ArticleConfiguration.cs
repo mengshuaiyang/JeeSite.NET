@@ -17,7 +17,6 @@ public class ArticleConfiguration : IEntityTypeConfiguration<Article>
         builder.Property(e => e.Title).HasMaxLength(500);
         builder.Property(e => e.Subtitle).HasMaxLength(500);
         builder.Property(e => e.Summary).HasMaxLength(2000);
-        builder.Property(e => e.Content).HasColumnType("nvarchar(max)");
         builder.Property(e => e.Color).HasMaxLength(20);
         builder.Property(e => e.Image).HasMaxLength(500);
         builder.Property(e => e.Keywords).HasMaxLength(500);

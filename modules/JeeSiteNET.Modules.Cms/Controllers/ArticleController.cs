@@ -35,6 +35,10 @@ public class ArticleController : ControllerBase
     [Permission("cms:article:delete")]
     [HttpPost("delete")]
     public async Task<ApiResult> Delete([FromBody] DeleteArticleRequest request) => await _articleService.DeleteAsync(request.ArticleCode);
+
+    [AllowAnonymous]
+    [HttpPost("click")]
+    public async Task<ApiResult> Click([FromQuery] string articleCode) => await _articleService.RecordClickAsync(articleCode);
 }
 
 public class DeleteArticleRequest { public string ArticleCode { get; set; } = string.Empty; }

@@ -10,7 +10,6 @@ public class Article : DataEntity, ICorpEntity
     public string Title { get; set; } = string.Empty;
     public string? Subtitle { get; set; }
     public string? Summary { get; set; }
-    public string? Content { get; set; }
     public string? Color { get; set; }
     public string? Image { get; set; }
     public string? Keywords { get; set; }
@@ -34,4 +33,8 @@ public class Article : DataEntity, ICorpEntity
 
     public string? CorpCode { get; set; }
     public string? CorpName { get; set; }
+
+    public ArticleData? ArticleData { get; set; }
+    public ICollection<ArticlePosId>? PosIds { get; set; }
+    public ICollection<ArticleTag>? ArticleTags { get; set; }
 }

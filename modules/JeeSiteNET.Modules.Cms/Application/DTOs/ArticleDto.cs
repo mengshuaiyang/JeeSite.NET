@@ -9,7 +9,6 @@ public class ArticleDto
     public string Title { get; set; } = string.Empty;
     public string? Subtitle { get; set; }
     public string? Summary { get; set; }
-    public string? Content { get; set; }
     public string? Author { get; set; }
     public string? Source { get; set; }
     public string? Image { get; set; }
@@ -21,16 +20,34 @@ public class ArticleDto
     public DateTime? PublishDate { get; set; }
     public string? CategoryName { get; set; }
     public string? Status { get; set; }
+    public ArticleDataDto? ArticleData { get; set; }
+    public List<string>? PosIds { get; set; }
 
     public static ArticleDto FromEntity(Article e, string? categoryName = null) => new()
     {
         ArticleCode = e.ArticleCode, CategoryCode = e.CategoryCode,
         Title = e.Title, Subtitle = e.Subtitle, Summary = e.Summary,
-        Content = e.Content, Author = e.Author, Source = e.Source,
+        Author = e.Author, Source = e.Source,
         Image = e.Image, Tags = e.Tags, IsTop = e.IsTop,
         IsRecommend = e.IsRecommend, IsHot = e.IsHot,
         ClickCount = e.ClickCount, PublishDate = e.PublishDate,
-        CategoryName = categoryName, Status = e.Status
+        CategoryName = categoryName, Status = e.Status,
+        ArticleData = e.ArticleData != null ? ArticleDataDto.FromEntity(e.ArticleData) : null,
+        PosIds = e.PosIds?.Select(p => p.PosId).ToList()
+    };
+}
+
+public class ArticleDataDto
+{
+    public string ArticleCode { get; set; } = string.Empty;
+    public string? Content { get; set; }
+    public string? Relation { get; set; }
+    public string? IsCanComment { get; set; }
+
+    public static ArticleDataDto FromEntity(ArticleData e) => new()
+    {
+        ArticleCode = e.ArticleCode, Content = e.Content,
+        Relation = e.Relation, IsCanComment = e.IsCanComment
     };
 }
 
