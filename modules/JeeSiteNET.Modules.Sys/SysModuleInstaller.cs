@@ -1,9 +1,12 @@
 using JeeSiteNET.Core.Modules;
 using JeeSiteNET.Core.Security;
+using JeeSiteNET.Core.Storage;
+using JeeSiteNET.Infrastructure.Storage;
 using JeeSiteNET.Modules.Sys.Application.Services;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
 using JeeSiteNET.Modules.Sys.Infrastructure;
 using JeeSiteNET.Modules.Sys.Infrastructure.Repositories;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -48,6 +51,16 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<EmployeeService>();
         services.AddScoped<CompanyService>();
         services.AddScoped<AreaService>();
+        services.AddScoped<IFileEntityRepository, FileEntityRepository>();
+        services.AddScoped<IFileUploadRepository, FileUploadRepository>();
+        services.AddScoped<FileService>();
+        services.AddSingleton<IFileStorageProvider>(sp =>
+        {
+            var env = sp.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
+            var basePath = Path.Combine(env.ContentRootPath, "uploads");
+            var baseUrl = "/uploads";
+            return new LocalFileStorageProvider(basePath, baseUrl);
+        });
         services.AddScoped<IDataScopeRuleProvider, SysDataScopeRuleProvider>();
         services.AddScoped<IDataScopeService, DataScopeService>();
         services.AddScoped<ITenantRepository, TenantRepository>();
