@@ -1,25 +1,79 @@
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { useUserStore } from '@/stores/user';
-import { PieChartOutlined, SettingOutlined, MenuUnfoldOutlined, MenuFoldOutlined, UserOutlined, TeamOutlined, AppstoreOutlined, FileTextOutlined, SafetyOutlined, ToolOutlined, FolderOutlined, ProfileOutlined } from '@ant-design/icons-vue';
+import { PieChartOutlined, SettingOutlined, MenuUnfoldOutlined, MenuFoldOutlined, UserOutlined, TeamOutlined, AppstoreOutlined, FileTextOutlined, SafetyOutlined, ToolOutlined, FolderOutlined, ProfileOutlined, HomeOutlined, MailOutlined, CloudOutlined, DatabaseOutlined, FlagOutlined, GlobalOutlined, ApartmentOutlined, LockOutlined, KeyOutlined, AuditOutlined, BranchesOutlined, CodeOutlined, BugOutlined, BuildOutlined, ThunderboltOutlined, ExperimentOutlined, TranslationOutlined, MessageOutlined, NotificationOutlined, PaperClipOutlined, PictureOutlined, VideoCameraOutlined, DashboardOutlined, TableOutlined, FormOutlined, CheckSquareOutlined, BarsOutlined, OrderedListOutlined, EditOutlined, CopyOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, DownloadOutlined, UploadOutlined, ReloadOutlined, StarOutlined, HeartOutlined, LikeOutlined, DislikeOutlined, EyeOutlined, EyeInvisibleOutlined, BookOutlined, ReadOutlined, CalendarOutlined, ClockCircleOutlined, EnvironmentOutlined, PhoneOutlined, MobileOutlined, LaptopOutlined, MonitorOutlined, TagOutlined, TagsOutlined, GiftOutlined, BankOutlined, TrophyOutlined, CrownOutlined, SmileOutlined, InboxOutlined, SendOutlined, CommentOutlined, CustomerServiceOutlined, DashboardFilled, AlertOutlined, WarningOutlined, InfoCircleOutlined, QuestionCircleOutlined, ExclamationCircleOutlined, CloseCircleOutlined, CheckCircleOutlined, StopOutlined, FireOutlined, CoffeeOutlined, InsuranceOutlined, SaveOutlined, RollbackOutlined, SwapOutlined, CarOutlined, RocketOutlined, CompassOutlined, AimOutlined, LoadingOutlined, SyncOutlined, PoweroffOutlined, MenuOutlined, AppstoreAddOutlined, UnorderedListOutlined, SortAscendingOutlined, SortDescendingOutlined, AreaChartOutlined, BarChartOutlined, LineChartOutlined, PieChartFilled, FundOutlined, RadarChartOutlined, HeatMapOutlined, SlidersOutlined } from '@ant-design/icons-vue';
 const iconMap = {
-    'pie-chart-outlined': PieChartOutlined,
-    'setting-outlined': SettingOutlined,
-    'user-outlined': UserOutlined,
-    'team-outlined': TeamOutlined,
-    'appstore-outlined': AppstoreOutlined,
-    'file-text-outlined': FileTextOutlined,
-    'safety-outlined': SafetyOutlined,
-    'tool-outlined': ToolOutlined,
-    'folder-outlined': FolderOutlined,
-    'profile-outlined': ProfileOutlined
+    'pie-chart-outlined': PieChartOutlined, 'setting-outlined': SettingOutlined,
+    'user-outlined': UserOutlined, 'team-outlined': TeamOutlined,
+    'appstore-outlined': AppstoreOutlined, 'file-text-outlined': FileTextOutlined,
+    'safety-outlined': SafetyOutlined, 'tool-outlined': ToolOutlined,
+    'folder-outlined': FolderOutlined, 'profile-outlined': ProfileOutlined,
+    'home-outlined': HomeOutlined, 'mail-outlined': MailOutlined,
+    'cloud-outlined': CloudOutlined, 'database-outlined': DatabaseOutlined,
+    'flag-outlined': FlagOutlined, 'global-outlined': GlobalOutlined,
+    'apartment-outlined': ApartmentOutlined, 'lock-outlined': LockOutlined,
+    'key-outlined': KeyOutlined, 'audit-outlined': AuditOutlined,
+    'branches-outlined': BranchesOutlined, 'code-outlined': CodeOutlined,
+    'bug-outlined': BugOutlined, 'build-outlined': BuildOutlined,
+    'thunderbolt-outlined': ThunderboltOutlined, 'experiment-outlined': ExperimentOutlined,
+    'translation-outlined': TranslationOutlined, 'message-outlined': MessageOutlined,
+    'notification-outlined': NotificationOutlined, 'paper-clip-outlined': PaperClipOutlined,
+    'picture-outlined': PictureOutlined, 'video-camera-outlined': VideoCameraOutlined,
+    'dashboard-outlined': DashboardOutlined, 'table-outlined': TableOutlined,
+    'form-outlined': FormOutlined, 'check-square-outlined': CheckSquareOutlined,
+    'bars-outlined': BarsOutlined, 'ordered-list-outlined': OrderedListOutlined,
+    'edit-outlined': EditOutlined, 'copy-outlined': CopyOutlined,
+    'delete-outlined': DeleteOutlined, 'plus-outlined': PlusOutlined,
+    'search-outlined': SearchOutlined, 'download-outlined': DownloadOutlined,
+    'upload-outlined': UploadOutlined, 'reload-outlined': ReloadOutlined,
+    'star-outlined': StarOutlined, 'heart-outlined': HeartOutlined,
+    'like-outlined': LikeOutlined, 'dislike-outlined': DislikeOutlined,
+    'eye-outlined': EyeOutlined, 'eye-invisible-outlined': EyeInvisibleOutlined,
+    'book-outlined': BookOutlined, 'read-outlined': ReadOutlined,
+    'calendar-outlined': CalendarOutlined, 'clock-circle-outlined': ClockCircleOutlined,
+    'environment-outlined': EnvironmentOutlined, 'phone-outlined': PhoneOutlined,
+    'mobile-outlined': MobileOutlined, 'laptop-outlined': LaptopOutlined,
+    'monitor-outlined': MonitorOutlined, 'tag-outlined': TagOutlined,
+    'tags-outlined': TagsOutlined, 'gift-outlined': GiftOutlined,
+    'bank-outlined': BankOutlined, 'trophy-outlined': TrophyOutlined,
+    'crown-outlined': CrownOutlined, 'smile-outlined': SmileOutlined,
+    'inbox-outlined': InboxOutlined, 'send-outlined': SendOutlined,
+    'comment-outlined': CommentOutlined, 'customer-service-outlined': CustomerServiceOutlined,
+    'dashboard-filled': DashboardFilled,
+    'alert-outlined': AlertOutlined, 'warning-outlined': WarningOutlined,
+    'info-circle-outlined': InfoCircleOutlined, 'question-circle-outlined': QuestionCircleOutlined,
+    'exclamation-circle-outlined': ExclamationCircleOutlined,
+    'close-circle-outlined': CloseCircleOutlined, 'check-circle-outlined': CheckCircleOutlined,
+    'stop-outlined': StopOutlined, 'fire-outlined': FireOutlined,
+    'coffee-outlined': CoffeeOutlined, 'insurance-outlined': InsuranceOutlined,
+    'save-outlined': SaveOutlined, 'rollback-outlined': RollbackOutlined,
+    'swap-outlined': SwapOutlined, 'car-outlined': CarOutlined,
+    'rocket-outlined': RocketOutlined,
+    'compass-outlined': CompassOutlined, 'aim-outlined': AimOutlined,
+    'loading-outlined': LoadingOutlined, 'sync-outlined': SyncOutlined,
+    'poweroff-outlined': PoweroffOutlined, 'menu-outlined': MenuOutlined,
+    'appstore-add-outlined': AppstoreAddOutlined,
+    'unordered-list-outlined': UnorderedListOutlined,
+    'sort-ascending-outlined': SortAscendingOutlined,
+    'sort-descending-outlined': SortDescendingOutlined,
+    'area-chart-outlined': AreaChartOutlined, 'bar-chart-outlined': BarChartOutlined,
+    'line-chart-outlined': LineChartOutlined, 'pie-chart-filled': PieChartFilled,
+    'fund-outlined': FundOutlined, 'radar-chart-outlined': RadarChartOutlined,
+    'heat-map-outlined': HeatMapOutlined, 'sliders-outlined': SlidersOutlined
 };
 const router = useRouter();
+const route = useRoute();
 const app = useAppStore();
 const userStore = useUserStore();
-const selectedKeys = ref([]);
-function getIcon(name) { return name && iconMap[name] ? iconMap[name] : AppstoreOutlined; }
+const selectedKeys = ref([route.path]);
+watch(() => route.path, (p) => { selectedKeys.value = [p]; });
+function resolveIcon(name) {
+    if (!name)
+        return AppstoreOutlined;
+    const kebab = name.replace(/([a-z])([A-Z])/g, '$1-$2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2').toLowerCase();
+    return iconMap[kebab] || iconMap[name] || AppstoreOutlined;
+}
 function onMenuClick({ key }) { router.push(key); }
 function handleLogout() { userStore.logout(); router.push('/login'); }
 debugger; /* PartiallyEnd: #3632/scriptSetup.vue */
@@ -93,7 +147,7 @@ for (const [item] of __VLS_getVForSourceType((__VLS_ctx.app.menus))) {
         }, ...__VLS_functionalComponentArgsRest(__VLS_18));
         __VLS_20.slots.default;
         if (item.icon) {
-            const __VLS_21 = ((__VLS_ctx.getIcon(item.icon)));
+            const __VLS_21 = ((__VLS_ctx.resolveIcon(item.icon)));
             // @ts-ignore
             const __VLS_22 = __VLS_asFunctionalComponent(__VLS_21, new __VLS_21({}));
             const __VLS_23 = __VLS_22({}, ...__VLS_functionalComponentArgsRest(__VLS_22));
@@ -115,7 +169,7 @@ for (const [item] of __VLS_getVForSourceType((__VLS_ctx.app.menus))) {
         {
             const { title: __VLS_thisSlot } = __VLS_28.slots;
             if (item.icon) {
-                const __VLS_29 = ((__VLS_ctx.getIcon(item.icon)));
+                const __VLS_29 = ((__VLS_ctx.resolveIcon(item.icon)));
                 // @ts-ignore
                 const __VLS_30 = __VLS_asFunctionalComponent(__VLS_29, new __VLS_29({}));
                 const __VLS_31 = __VLS_30({}, ...__VLS_functionalComponentArgsRest(__VLS_30));
@@ -250,7 +304,7 @@ const __VLS_self = (await import('vue')).defineComponent({
             app: app,
             userStore: userStore,
             selectedKeys: selectedKeys,
-            getIcon: getIcon,
+            resolveIcon: resolveIcon,
             onMenuClick: onMenuClick,
             handleLogout: handleLogout,
         };

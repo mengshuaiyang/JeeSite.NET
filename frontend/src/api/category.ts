@@ -5,5 +5,6 @@ export const categoryApi = {
   list: () => get<CategoryDto[]>('/cms/category/list'),
   tree: () => get<CategoryDto[]>('/cms/category/tree'),
   get: (categoryCode: string) => get<CategoryDto>('/cms/category/get', { categoryCode }),
-  save: (data: any) => post('/cms/category/save', data)
+  save: (data: any) => post('/cms/category/save', data),
+  delete: (categoryCode: string) => post('/cms/category/delete', { categoryCode })
 }

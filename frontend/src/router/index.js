@@ -24,6 +24,7 @@ const routes = [
             { path: 'sys/msg/template', name: 'MsgTemplate', component: () => import('@/views/sys/MsgTemplateList.vue'), meta: { title: '消息模板', permission: 'sys:msg' } },
             { path: 'sys/lang', name: 'Lang', component: () => import('@/views/sys/LangList.vue'), meta: { title: '国际化', permission: 'sys:lang' } },
             { path: 'sys/biz-category', name: 'BizCategory', component: () => import('@/views/sys/BizCategoryTree.vue'), meta: { title: '业务分类', permission: 'sys:biz-category' } },
+            { path: 'cms/category', name: 'CmsCategory', component: () => import('@/views/cms/CategoryList.vue'), meta: { title: '栏目管理', permission: 'cms:category' } },
             { path: 'cms/article', name: 'CmsArticle', component: () => import('@/views/cms/ArticleList.vue'), meta: { title: '文章管理', permission: 'cms:article' } },
             { path: 'cms/article/edit', name: 'CmsArticleEdit', component: () => import('@/views/cms/ArticleEdit.vue'), meta: { title: '编辑文章', permission: 'cms:article:edit' } },
             { path: 'cms/comment', name: 'CmsComment', component: () => import('@/views/cms/CommentList.vue'), meta: { title: '评论管理', permission: 'cms:comment' } },

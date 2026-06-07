@@ -124,6 +124,7 @@ export interface DictTypeSaveDto {
   dictName: string
   isSys?: string
   sort?: number
+  status?: string
 }
 
 export interface DictDataSaveDto {
@@ -131,6 +132,7 @@ export interface DictDataSaveDto {
   dictType: string
   dictLabel: string
   dictValue: string
+  parentCode?: string
   sort?: number
 }
 
@@ -185,7 +187,10 @@ export interface DictDataDto {
   dictLabel: string
   dictValue: string
   sort?: number
+  parentCode?: string
+  treeLeaf?: string
   status?: string
+  children?: DictDataDto[]
 }
 
 export interface PostDto {
@@ -364,8 +369,17 @@ export interface TestDataDto {
 // --- CMS 文章 ---
 export interface CategoryDto {
   categoryCode: string; categoryName: string
-  parentCode?: string; treeSort?: number
+  categoryType?: string; image?: string; link?: string
+  keywords?: string; description?: string; isShow?: string
+  siteCode?: string; parentCode: string; treeSort: number
+  treeLeaf?: string; treeLevel?: number; status?: string
   children?: CategoryDto[]
+}
+export interface CategorySaveDto {
+  categoryCode?: string; categoryName: string
+  categoryType?: string; image?: string; link?: string
+  keywords?: string; description?: string; isShow?: string
+  siteCode?: string; parentCode?: string; treeSort?: number
 }
 export interface ArticleDataDto {
   articleCode: string; content?: string
@@ -387,11 +401,4 @@ export interface ArticleSaveDto {
   tags?: string; isTop?: string; isRecommend?: string
   isHot?: string; publishDate?: string
 }
-
-// --- 数据权限 ---
-export interface RoleDataScopeDto {
-  roleCode: string; menuCode: string; ruleName: string
-  ruleType: string; ruleConfig?: string
-}
-
 

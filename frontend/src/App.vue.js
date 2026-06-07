@@ -1,3 +1,10 @@
+import { onMounted } from 'vue';
+import { useAppStore } from '@/stores/app';
+const app = useAppStore();
+onMounted(async () => {
+    if (localStorage.getItem('token'))
+        await app.loadMenus();
+});
 debugger; /* PartiallyEnd: #3632/scriptSetup.vue */
 const __VLS_ctx = {};
 let __VLS_components;
