@@ -226,3 +226,132 @@ export interface LogDto {
   remoteIp?: string
   createDate?: string
 }
+
+// --- P1-1 员工 ---
+export interface EmployeeDto {
+  empCode: string; empNo?: string; empName: string
+  companyCode?: string; companyName?: string
+  officeCode?: string; officeName?: string
+  email?: string; phone?: string; mobile?: string
+  status?: string
+}
+export interface EmployeeSaveDto {
+  empCode?: string; empNo?: string; empName: string
+  companyCode?: string; officeCode?: string
+  email?: string; phone?: string; mobile?: string
+}
+
+// --- P1-2 公司 + 区划 ---
+export interface CompanyDto {
+  companyCode: string; companyName: string; viewCode?: string
+  areaCode?: string; areaName?: string
+  parentCode: string; treeSort: number; status?: string
+  children?: CompanyDto[]
+}
+export interface CompanySaveDto {
+  companyCode?: string; companyName: string; viewCode?: string
+  areaCode?: string; parentCode?: string; treeSort?: number
+}
+export interface AreaDto {
+  areaCode: string; areaName: string; areaType?: string
+  parentCode: string; treeSort: number; status?: string
+  children?: AreaDto[]
+}
+
+// --- P0-3 数据权限 ---
+export interface RoleDataScopeDto {
+  id?: string; roleCode: string; menuCode: string
+  scopeType?: string; scopeData?: string
+}
+
+// --- P0-4 字段权限 ---
+export interface RoleFieldScopeDto {
+  id?: string; roleCode: string; menuCode: string
+  entityName: string; fieldConfig?: string
+}
+
+// --- P2-1 文件管理 ---
+export interface FileDto {
+  fileId: string; fileName: string; fileSize?: number
+  fileMd5?: string; fileExt?: string; filePath: string
+  createBy?: string; createDate?: string
+}
+export interface FileUploadDto {
+  id?: string; fileId: string; fileName: string
+  fileType?: string; bizType?: string; bizKey?: string
+  status?: string
+}
+
+// --- P2-2 消息 ---
+export interface MsgInnerDto {
+  msgId: string; msgTitle: string; msgContent?: string
+  senderCode?: string; senderName?: string
+  receiveType?: string; receiveCodes?: string
+  status?: string; createDate?: string
+}
+export interface MsgInnerSaveDto {
+  msgId?: string; msgTitle: string; msgContent?: string
+  receiveType?: string; receiveCodes?: string
+}
+export interface MsgTemplateDto {
+  templateId: string; templateName: string; templateKey: string
+  templateContent: string; templateType?: string
+  status?: string
+}
+export interface MsgTemplateSaveDto {
+  templateId?: string; templateName: string; templateKey: string
+  templateContent: string; templateType?: string
+}
+
+// --- P2-3 CMS 评论/留言/标签 ---
+export interface CmsCommentDto {
+  commentCode: string; categoryCode: string; articleCode: string
+  parentCode?: string; articleTitle: string; content: string
+  name?: string; status?: string; createDate?: string
+}
+export interface GuestbookDto {
+  gbCode: string; gbType: string; content: string; name: string
+  email: string; phone: string; workUnit: string
+  reContent?: string; status?: string; createDate?: string
+}
+export interface TagDto {
+  tagName: string; clickNum: number
+}
+
+// --- P3-1 国际化 ---
+export interface LangDto {
+  id: string; moduleCode: string; langCode: string
+  langText: string; langType: string
+}
+export interface LangSaveDto {
+  id?: string; moduleCode: string; langCode: string
+  langText: string; langType: string
+}
+
+// --- P3-2 APP ---
+export interface AppCommentDto {
+  id: string; category?: string; content?: string; contact?: string
+  replyContent?: string; status?: string; createDate?: string
+}
+export interface AppUpgradeDto {
+  id: string; appCode?: string; upTitle?: string
+  upVersion?: number; upType?: string; apkUrl?: string
+  status?: string
+}
+export interface AppUpgradeSaveDto {
+  id?: string; appCode?: string; upTitle?: string; upContent?: string
+  upVersion?: number; upType?: string; apkUrl?: string
+}
+
+// --- P3-3 业务分类 ---
+export interface BizCategoryDto {
+  categoryCode: string; viewCode?: string; categoryName: string
+  parentCode: string; treeSort: number; status?: string
+  children?: BizCategoryDto[]
+}
+
+// --- P3-4 测试 ---
+export interface TestDataDto {
+  id: string; testInput?: string; testTextarea?: string
+  testSelect?: string; testDate?: string; status?: string
+}

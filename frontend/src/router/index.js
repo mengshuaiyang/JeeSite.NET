@@ -15,7 +15,21 @@ const routes = [
             { path: 'sys/dict', name: 'Dict', component: () => import('@/views/sys/DictList.vue'), meta: { title: '字典管理', permission: 'sys:dict' } },
             { path: 'sys/config', name: 'Config', component: () => import('@/views/sys/ConfigList.vue'), meta: { title: '参数配置', permission: 'sys:config' } },
             { path: 'sys/module', name: 'Module', component: () => import('@/views/sys/ModuleList.vue'), meta: { title: '模块管理', permission: 'sys:module' } },
-            { path: 'sys/log', name: 'Log', component: () => import('@/views/sys/LogList.vue'), meta: { title: '操作日志', permission: 'sys:log' } }
+            { path: 'sys/log', name: 'Log', component: () => import('@/views/sys/LogList.vue'), meta: { title: '操作日志', permission: 'sys:log' } },
+            { path: 'sys/employee', name: 'Employee', component: () => import('@/views/sys/EmployeeList.vue'), meta: { title: '员工管理', permission: 'sys:employee' } },
+            { path: 'sys/company', name: 'Company', component: () => import('@/views/sys/CompanyTree.vue'), meta: { title: '公司管理', permission: 'sys:company' } },
+            { path: 'sys/area', name: 'Area', component: () => import('@/views/sys/AreaTree.vue'), meta: { title: '行政区划', permission: 'sys:area' } },
+            { path: 'sys/msg/inbox', name: 'MsgInbox', component: () => import('@/views/sys/MsgInbox.vue'), meta: { title: '收件箱', permission: 'sys:msg' } },
+            { path: 'sys/msg/sent', name: 'MsgSent', component: () => import('@/views/sys/MsgSent.vue'), meta: { title: '发件箱', permission: 'sys:msg' } },
+            { path: 'sys/msg/template', name: 'MsgTemplate', component: () => import('@/views/sys/MsgTemplateList.vue'), meta: { title: '消息模板', permission: 'sys:msg' } },
+            { path: 'sys/lang', name: 'Lang', component: () => import('@/views/sys/LangList.vue'), meta: { title: '国际化', permission: 'sys:lang' } },
+            { path: 'sys/biz-category', name: 'BizCategory', component: () => import('@/views/sys/BizCategoryTree.vue'), meta: { title: '业务分类', permission: 'sys:biz-category' } },
+            { path: 'cms/comment', name: 'CmsComment', component: () => import('@/views/cms/CommentList.vue'), meta: { title: '评论管理', permission: 'cms:comment' } },
+            { path: 'cms/guestbook', name: 'CmsGuestbook', component: () => import('@/views/cms/GuestbookList.vue'), meta: { title: '留言管理', permission: 'cms:guestbook' } },
+            { path: 'app/comment', name: 'AppComment', component: () => import('@/views/app/AppCommentList.vue'), meta: { title: '意见反馈', permission: 'app:comment' } },
+            { path: 'app/upgrade', name: 'AppUpgrade', component: () => import('@/views/app/AppUpgradeList.vue'), meta: { title: '版本管理', permission: 'app:upgrade' } },
+            { path: 'test/data', name: 'TestData', component: () => import('@/views/test/TestDataList.vue'), meta: { title: '测试数据', permission: 'test:data' } },
+            { path: 'test/tree', name: 'TestTree', component: () => import('@/views/test/TestTree.vue'), meta: { title: '测试树表', permission: 'test:tree' } }
         ]
     },
     { path: '/:pathMatch(.*)*', component: () => import('@/views/error/NotFound.vue'), meta: { title: '404' } }
