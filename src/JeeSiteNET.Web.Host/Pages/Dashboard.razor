@@ -1,5 +1,7 @@
 @page "/"
 @attribute [Authorize]
+@using Microsoft.EntityFrameworkCore
+@inject JeeSiteNET.Infrastructure.EntityFrameworkCore.JeeSiteDbContext Db
 
 <h1>首页</h1>
 <p>欢迎使用 JeeSite.NET 管理平台。</p>
@@ -13,21 +15,34 @@
         <h3>角色数</h3>
         <p class="stat">@_roleCount</p>
     </div>
+    <div class="card">
+        <h3>菜单数</h3>
+        <p class="stat">@_menuCount</p>
+    </div>
+    <div class="card">
+        <h3>字典数</h3>
+        <p class="stat">@_dictCount</p>
+    </div>
 </div>
 
 @code {
     private int _userCount;
     private int _roleCount;
+    private int _menuCount;
+    private int _dictCount;
 
     protected override async Task OnInitializedAsync()
     {
-        // Load stats from services
+        _userCount = await Db.Set<JeeSiteNET.Modules.Sys.Domain.Entities.User>().CountAsync();
+        _roleCount = await Db.Set<JeeSiteNET.Modules.Sys.Domain.Entities.Role>().CountAsync();
+        _menuCount = await Db.Set<JeeSiteNET.Modules.Sys.Domain.Entities.Menu>().CountAsync();
+        _dictCount = await Db.Set<JeeSiteNET.Modules.Sys.Domain.Entities.DictData>().CountAsync();
     }
 }
 
 <style>
-.card-grid { display:flex; gap:16px; margin-top:16px; }
-.card { flex:1; padding:24px; background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+.card-grid { display:flex; gap:16px; margin-top:16px; flex-wrap:wrap; }
+.card { flex:1; min-width:200px; padding:24px; background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
 .card h3 { font-size:14px; color:#666; margin-bottom:8px; }
 .stat { font-size:32px; font-weight:600; color:#1890ff; }
 </style>

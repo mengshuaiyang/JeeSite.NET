@@ -1,0 +1,9 @@
+# TypeScript compilation output
+src/**/*.js
+src/**/*.vue.js
+
+# TypeScript build info
+tsconfig.tsbuildinfo
+
+# Package manager lock (use pnpm only)
+package-lock.json
