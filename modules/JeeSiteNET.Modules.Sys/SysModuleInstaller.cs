@@ -61,6 +61,11 @@ public class SysModuleInstaller : IModuleInstaller
             var baseUrl = "/uploads";
             return new LocalFileStorageProvider(basePath, baseUrl);
         });
+        services.AddScoped<IMsgInnerRepository, MsgInnerRepository>();
+        services.AddScoped<IMsgPushRepository, MsgPushRepository>();
+        services.AddScoped<IMsgPushedRepository, MsgPushedRepository>();
+        services.AddScoped<IMsgTemplateRepository, MsgTemplateRepository>();
+        services.AddScoped<MsgService>();
         services.AddScoped<IDataScopeRuleProvider, SysDataScopeRuleProvider>();
         services.AddScoped<IDataScopeService, DataScopeService>();
         services.AddScoped<ITenantRepository, TenantRepository>();
