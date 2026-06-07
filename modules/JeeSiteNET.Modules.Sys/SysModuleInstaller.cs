@@ -70,5 +70,7 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<IDataScopeService, DataScopeService>();
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<TenantService>();
+        services.AddScoped<ILangRepository, LangRepository>();
+        services.AddScoped<LangService>();
     }
 }
