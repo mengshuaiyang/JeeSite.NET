@@ -40,7 +40,7 @@ public class CompanyService
     public async Task<ApiResult> SaveAsync(CompanySaveDto dto)
     {
         var now = DateTime.Now;
-        Company c;
+        Company? c;
 
         if (!string.IsNullOrEmpty(dto.CompanyCode))
         {
@@ -50,7 +50,7 @@ public class CompanyService
             c.CompanyName = dto.CompanyName;
             c.FullName = dto.FullName;
             c.AreaCode = dto.AreaCode;
-            c.ParentCode = dto.ParentCode;
+            c.ParentCode = dto.ParentCode ?? "0";
             c.Remarks = dto.Remarks;
             c.UpdateDate = now;
             await _repo.UpdateAsync(c);

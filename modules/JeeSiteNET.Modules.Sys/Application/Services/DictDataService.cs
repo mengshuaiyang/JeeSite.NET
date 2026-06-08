@@ -97,7 +97,7 @@ public class DictDataService
             entity.DictType = dto.DictType;
             entity.DictLabel = dto.DictLabel;
             entity.DictValue = dto.DictValue;
-            entity.ParentCode = dto.ParentCode;
+            entity.ParentCode = dto.ParentCode ?? "0";
             entity.Sort = dto.Sort;
             entity.TreeLeaf = "1";
             entity.UpdateDate = now;
@@ -111,7 +111,7 @@ public class DictDataService
                 DictType = dto.DictType,
                 DictLabel = dto.DictLabel,
                 DictValue = dto.DictValue,
-                ParentCode = dto.ParentCode,
+                ParentCode = dto.ParentCode ?? "0",
                 Sort = dto.Sort,
                 TreeLeaf = "1",
                 CreateDate = now,

@@ -77,7 +77,7 @@ public static class CompanyMapping
             CompanyName = dto.CompanyName,
             FullName = dto.FullName,
             AreaCode = dto.AreaCode,
-            ParentCode = dto.ParentCode,
+            ParentCode = dto.ParentCode ?? "0",
             Remarks = dto.Remarks,
             Status = "0",
             TreeLeaf = "1",

@@ -90,7 +90,7 @@ public class EmployeeService
     public async Task<ApiResult> SaveAsync(EmployeeSaveDto dto)
     {
         var now = DateTime.Now;
-        Employee emp;
+        Employee? emp;
 
         if (!string.IsNullOrEmpty(dto.EmpCode))
         {

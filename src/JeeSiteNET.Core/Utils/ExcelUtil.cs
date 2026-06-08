@@ -27,7 +27,7 @@ public static class ExcelUtil
         return ms.ToArray();
     }
 
-    public static DataTable ImportFromExcel(byte[] bytes, string sheetName = null)
+    public static DataTable ImportFromExcel(byte[] bytes, string? sheetName = null)
     {
         IWorkbook workbook = bytes[0] == 0x50 ? new XSSFWorkbook(new MemoryStream(bytes)) : new HSSFWorkbook(new MemoryStream(bytes));
         var sheet = sheetName != null ? workbook.GetSheet(sheetName) : workbook.GetSheetAt(0);
