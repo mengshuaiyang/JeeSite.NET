@@ -7,3 +7,7 @@ tsconfig.tsbuildinfo
 
 # Package manager lock (use pnpm only)
 package-lock.json
+
+# Playwright test artifacts
+test-results/
+playwright-report/

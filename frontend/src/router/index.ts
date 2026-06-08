@@ -42,6 +42,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'sys/biz-category', name: 'BizCategory', component: () => import('@/views/sys/BizCategoryTree.vue'), meta: { title: '业务分类', permission: 'sys:biz-category' } },
       { path: 'sys/cache', name: 'Cache', component: () => import('@/views/sys/CacheList.vue'), meta: { title: '缓存管理', permission: 'sys:cache:view' } },
       { path: 'sys/online', name: 'OnlineUser', component: () => import('@/views/sys/OnlineUserList.vue'), meta: { title: '在线用户', permission: 'sys:online:view' } },
+      { path: 'sys/monitor', name: 'MonitorServer', component: () => import('@/views/sys/MonitorServer.vue'), meta: { title: '系统监控', permission: 'sys:monitor:view' } },
       { path: 'cms/category', name: 'CmsCategory', component: () => import('@/views/cms/CategoryList.vue'), meta: { title: '栏目管理', permission: 'cms:category' } },
       { path: 'cms/article', name: 'CmsArticle', component: () => import('@/views/cms/ArticleList.vue'), meta: { title: '文章管理', permission: 'cms:article' } },
       { path: 'cms/article/edit', name: 'CmsArticleEdit', component: () => import('@/views/cms/ArticleEdit.vue'), meta: { title: '编辑文章', permission: 'cms:article:edit' } },
@@ -57,7 +58,12 @@ const routes: RouteRecordRaw[] = [
       { path: 'sys/profile', name: 'Profile', component: () => import('@/views/sys/Profile.vue'), meta: { title: '个人中心' } },
       { path: 'sys/role-data-scope', name: 'RoleDataScope', component: () => import('@/views/sys/RoleDataScope.vue'), meta: { title: '数据权限', permission: 'sys:role:data-scope' } },
       { path: 'sys/role-field-scope', name: 'RoleFieldScope', component: () => import('@/views/sys/RoleFieldScope.vue'), meta: { title: '字段权限', permission: 'sys:role:field-scope' } },
-      { path: 'sys/file', name: 'File', component: () => import('@/views/sys/FileList.vue'), meta: { title: '文件管理', permission: 'sys:file' } }
+      { path: 'sys/file', name: 'File', component: () => import('@/views/sys/FileList.vue'), meta: { title: '文件管理', permission: 'sys:file' } },
+      { path: 'demo/form', name: 'DemoForm', component: () => import('@/views/demo/DemoForm.vue'), meta: { title: '表单演示', permission: 'test:demo:view' } },
+      { path: 'demo/grid', name: 'DemoGrid', component: () => import('@/views/demo/DemoGrid.vue'), meta: { title: '表格演示', permission: 'test:demo:view' } },
+      { path: 'cms/file-template', name: 'CmsFileTemplate', component: () => import('@/views/cms/FileTemplateList.vue'), meta: { title: '文件模板', permission: 'cms:file-template:list' } },
+      { path: 'bpm/leave', name: 'MyLeave', component: () => import('@/views/bpm/MyLeave.vue'), meta: { title: '我的请假', permission: 'bpm:leave:list' } },
+      { path: 'bpm/approval', name: 'PendingApproval', component: () => import('@/views/bpm/PendingApproval.vue'), meta: { title: '待审批', permission: 'bpm:leave:action' } }
     ]
   },
   { path: '/:pathMatch(.*)*', component: () => import('@/views/error/NotFound.vue'), meta: { title: '404' } }

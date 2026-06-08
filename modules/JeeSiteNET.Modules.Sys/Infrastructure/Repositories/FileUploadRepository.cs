@@ -15,6 +15,9 @@ public class FileUploadRepository : IFileUploadRepository
 
     public async Task<FileUpload?> GetAsync(string id) => await _db.Set<FileUpload>().FindAsync(id);
 
+    public async Task<FileUpload?> GetByFileIdAsync(string fileId)
+        => await _db.Set<FileUpload>().FirstOrDefaultAsync(f => f.FileId == fileId);
+
     public async Task<List<FileUpload>> GetByBizAsync(string bizType, string bizKey)
         => await _db.Set<FileUpload>()
             .Where(f => f.BizType == bizType && f.BizKey == bizKey)

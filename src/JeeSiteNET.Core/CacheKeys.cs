@@ -9,4 +9,5 @@ public static class CacheKeys
     public static string RoleCodesByUser(string userCode) => $"{Prefix}Role:User:{userCode}";
     public static string MenuTree(string moduleCode) => $"{Prefix}Menu:Tree:{moduleCode}";
     public static string ConfigValue(string configKey) => $"{Prefix}Config:{configKey}";
+    public static string CmsArticle(string articleCode) => $"{Prefix}Cms:Article:{articleCode}";
 }

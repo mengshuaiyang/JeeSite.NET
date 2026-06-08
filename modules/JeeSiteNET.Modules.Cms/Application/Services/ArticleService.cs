@@ -3,6 +3,7 @@ using JeeSiteNET.Modules.Cms.Application.DTOs;
 using JeeSiteNET.Modules.Cms.Domain.Entities;
 using JeeSiteNET.Modules.Cms.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace JeeSiteNET.Modules.Cms.Application.Services;
 
@@ -11,20 +12,28 @@ public class ArticleService
     private readonly IArticleRepository _articleRepository;
     private readonly ICategoryRepository _categoryRepository;
     private readonly IArticleTagRepository _articleTagRepository;
+    private readonly IFusionCache _cache;
 
-    public ArticleService(IArticleRepository articleRepository, ICategoryRepository categoryRepository, IArticleTagRepository articleTagRepository)
+    public ArticleService(IArticleRepository articleRepository, ICategoryRepository categoryRepository, IArticleTagRepository articleTagRepository, IFusionCache cache)
     {
         _articleRepository = articleRepository;
         _categoryRepository = categoryRepository;
         _articleTagRepository = articleTagRepository;
+        _cache = cache;
     }
 
     public async Task<ArticleDto?> GetAsync(string articleCode)
     {
-        var entity = await _articleRepository.GetWithDetailAsync(articleCode);
-        if (entity == null) return null;
-        var category = await _categoryRepository.GetAsync(entity.CategoryCode);
-        return ArticleDto.FromEntity(entity, category?.CategoryName);
+        return await _cache.GetOrSetAsync(
+            CacheKeys.CmsArticle(articleCode),
+            async ct =>
+            {
+                var entity = await _articleRepository.GetWithDetailAsync(articleCode);
+                if (entity == null) return null;
+                var category = await _categoryRepository.GetAsync(entity.CategoryCode);
+                return ArticleDto.FromEntity(entity, category?.CategoryName);
+            },
+            TimeSpan.FromMinutes(10));
     }
 
     public async Task<PageResult<ArticleDto>> FindPageAsync(PageRequest<Article> request)
@@ -74,6 +83,7 @@ public class ArticleService
                 entity.ArticleData = new ArticleData { ArticleCode = entity.ArticleCode, Content = dto.Content };
             await _articleRepository.AddAsync(entity);
         }
+        await _cache.RemoveAsync(CacheKeys.CmsArticle(entity.ArticleCode));
         return ApiResult.Ok(ArticleDto.FromEntity(entity));
     }
 
@@ -82,6 +92,7 @@ public class ArticleService
         var entity = await _articleRepository.GetAsync(articleCode);
         if (entity == null) return ApiResult.NotFound("文章不存在");
         await _articleRepository.DeleteAsync(entity);
+        await _cache.RemoveAsync(CacheKeys.CmsArticle(articleCode));
         return ApiResult.Ok();
     }
 
@@ -91,6 +102,7 @@ public class ArticleService
         if (entity == null) return ApiResult.NotFound("文章不存在");
         entity.ClickCount = (entity.ClickCount ?? 0) + 1;
         await _articleRepository.UpdateAsync(entity);
+        await _cache.RemoveAsync(CacheKeys.CmsArticle(articleCode));
         return ApiResult.Ok();
     }
 

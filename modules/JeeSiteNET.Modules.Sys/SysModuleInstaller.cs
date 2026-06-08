@@ -77,5 +77,7 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<LangService>();
         services.AddScoped<IBizCategoryRepository, BizCategoryRepository>();
         services.AddScoped<BizCategoryService>();
+        services.AddScoped<MonitorService>();
+        services.AddScoped<ChunkUploadService>();
     }
 }

@@ -16,7 +16,9 @@ public class BpmModuleInstaller : IModuleInstaller
     {
         services.AddScoped<IApprovalRecordRepository, ApprovalRecordRepository>();
         services.AddScoped<IWorkflowFormRepository, WorkflowFormRepository>();
+        services.AddScoped<ILeaveRepository, LeaveRepository>();
         services.AddScoped<BpmService>();
+        services.AddScoped<LeaveService>();
 
         services.AddElsa(elsa =>
         {

@@ -51,6 +51,50 @@ public class TestController : ControllerBase
     [Permission("test:tree:delete")]
     [HttpPost("tree/delete")]
     public async Task<ApiResult> TreeDelete([FromBody] DeleteTestTreeRequest request) => await _testService.DeleteTreeAsync(request.TreeCode);
+
+    // --- Demo Form ---
+
+    [Permission("test:demo:view")]
+    [HttpGet("demo/form-config")]
+    public ApiResult<object> DemoFormConfig()
+    {
+        return ApiResult<object>.Ok(new
+        {
+            layouts = new[]
+            {
+                new { label = "基础表单", value = "basic", fields = new[] { "text", "textarea", "select", "radio", "checkbox", "date", "switch" } },
+                new { label = "高级表单", value = "advanced", fields = new[] { "text", "number", "slider", "rate", "color", "upload", "editor" } },
+                new { label = "搜索表单", value = "search", fields = new[] { "keyword", "dateRange", "select", "treeSelect" } }
+            }
+        });
+    }
+
+    // --- Demo Grid ---
+
+    [Permission("test:demo:view")]
+    [HttpGet("demo/grid-data")]
+    public ApiResult<PageResult<object>> DemoGridData([FromQuery] int pageNo = 1, [FromQuery] int pageSize = 20)
+    {
+        var all = Enumerable.Range(1, 86).Select(i => new
+        {
+            id = i,
+            name = $"演示数据 {i}",
+            category = new[] { "技术", "财务", "人事", "行政" }[i % 4],
+            status = i % 3 == 0 ? "已审核" : i % 3 == 1 ? "待审核" : "草稿",
+            amount = Math.Round(Random.Shared.NextDouble() * 10000, 2),
+            createDate = DateTime.Now.AddDays(-i).ToString("yyyy-MM-dd"),
+            creator = new[] { "张三", "李四", "王五", "赵六" }[i % 4]
+        }).ToList<object>();
+
+        var paged = all.Skip((pageNo - 1) * pageSize).Take(pageSize).ToList<object>();
+        return ApiResult<PageResult<object>>.Ok(new PageResult<object>
+        {
+            List = paged,
+            Total = all.Count,
+            PageNo = pageNo,
+            PageSize = pageSize
+        });
+    }
 }
 
 public class DeleteTestDataRequest { public string Id { get; set; } = string.Empty; }

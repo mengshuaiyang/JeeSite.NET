@@ -448,6 +448,23 @@ export interface ArticleDto {
   categoryName?: string; status?: string
   articleData?: ArticleDataDto; posIds?: string[]
 }
+export interface DiskInfo {
+  name: string; driveType: string; driveFormat: string
+  totalSize: number; availableFreeSpace: number; usedSpace: number
+  usagePercent: number
+}
+
+export interface ServerInfo {
+  osName: string; osVersion: string; osArchitecture: string
+  processArchitecture: string; machineName: string; runtimeVersion: string
+  processorCount: number; startTime: string; uptimeDays: number
+  processMemoryWorkingSet: number; processMemoryPrivateBytes: number
+  processMemoryVirtualBytes: number; gcTotalMemory: number
+  threadCount: number; handleCount: number
+  cpuUsagePercent: number
+  disks: DiskInfo[]
+}
+
 export interface ArticleSaveDto {
   articleCode?: string; categoryCode: string; title: string
   subtitle?: string; summary?: string; content?: string

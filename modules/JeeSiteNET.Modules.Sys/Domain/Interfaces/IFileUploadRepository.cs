@@ -6,6 +6,7 @@ public interface IFileUploadRepository
 {
     IQueryable<FileUpload> Query();
     Task<FileUpload?> GetAsync(string id);
+    Task<FileUpload?> GetByFileIdAsync(string fileId);
     Task<List<FileUpload>> GetByBizAsync(string bizType, string bizKey);
     Task AddAsync(FileUpload entity);
     Task UpdateAsync(FileUpload entity);

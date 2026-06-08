@@ -80,7 +80,7 @@
                 </a-list-item>
               </template>
               <template v-if="articles.length === 0 && !loading">
-                <a-empty :description="'未找到与 "' + keyword + '" 相关的文章'" />
+                <a-empty :description="`未找到与 ${keyword} 相关的文章`" />
               </template>
             </a-list>
             <a-pagination v-if="total > pageSize" v-model:current="pageNo" :total="total" :page-size="pageSize" @change="doSearch" style="margin-top:16px;text-align:right" />

@@ -88,6 +88,64 @@ public class AuthService
         });
     }
 
+    public async Task<ApiResult> RegisterAsync(RegisterDto dto)
+    {
+        if (string.IsNullOrEmpty(dto.LoginCode) || string.IsNullOrEmpty(dto.Password))
+            return ApiResult.Fail(400, "登录名和密码不能为空");
+
+        var existing = await _userRepository.GetByLoginCodeAsync(dto.LoginCode);
+        if (existing != null)
+            return ApiResult.Fail(400, "该登录名已被注册");
+
+        var user = new Domain.Entities.User
+        {
+            UserCode = IdGenerator.NewId(),
+            LoginCode = dto.LoginCode,
+            UserName = dto.UserName ?? dto.LoginCode,
+            Password = EncryptUtil.Md5(dto.Password),
+            UserType = "employee",
+            Email = dto.Email,
+            Phone = dto.Phone,
+            Status = "0",
+            CreateDate = DateTime.Now
+        };
+        await _userRepository.AddAsync(user);
+        return ApiResult.Ok();
+    }
+
+    public async Task<ApiResult> ForgotPasswordAsync(ForgotPasswordDto dto)
+    {
+        if (string.IsNullOrEmpty(dto.LoginCode) || string.IsNullOrEmpty(dto.Email))
+            return ApiResult.Fail(400, "登录名和邮箱不能为空");
+
+        var user = await _userRepository.GetByLoginCodeAsync(dto.LoginCode);
+        if (user == null)
+            return ApiResult.Fail(400, "账号不存在");
+
+        if (!string.Equals(user.Email, dto.Email, StringComparison.OrdinalIgnoreCase))
+            return ApiResult.Fail(400, "邮箱不匹配");
+
+        var resetToken = Guid.NewGuid().ToString("N")[..20];
+        await _cache.SetAsync($"ResetPwd:{resetToken}", user.UserCode, TimeSpan.FromMinutes(30));
+
+        return ApiResult.Ok(new { resetToken, message = "测试环境直接返回 Token，正式环境通过邮件发送" });
+    }
+
+    public async Task<ApiResult> ResetPasswordAsync(ResetPasswordDto dto)
+    {
+        var userCode = await _cache.GetOrDefaultAsync<string>($"ResetPwd:{dto.Token}");
+        if (string.IsNullOrEmpty(userCode))
+            return ApiResult.Fail(400, "重置链接已过期");
+
+        var user = await _userRepository.GetAsync(userCode);
+        if (user == null)
+            return ApiResult.Fail(400, "用户不存在");
+
+        user.Password = EncryptUtil.Md5(dto.NewPassword);
+        await _cache.RemoveAsync($"ResetPwd:{dto.Token}");
+        return ApiResult.Ok();
+    }
+
     private string GenerateToken(Domain.Entities.User user)
     {
         var jwtSection = _configuration.GetSection("Jwt");

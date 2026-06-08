@@ -138,6 +138,22 @@ public class FileService
         return dtos;
     }
 
+    public async Task<FileExistResult?> CheckMd5ExistAsync(string md5)
+    {
+        var entity = await _fileEntityRepo.GetByMd5Async(md5);
+        if (entity == null) return null;
+
+        var upload = await _fileUploadRepo.GetByFileIdAsync(entity.FileId);
+        if (upload == null) return null;
+
+        return new FileExistResult
+        {
+            UploadId = upload.Id,
+            UploadId2 = upload.Id,
+            FileUrl = _storage.GetUrl(entity.FilePath)
+        };
+    }
+
     public async Task<ApiResult> DeleteAsync(string uploadId)
     {
         var upload = await _fileUploadRepo.GetAsync(uploadId);
@@ -180,4 +196,11 @@ public class FileDownloadResult
     public Stream Stream { get; set; } = Stream.Null;
     public string ContentType { get; set; } = "application/octet-stream";
     public string FileName { get; set; } = string.Empty;
+}
+
+public class FileExistResult
+{
+    public string UploadId { get; set; } = string.Empty;
+    public string UploadId2 { get; set; } = string.Empty;
+    public string FileUrl { get; set; } = string.Empty;
 }
