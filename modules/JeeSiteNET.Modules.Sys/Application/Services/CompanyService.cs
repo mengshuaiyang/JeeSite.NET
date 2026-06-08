@@ -3,6 +3,7 @@ using JeeSiteNET.Core.Utils;
 using JeeSiteNET.Modules.Sys.Application.DTOs;
 using JeeSiteNET.Modules.Sys.Domain.Entities;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
+using JeeSiteNET.Infrastructure.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace JeeSiteNET.Modules.Sys.Application.Services;
@@ -10,9 +11,9 @@ namespace JeeSiteNET.Modules.Sys.Application.Services;
 public class CompanyService
 {
     private readonly ICompanyRepository _repo;
-    private readonly DbContext _db;
+    private readonly JeeSiteDbContext _db;
 
-    public CompanyService(ICompanyRepository repo, DbContext db)
+    public CompanyService(ICompanyRepository repo, JeeSiteDbContext db)
     {
         _repo = repo;
         _db = db;

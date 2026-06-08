@@ -1,5 +1,5 @@
 import { get, post } from './request'
-import type { PageRequest, PageResult, ArticleDto, CategoryDto } from '@/types/api'
+import type { PageRequest, PageResult, ArticleDto, CategoryDto, TagDto } from '@/types/api'
 
 export interface SiteDto {
   siteCode: string
@@ -16,5 +16,6 @@ export const cmsFrontApi = {
   getCategories: (siteCode: string) => get<CategoryDto[]>(`/cms/front/category/list/${siteCode}`),
   articleList: (data: PageRequest) => post<PageResult<ArticleDto>>('/cms/front/article/list', data),
   articleGet: (articleCode: string) => get<ArticleDto>(`/cms/front/article/get/${articleCode}`),
-  articleSearch: (data: PageRequest) => post<PageResult<ArticleDto>>('/cms/front/article/search', data)
+  articleSearch: (data: PageRequest) => post<PageResult<ArticleDto>>('/cms/front/article/search', data),
+  tagCloud: () => get<TagDto[]>('/cms/front/tag/cloud')
 }

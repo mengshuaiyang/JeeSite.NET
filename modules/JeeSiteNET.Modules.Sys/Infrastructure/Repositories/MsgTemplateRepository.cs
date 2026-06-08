@@ -1,13 +1,14 @@
 using JeeSiteNET.Modules.Sys.Domain.Entities;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
+using JeeSiteNET.Infrastructure.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace JeeSiteNET.Modules.Sys.Infrastructure.Repositories;
 
 public class MsgTemplateRepository : IMsgTemplateRepository
 {
-    private readonly DbContext _db;
-    public MsgTemplateRepository(DbContext db) => _db = db;
+    private readonly JeeSiteDbContext _db;
+    public MsgTemplateRepository(JeeSiteDbContext db) => _db = db;
 
     public IQueryable<MsgTemplate> Query() => _db.Set<MsgTemplate>().AsNoTracking();
 

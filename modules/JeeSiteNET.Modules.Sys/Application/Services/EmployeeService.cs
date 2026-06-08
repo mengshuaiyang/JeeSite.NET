@@ -3,6 +3,7 @@ using JeeSiteNET.Core.Utils;
 using JeeSiteNET.Modules.Sys.Application.DTOs;
 using JeeSiteNET.Modules.Sys.Domain.Entities;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
+using JeeSiteNET.Infrastructure.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace JeeSiteNET.Modules.Sys.Application.Services;
@@ -10,9 +11,9 @@ namespace JeeSiteNET.Modules.Sys.Application.Services;
 public class EmployeeService
 {
     private readonly IEmployeeRepository _empRepo;
-    private readonly DbContext _db;
+    private readonly JeeSiteDbContext _db;
 
-    public EmployeeService(IEmployeeRepository empRepo, DbContext db)
+    public EmployeeService(IEmployeeRepository empRepo, JeeSiteDbContext db)
     {
         _empRepo = empRepo;
         _db = db;

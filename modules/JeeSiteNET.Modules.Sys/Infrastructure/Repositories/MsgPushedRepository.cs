@@ -1,13 +1,14 @@
 using JeeSiteNET.Modules.Sys.Domain.Entities;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
+using JeeSiteNET.Infrastructure.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace JeeSiteNET.Modules.Sys.Infrastructure.Repositories;
 
 public class MsgPushedRepository : IMsgPushedRepository
 {
-    private readonly DbContext _db;
-    public MsgPushedRepository(DbContext db) => _db = db;
+    private readonly JeeSiteDbContext _db;
+    public MsgPushedRepository(JeeSiteDbContext db) => _db = db;
 
     public IQueryable<MsgPushed> Query() => _db.Set<MsgPushed>().AsNoTracking();
 

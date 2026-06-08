@@ -10,11 +10,13 @@ public class ArticleService
 {
     private readonly IArticleRepository _articleRepository;
     private readonly ICategoryRepository _categoryRepository;
+    private readonly IArticleTagRepository _articleTagRepository;
 
-    public ArticleService(IArticleRepository articleRepository, ICategoryRepository categoryRepository)
+    public ArticleService(IArticleRepository articleRepository, ICategoryRepository categoryRepository, IArticleTagRepository articleTagRepository)
     {
         _articleRepository = articleRepository;
         _categoryRepository = categoryRepository;
+        _articleTagRepository = articleTagRepository;
     }
 
     public async Task<ArticleDto?> GetAsync(string articleCode)
@@ -90,5 +92,14 @@ public class ArticleService
         entity.ClickCount = (entity.ClickCount ?? 0) + 1;
         await _articleRepository.UpdateAsync(entity);
         return ApiResult.Ok();
+    }
+
+    public async Task<List<TagDto>> GetTagCloudAsync()
+    {
+        var tagCounts = await _articleTagRepository.Query()
+            .GroupBy(at => at.TagName)
+            .Select(g => new { TagName = g.Key, Count = g.Count() })
+            .ToListAsync();
+        return tagCounts.Select(tc => new TagDto { TagName = tc.TagName, ArticleCount = tc.Count }).ToList();
     }
 }

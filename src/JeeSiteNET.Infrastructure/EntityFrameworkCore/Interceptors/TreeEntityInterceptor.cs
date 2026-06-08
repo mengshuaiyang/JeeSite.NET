@@ -36,7 +36,7 @@ public class TreeEntityInterceptor : SaveChangesInterceptor
                 entity.TreeLevel = 0;
                 entity.ParentCodes = string.Empty;
                 entity.TreeNames = entity.GetName();
-                entity.TreeSorts = entity.TreeSort.ToString("D10");
+                entity.TreeSorts = entity.TreeSort.ToString("0000000000");
             }
             else
             {
@@ -46,7 +46,7 @@ public class TreeEntityInterceptor : SaveChangesInterceptor
                     entity.TreeLevel = parent.TreeLevel + 1;
                     entity.ParentCodes = parent.ParentCodes + entity.ParentCode + ",";
                     entity.TreeNames = parent.TreeNames + "/" + entity.GetName();
-                    entity.TreeSorts = parent.TreeSorts + entity.TreeSort.ToString("D10");
+                    entity.TreeSorts = parent.TreeSorts + entity.TreeSort.ToString("0000000000");
                 }
             }
         }

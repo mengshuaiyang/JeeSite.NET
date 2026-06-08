@@ -79,19 +79,33 @@ builder.Services.AddSingleton<IEnumerable<Assembly>>(
      typeof(JeeSiteNET.Modules.Bpm.Domain.Entities.ApprovalRecord).Assembly,
      typeof(JeeSiteNET.Modules.CodeGen.Domain.Entities.GenTable).Assembly]);
 
-// Database
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Server=localhost;Database=JeeSiteNET;Trusted_Connection=true;TrustServerCertificate=true";
-
+// Database — multi-data source with read/write splitting
 builder.Services.AddSingleton<AuditInterceptor>();
 builder.Services.AddSingleton<TreeEntityInterceptor>();
 builder.Services.AddSingleton<SoftDeleteInterceptor>();
+builder.Services.AddScoped<IDbConnectionStringResolver, DbConnectionStringResolver>();
 
 builder.Services.AddDbContext<JeeSiteDbContext>((sp, options) =>
 {
-    options.UseSqlServer(connectionString, sql =>
-        sql.MigrationsAssembly(typeof(JeeSiteDbContext).Assembly.FullName)
-           .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery));
+    var dbProvider = builder.Configuration.GetValue<string>("DatabaseProvider") ?? "SqlServer";
+
+    if (dbProvider == "Sqlite")
+    {
+        var dbPath = builder.Configuration.GetValue<string>("SqliteDbPath")
+            ?? Path.Combine(AppContext.BaseDirectory, "JeeSiteNET.db");
+        options.UseSqlite($"DataSource={dbPath}", sql => { });
+    }
+    else
+    {
+        var resolver = sp.GetRequiredService<IDbConnectionStringResolver>();
+        var connStr = resolver.GetConnectionString(DbOperation.Write);
+        options.UseSqlServer(connStr, sql =>
+        {
+            sql.MigrationsAssembly(typeof(JeeSiteDbContext).Assembly.FullName)
+               .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+        });
+    }
+
     options.AddInterceptors(
         sp.GetRequiredService<AuditInterceptor>(),
         sp.GetRequiredService<TreeEntityInterceptor>(),
@@ -143,3 +157,5 @@ app.UseMiddleware<JeeSiteNET.Web.Api.Middleware.RequestLogMiddleware>();
 app.UseMiddleware<JeeSiteNET.Web.Api.Middleware.TenantResolutionMiddleware>();
 app.MapControllers();
 app.Run();
+
+public partial class Program { }

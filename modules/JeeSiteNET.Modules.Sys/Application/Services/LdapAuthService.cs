@@ -53,7 +53,7 @@ public class LdapAuthService
 
         var token = GenerateToken(user);
         List<string> permissions;
-        if (user.UserCode == "admin")
+        if (user.LoginCode == "admin")
             permissions = ["*"];
         else
         {

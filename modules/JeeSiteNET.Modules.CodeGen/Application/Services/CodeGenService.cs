@@ -1,4 +1,4 @@
-using JeeSiteNET.Core;
+﻿using JeeSiteNET.Core;
 using JeeSiteNET.Modules.CodeGen.Application.DTOs;
 using JeeSiteNET.Modules.CodeGen.Domain.Entities;
 using JeeSiteNET.Modules.CodeGen.Domain.Interfaces;
@@ -6,6 +6,7 @@ using JeeSiteNET.Infrastructure.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Scriban;
+using Scriban.Runtime;
 
 namespace JeeSiteNET.Modules.CodeGen.Application.Services;
 
@@ -151,97 +152,147 @@ public class CodeGenService
             ModuleCode = table.ModuleCode,
             ClassName = table.ClassName,
             FunctionName = table.FunctionName ?? table.ClassName,
-            BusinessName = table.BusinessName ?? table.ClassName.ToLower()
+            BusinessName = table.BusinessName ?? table.ClassName.ToLower(),
+            TplCategory = table.TplCategory ?? "crud"
         };
 
         var result = new List<GenPreviewItem>();
         var ctx = BuildTemplateContext(table, cfg);
+        var tpl = cfg.TplCategory;
 
-        if (cfg.GenEntity)
-            result.Add(new() { FileName = $"Domain/Entities/{cfg.ClassName}.cs", Content = Render("Entity", ctx) });
-        if (cfg.GenDto)
+        // Entity + Configuration (common to all categories)
+        result.Add(new() { FileName = $"Domain/Entities/{cfg.ClassName}.cs", Content = Render(tpl == "tree" ? "TreeEntity" : "Entity", ctx) });
+        result.Add(new() { FileName = $"Infrastructure/EntityConfigurations/{cfg.ClassName}Configuration.cs", Content = Render(tpl == "tree" ? "TreeConfiguration" : "Configuration", ctx) });
+
+        // Dto
+        if (tpl == "tree")
+            result.Add(new() { FileName = $"Application/DTOs/{cfg.ClassName}Dto.cs", Content = Render("TreeDto", ctx) });
+        else
             result.Add(new() { FileName = $"Application/DTOs/{cfg.ClassName}Dto.cs", Content = Render("Dto", ctx) });
-        if (cfg.GenRepository)
+
+        // Repository (common to all)
+        result.Add(new() { FileName = $"Domain/Interfaces/I{cfg.ClassName}Repository.cs", Content = Render("RepositoryInterface", ctx) });
+        result.Add(new() { FileName = $"Infrastructure/Repositories/{cfg.ClassName}Repository.cs", Content = Render("Repository", ctx) });
+
+        // Service
+        string serviceTpl = tpl switch { "tree" => "TreeService", "query" => "QueryService", _ => "Service" };
+        if (tpl != "query")
+            result.Add(new() { FileName = $"Application/Services/{cfg.ClassName}Service.cs", Content = Render(serviceTpl, ctx) });
+
+        // Controller
+        if (tpl != "service")
         {
-            result.Add(new() { FileName = $"Domain/Interfaces/I{cfg.ClassName}Repository.cs", Content = Render("RepositoryInterface", ctx) });
-            result.Add(new() { FileName = $"Infrastructure/Repositories/{cfg.ClassName}Repository.cs", Content = Render("Repository", ctx) });
+            string ctrlTpl = tpl switch { "tree" => "TreeController", "query" => "QueryController", _ => "Controller" };
+            result.Add(new() { FileName = $"Controllers/{cfg.ClassName}Controller.cs", Content = Render(ctrlTpl, ctx) });
         }
-        if (cfg.GenService)
-            result.Add(new() { FileName = $"Application/Services/{cfg.ClassName}Service.cs", Content = Render("Service", ctx) });
-        if (cfg.GenController)
-            result.Add(new() { FileName = $"Controllers/{cfg.ClassName}Controller.cs", Content = Render("Controller", ctx) });
-        if (cfg.GenVue)
-            result.Add(new() { FileName = $"frontend/src/views/{table.ModuleCode.ToLower()}/{table.BusinessName}/index.vue", Content = Render("VueList", ctx) });
+
+        // Vue
+        if (tpl != "query" && tpl != "service")
+        {
+            string vueTpl = tpl == "tree" ? "VueTree" : "VueList";
+            result.Add(new() { FileName = $"frontend/src/views/{table.ModuleCode.ToLower()}/{table.BusinessName}/index.vue", Content = Render(vueTpl, ctx) });
+        }
+
+        // ModuleInstaller (common to all)
+        result.Add(new() { FileName = $"{cfg.ClassName}ModuleInstaller.cs", Content = Render("ModuleInstaller", ctx) });
 
         return result;
     }
 
-    private TemplateContext BuildTemplateContext(GenTable table, GenConfigDto cfg)
+    private ScriptObject BuildTemplateContext(GenTable table, GenConfigDto cfg)
     {
         var pk = table.Columns.FirstOrDefault(c => c.IsPk == "1");
         var pkProp = pk?.PropertyName ?? "Id";
         var pkNetType = pk?.NetType ?? "string";
         var pkName = pk?.ColumnName ?? "id";
 
-        return new TemplateContext
+        var treeNameField = table.TreeName;
+        if (string.IsNullOrEmpty(treeNameField))
         {
-            ["class_name"] = cfg.ClassName,
-            ["module_namespace"] = $"JeeSiteNET.Modules.{cfg.ModuleCode}",
-            ["module_code"] = cfg.ModuleCode,
-            ["module_lower"] = cfg.ModuleCode.ToLower(),
-            ["function_name"] = cfg.FunctionName,
-            ["business_name"] = cfg.BusinessName,
-            ["table_name"] = table.TableName,
-            ["base_class"] = "DataEntity",
-            ["pk_name"] = pkProp,
-            ["pk_net_type"] = pkNetType,
-            ["permission_prefix"] = $"{cfg.ModuleCode.ToLower()}:{cfg.BusinessName.Replace("_", "")}",
-            ["vue_pk"] = pkProp,
-            ["vue_pk_name"] = pkName,
-            ["columns"] = table.Columns.Where(c => c.Status == "0").OrderBy(c => c.ColumnSort).Select(c => new Dictionary<string, object?>
-            {
-                ["property_name"] = c.PropertyName,
-                ["column_name"] = c.ColumnName,
-                ["net_type"] = c.NetType ?? "string",
-                ["is_nullable"] = c.IsNullable,
-                ["is_pk"] = c.IsPk,
-                ["is_insert"] = c.IsInsert,
-                ["is_edit"] = c.IsEdit,
-                ["is_list"] = c.IsList,
-                ["is_query"] = c.IsQuery,
-                ["max_length"] = c.MaxLength ?? 0,
-                ["comment"] = c.ColumnComment ?? c.PropertyName
-            }).ToList(),
-            ["vue_table_fields"] = table.Columns.Where(c => c.IsList == "1" && c.Status == "0").OrderBy(c => c.ColumnSort).Select(c => new Dictionary<string, object?>
-            {
-                ["property_name"] = c.PropertyName,
-                ["comment"] = c.ColumnComment ?? c.PropertyName
-            }).ToList(),
-            ["vue_form_fields"] = table.Columns.Where(c => c.IsEdit == "1" && c.IsPk == "0" && c.Status == "0").OrderBy(c => c.ColumnSort).Select(c => new Dictionary<string, object?>
-            {
-                ["property_name"] = c.PropertyName,
-                ["comment"] = c.ColumnComment ?? c.PropertyName
-            }).ToList()
-        };
+            treeNameField = table.Columns.FirstOrDefault(c =>
+                c.PropertyName?.Equals("Name", StringComparison.OrdinalIgnoreCase) == true ||
+                c.PropertyName?.Equals("TreeName", StringComparison.OrdinalIgnoreCase) == true)?.PropertyName;
+        }
+        if (string.IsNullOrEmpty(treeNameField))
+        {
+            treeNameField = table.Columns.FirstOrDefault(c =>
+                c.NetType == "string" && c.IsPk == "0")?.PropertyName ?? "Name";
+        }
+
+        var so = new ScriptObject();
+        so["tpl_category"] = cfg.TplCategory ?? "crud";
+        so["class_name"] = cfg.ClassName ?? "MyEntity";
+        so["module_namespace"] = $"JeeSiteNET.Modules.{cfg.ModuleCode}";
+        so["module_code"] = cfg.ModuleCode;
+        so["module_lower"] = cfg.ModuleCode.ToLower();
+        so["function_name"] = cfg.FunctionName ?? "MyFunction";
+        so["business_name"] = cfg.BusinessName ?? "my_business";
+        so["table_name"] = table.TableName ?? "MyTable";
+        so["base_class"] = cfg.TplCategory == "tree" ? "TreeEntity" : "DataEntity";
+        so["tree_name_field"] = treeNameField ?? "Name";
+        so["pk_name"] = pkProp;
+        so["pk_net_type"] = pkNetType;
+        so["permission_prefix"] = $"{cfg.ModuleCode.ToLower()}:{(cfg.BusinessName ?? "my_business").Replace("_", "")}";
+        so["vue_pk"] = pkProp;
+        so["vue_pk_name"] = pkName;
+        so["columns"] = table.Columns.Where(c => c.Status == "0").OrderBy(c => c.ColumnSort).Select(c =>
+        {
+            var col = new ScriptObject();
+            col["property_name"] = c.PropertyName ?? "";
+            col["column_name"] = c.ColumnName ?? "";
+            col["net_type"] = c.NetType ?? "string";
+            col["is_nullable"] = c.IsNullable ?? "1";
+            col["is_pk"] = c.IsPk ?? "0";
+            col["is_insert"] = c.IsInsert ?? "1";
+            col["is_edit"] = c.IsEdit ?? "1";
+            col["is_list"] = c.IsList ?? "1";
+            col["is_query"] = c.IsQuery ?? "0";
+            col["max_length"] = c.MaxLength ?? 0;
+            col["comment"] = c.ColumnComment ?? c.PropertyName ?? "";
+            return col;
+        }).ToList();
+        so["vue_table_fields"] = table.Columns.Where(c => c.IsList == "1" && c.Status == "0").OrderBy(c => c.ColumnSort).Select(c =>
+        {
+            var col = new ScriptObject();
+            col["property_name"] = c.PropertyName ?? "";
+            col["comment"] = c.ColumnComment ?? c.PropertyName ?? "";
+            return col;
+        }).ToList();
+        so["vue_form_fields"] = table.Columns.Where(c => c.IsEdit == "1" && c.IsPk == "0" && c.Status == "0").OrderBy(c => c.ColumnSort).Select(c =>
+        {
+            var col = new ScriptObject();
+            col["property_name"] = c.PropertyName ?? "";
+            col["comment"] = c.ColumnComment ?? c.PropertyName ?? "";
+            return col;
+        }).ToList();
+        return so;
     }
 
-    private static string Render(string templateName, TemplateContext ctx)
+    private static string Render(string templateName, ScriptObject model)
     {
         var source = templateName switch
         {
             "Entity" => CodeGenTemplates.Entity,
+            "TreeEntity" => CodeGenTemplates.TreeEntity,
             "Configuration" => CodeGenTemplates.Configuration,
+            "TreeConfiguration" => CodeGenTemplates.TreeConfiguration,
             "RepositoryInterface" => CodeGenTemplates.RepositoryInterface,
             "Repository" => CodeGenTemplates.Repository,
             "Service" => CodeGenTemplates.Service,
+            "TreeService" => CodeGenTemplates.TreeService,
+            "QueryService" => CodeGenTemplates.QueryService,
             "Dto" => CodeGenTemplates.Dto,
+            "TreeDto" => CodeGenTemplates.TreeDto,
             "Controller" => CodeGenTemplates.Controller,
+            "TreeController" => CodeGenTemplates.TreeController,
+            "QueryController" => CodeGenTemplates.QueryController,
             "ModuleInstaller" => CodeGenTemplates.ModuleInstaller,
             "VueList" => CodeGenTemplates.VueList,
+            "VueTree" => CodeGenTemplates.VueTree,
             _ => throw new ArgumentException($"Unknown template: {templateName}")
         };
         var template = Template.Parse(source);
-        return template.Render(ctx);
+        return template.Render(model);
     }
 
     private static string MapToNetType(string sqlType) => sqlType switch
@@ -270,6 +321,4 @@ public class CodeGenService
         var parts = name.Split(['_', ' ', '-'], StringSplitOptions.RemoveEmptyEntries);
         return string.Join("", parts.Select(p => char.ToUpper(p[0]) + p[1..].ToLower()));
     }
-
-    private class TemplateContext : Dictionary<string, object?> { }
 }

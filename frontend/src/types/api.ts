@@ -328,7 +328,7 @@ export interface GuestbookDto {
   reContent?: string; status?: string; createDate?: string
 }
 export interface TagDto {
-  tagName: string; clickNum: number
+  tagName: string; clickNum: number; articleCount?: number
 }
 
 // --- P3-1 国际化 ---

@@ -1,15 +1,16 @@
 using JeeSiteNET.Core;
 using JeeSiteNET.Modules.Sys.Application.DTOs;
 using JeeSiteNET.Modules.Sys.Domain.Entities;
+using JeeSiteNET.Infrastructure.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace JeeSiteNET.Modules.Sys.Application.Services;
 
 public class AreaService
 {
-    private readonly DbContext _db;
+    private readonly JeeSiteDbContext _db;
 
-    public AreaService(DbContext db)
+    public AreaService(JeeSiteDbContext db)
     {
         _db = db;
     }

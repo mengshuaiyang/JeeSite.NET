@@ -29,6 +29,10 @@ public class ArticleRepository : IArticleRepository
         var query = _db.Set<Article>().AsNoTracking()
             .WhereIf(!string.IsNullOrEmpty(request.Entity?.Title), e => e.Title.Contains(request.Entity!.Title!))
             .WhereIf(!string.IsNullOrEmpty(request.Entity?.CategoryCode), e => e.CategoryCode == request.Entity!.CategoryCode)
+            .WhereIf(!string.IsNullOrEmpty(request.Entity?.Tags), e => e.Tags!.Contains(request.Entity!.Tags!))
+            .WhereIf(!string.IsNullOrEmpty(request.Entity?.IsTop), e => e.IsTop == request.Entity!.IsTop)
+            .WhereIf(!string.IsNullOrEmpty(request.Entity?.IsRecommend), e => e.IsRecommend == request.Entity!.IsRecommend)
+            .WhereIf(!string.IsNullOrEmpty(request.Entity?.IsHot), e => e.IsHot == request.Entity!.IsHot)
             .WhereIf(!string.IsNullOrEmpty(request.Entity?.Status), e => e.Status == request.Entity!.Status)
             .OrderByDescending(e => e.IsTop).ThenByDescending(e => e.PublishDate);
         var total = await query.CountAsync();

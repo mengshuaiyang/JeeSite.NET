@@ -30,7 +30,7 @@ public class CurrentUser : ICurrentUser
     public string? OrgCode => GetClaim("OrgCode");
     public string? OrgName => null;
     public bool IsAuthenticated => _httpContextAccessor.HttpContext?.User.Identity?.IsAuthenticated ?? false;
-    public bool IsSuperAdmin => UserCode == "admin";
+    public bool IsSuperAdmin => GetClaim(ClaimTypes.Name) == "admin";
 
     public List<string> RoleCodes
     {

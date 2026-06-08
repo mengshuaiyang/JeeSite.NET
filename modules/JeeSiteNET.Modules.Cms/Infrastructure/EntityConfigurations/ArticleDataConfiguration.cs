@@ -12,7 +12,7 @@ public class ArticleDataConfiguration : IEntityTypeConfiguration<ArticleData>
         builder.ToTable("Cms_Article_Data");
         builder.HasKey(e => e.ArticleCode);
         builder.Property(e => e.ArticleCode).HasMaxLength(100);
-        builder.Property(e => e.Content).HasColumnType("nvarchar(max)");
+        builder.Property(e => e.Content);
         builder.Property(e => e.Relation).HasMaxLength(1000);
         builder.Property(e => e.IsCanComment).HasMaxLength(1);
         builder.ConfigureExtendFields();

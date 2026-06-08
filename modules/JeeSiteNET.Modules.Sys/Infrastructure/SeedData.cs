@@ -186,6 +186,21 @@ public static class SeedData
             };
             db.Set<Menu>().Add(tenantMenu);
 
+            db.Set<UserRole>().Add(new UserRole
+            {
+                UserCode = adminUserCode,
+                RoleCode = adminRole.RoleCode
+            });
+
+            db.Set<RoleMenu>().AddRange(
+                new RoleMenu { RoleCode = adminRole.RoleCode, MenuCode = sysMenu.MenuCode },
+                new RoleMenu { RoleCode = adminRole.RoleCode, MenuCode = userMenu.MenuCode },
+                new RoleMenu { RoleCode = adminRole.RoleCode, MenuCode = roleMenu.MenuCode },
+                new RoleMenu { RoleCode = adminRole.RoleCode, MenuCode = menuMenu.MenuCode },
+                new RoleMenu { RoleCode = adminRole.RoleCode, MenuCode = orgMenu.MenuCode },
+                new RoleMenu { RoleCode = adminRole.RoleCode, MenuCode = tenantMenu.MenuCode }
+            );
+
             await db.SaveChangesAsync();
         }
     }

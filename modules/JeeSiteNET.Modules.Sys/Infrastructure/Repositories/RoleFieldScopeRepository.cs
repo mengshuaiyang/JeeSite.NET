@@ -1,14 +1,15 @@
 using JeeSiteNET.Modules.Sys.Domain.Entities;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
+using JeeSiteNET.Infrastructure.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace JeeSiteNET.Modules.Sys.Infrastructure.Repositories;
 
 public class RoleFieldScopeRepository : IRoleFieldScopeRepository
 {
-    private readonly DbContext _db;
+    private readonly JeeSiteDbContext _db;
 
-    public RoleFieldScopeRepository(DbContext db)
+    public RoleFieldScopeRepository(JeeSiteDbContext db)
     {
         _db = db;
     }

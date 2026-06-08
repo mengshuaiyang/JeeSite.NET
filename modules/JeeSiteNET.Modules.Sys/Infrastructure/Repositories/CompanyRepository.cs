@@ -1,14 +1,15 @@
 using JeeSiteNET.Modules.Sys.Domain.Entities;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
+using JeeSiteNET.Infrastructure.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace JeeSiteNET.Modules.Sys.Infrastructure.Repositories;
 
 public class CompanyRepository : ICompanyRepository
 {
-    private readonly DbContext _db;
+    private readonly JeeSiteDbContext _db;
 
-    public CompanyRepository(DbContext db)
+    public CompanyRepository(JeeSiteDbContext db)
     {
         _db = db;
     }

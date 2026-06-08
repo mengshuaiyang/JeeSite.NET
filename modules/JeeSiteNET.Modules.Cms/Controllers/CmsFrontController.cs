@@ -46,4 +46,8 @@ public class CmsFrontController : ControllerBase
     [HttpPost("article/search")]
     public async Task<ApiResult<PageResult<ArticleDto>>> ArticleSearch([FromBody] PageRequest<Article> request)
         => ApiResult<PageResult<ArticleDto>>.Ok(await _articleService.FindPageAsync(request));
+
+    [HttpGet("tag/cloud")]
+    public async Task<ApiResult<List<TagDto>>> TagCloud()
+        => ApiResult<List<TagDto>>.Ok(await _articleService.GetTagCloudAsync());
 }

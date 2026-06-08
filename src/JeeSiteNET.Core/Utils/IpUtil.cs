@@ -26,13 +26,13 @@ public static class IpUtil
         {
             var bytes = addr.GetAddressBytes();
             if (bytes.Length == 4)
-                return (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
+                return ((long)bytes[0] << 24) | ((long)bytes[1] << 16) | ((long)bytes[2] << 8) | bytes[3];
         }
         return 0;
     }
 
     public static string LongToIp(long ipLong)
     {
-        return new IPAddress((uint)ipLong).ToString();
+        return new IPAddress([(byte)(ipLong >> 24), (byte)(ipLong >> 16), (byte)(ipLong >> 8), (byte)ipLong]).ToString();
     }
 }

@@ -1,13 +1,14 @@
 using JeeSiteNET.Modules.Sys.Domain.Entities;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
+using JeeSiteNET.Infrastructure.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace JeeSiteNET.Modules.Sys.Infrastructure.Repositories;
 
 public class MsgInnerRepository : IMsgInnerRepository
 {
-    private readonly DbContext _db;
-    public MsgInnerRepository(DbContext db) => _db = db;
+    private readonly JeeSiteDbContext _db;
+    public MsgInnerRepository(JeeSiteDbContext db) => _db = db;
 
     public IQueryable<MsgInner> Query() => _db.Set<MsgInner>().AsNoTracking();
 

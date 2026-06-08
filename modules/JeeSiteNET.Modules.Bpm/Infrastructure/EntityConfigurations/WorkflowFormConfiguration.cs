@@ -14,7 +14,7 @@ public class WorkflowFormConfiguration : IEntityTypeConfiguration<WorkflowForm>
         builder.Property(e => e.WorkflowInstanceId).HasMaxLength(100);
         builder.Property(e => e.BusinessKey).HasMaxLength(100);
         builder.Property(e => e.BusinessType).HasMaxLength(50);
-        builder.Property(e => e.FormData).HasColumnType("nvarchar(max)");
+        builder.Property(e => e.FormData);
         builder.Property(e => e.CurrentActivityId).HasMaxLength(100);
         builder.Property(e => e.CurrentAssignee).HasMaxLength(100);
         builder.Property(e => e.FormStatus).HasColumnName("Status").HasMaxLength(20);

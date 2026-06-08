@@ -9,9 +9,9 @@ namespace {{ module_namespace }}.Domain.Entities;
 
 public class {{ class_name }} : {{ base_class }}
 {
-{% for col in columns -%}
-    public {{ col.net_type }}{% if col.is_nullable == ""1"" and col.net_type != ""string"" and col.net_type != ""string?"" %}?{% endif %} {{ col.property_name }} { get; set; }{% if col.net_type == ""string"" %} = string.Empty;{% endif %}
-{% endfor %}
+{{ for col in columns -}}
+    public {{ col.net_type }}{{ if col.is_nullable == ""1"" && col.net_type != ""string"" && col.net_type != ""string?"" }}?{{ end }} {{ col.property_name }} { get; set; }{{ if col.net_type == ""string"" }} = string.Empty;{{ end }}
+{{ end }}
 }";
 
     public const string Configuration = @"using {{ module_namespace }}.Domain.Entities;
@@ -26,11 +26,11 @@ public class {{ class_name }}Configuration : IEntityTypeConfiguration<{{ class_n
     {
         builder.ToTable(""{{ table_name }}"");
         builder.HasKey(e => e.{{ pk_name }});
-{% for col in columns -%}
-{% if col.max_length > 0 %}
+{{ for col in columns -}}
+{{ if col.max_length > 0 }}
         builder.Property(e => e.{{ col.property_name }}).HasMaxLength({{ col.max_length }});
-{% endif -%}
-{% endfor %}
+{{ end -}}
+{{ end }}
         builder.Property(e => e.CreateBy).HasMaxLength(100);
         builder.Property(e => e.UpdateBy).HasMaxLength(100);
         builder.Property(e => e.Remarks).HasMaxLength(500);
@@ -44,9 +44,9 @@ namespace {{ module_namespace }}.Domain.Entities;
 
 public class {{ class_name }} : TreeEntity
 {
-{% for col in columns -%}
-    public {{ col.net_type }}{% if col.is_nullable == ""1"" and col.net_type != ""string"" and col.net_type != ""string?"" %}?{% endif %} {{ col.property_name }} { get; set; }{% if col.net_type == ""string"" %} = string.Empty;{% endif %}
-{% endfor %}
+{{ for col in columns -}}
+    public {{ col.net_type }}{{ if col.is_nullable == ""1"" && col.net_type != ""string"" && col.net_type != ""string?"" }}?{{ end }} {{ col.property_name }} { get; set; }{{ if col.net_type == ""string"" }} = string.Empty;{{ end }}
+{{ end }}
 
     public override string GetName() => {{ tree_name_field }};
 }";
@@ -63,11 +63,11 @@ public class {{ class_name }}Configuration : IEntityTypeConfiguration<{{ class_n
     {
         builder.ToTable(""{{ table_name }}"");
         builder.HasKey(e => e.{{ pk_name }});
-{% for col in columns -%}
-{% if col.max_length > 0 %}
+{{ for col in columns -}}
+{{ if col.max_length > 0 }}
         builder.Property(e => e.{{ col.property_name }}).HasMaxLength({{ col.max_length }});
-{% endif -%}
-{% endfor %}
+{{ end -}}
+{{ end }}
         builder.Property(e => e.ParentCode).HasMaxLength(100);
         builder.Property(e => e.ParentCodes).HasMaxLength(2000);
         builder.Property(e => e.TreeSorts).HasMaxLength(2000);
@@ -143,22 +143,22 @@ public class {{ class_name }}Service
         {
             entity = await _repository.GetAsync(dto.{{ pk_name }}!);
             if (entity == null) return ApiResult.NotFound(""{{ function_name }}不存在"");
-{% for col in columns -%}
-{% if col.is_pk == ""0"" and col.is_edit == ""1"" %}
+{{ for col in columns -}}
+{{ if col.is_pk == ""0"" && col.is_edit == ""1"" }}
             entity.{{ col.property_name }} = dto.{{ col.property_name }};
-{% endif -%}
-{% endfor %}
+{{ end -}}
+{{ end }}
             entity.UpdateDate = now;
             await _repository.UpdateAsync(entity);
         }
         else
         {
             entity = new {{ class_name }} { CreateDate = now, UpdateDate = now };
-{% for col in columns -%}
-{% if col.is_pk == ""0"" and col.is_insert == ""1"" %}
+{{ for col in columns -}}
+{{ if col.is_pk == ""0"" && col.is_insert == ""1"" }}
             entity.{{ col.property_name }} = dto.{{ col.property_name }};
-{% endif -%}
-{% endfor %}
+{{ end -}}
+{{ end }}
             await _repository.AddAsync(entity);
         }
         return ApiResult.Ok(MapToDto(entity));
@@ -174,11 +174,11 @@ public class {{ class_name }}Service
 
     private static {{ class_name }}Dto MapToDto({{ class_name }} e) => new()
     {
-{% for col in columns -%}
-{% if col.is_list == ""1"" %}
+{{ for col in columns -}}
+{{ if col.is_list == ""1"" }}
         {{ col.property_name }} = e.{{ col.property_name }},
-{% endif -%}
-{% endfor %}
+{{ end -}}
+{{ end }}
     };
 }";
 
@@ -215,22 +215,22 @@ public class {{ class_name }}Service
         {
             entity = await _repository.GetAsync(dto.{{ pk_name }}!);
             if (entity == null) return ApiResult.NotFound(""{{ function_name }}不存在"");
-{% for col in columns -%}
-{% if col.is_pk == ""0"" and col.is_edit == ""1"" %}
+{{ for col in columns -}}
+{{ if col.is_pk == ""0"" && col.is_edit == ""1"" }}
             entity.{{ col.property_name }} = dto.{{ col.property_name }};
-{% endif -%}
-{% endfor %}
+{{ end -}}
+{{ end }}
             entity.UpdateDate = now;
             await _repository.UpdateAsync(entity);
         }
         else
         {
             entity = new {{ class_name }} { CreateDate = now, UpdateDate = now };
-{% for col in columns -%}
-{% if col.is_pk == ""0"" and col.is_insert == ""1"" %}
+{{ for col in columns -}}
+{{ if col.is_pk == ""0"" && col.is_insert == ""1"" }}
             entity.{{ col.property_name }} = dto.{{ col.property_name }};
-{% endif -%}
-{% endfor %}
+{{ end -}}
+{{ end }}
             await _repository.AddAsync(entity);
         }
         return ApiResult.Ok(MapToDto(entity));
@@ -246,11 +246,11 @@ public class {{ class_name }}Service
 
     private static {{ class_name }}Dto MapToDto({{ class_name }} e) => new()
     {
-{% for col in columns -%}
-{% if col.is_list == ""1"" %}
+{{ for col in columns -}}
+{{ if col.is_list == ""1"" }}
         {{ col.property_name }} = e.{{ col.property_name }},
-{% endif -%}
-{% endfor %}
+{{ end -}}
+{{ end }}
     };
 }";
 
@@ -258,11 +258,11 @@ public class {{ class_name }}Service
 
 public class {{ class_name }}Dto
 {
-{% for col in columns -%}
-{% if col.is_list == ""1"" %}
-    public {{ col.net_type }}{% if col.is_nullable == ""1"" and col.net_type != ""string"" and col.net_type != ""string?"" %}?{% endif %} {{ col.property_name }} { get; set; }{% if col.net_type == ""string"" %} = string.Empty;{% endif %}
-{% endif -%}
-{% endfor %}
+{{ for col in columns -}}
+{{ if col.is_list == ""1"" }}
+    public {{ col.net_type }}{{ if col.is_nullable == ""1"" && col.net_type != ""string"" && col.net_type != ""string?"" }}?{{ end }} {{ col.property_name }} { get; set; }{{ if col.net_type == ""string"" }} = string.Empty;{{ end }}
+{{ end -}}
+{{ end }}
     public List<{{ class_name }}Dto> Children { get; set; } = [];
 }
 
@@ -271,31 +271,31 @@ public class {{ class_name }}SaveDto
     public string? {{ pk_name }} { get; set; }
     public string? ParentCode { get; set; }
     public decimal? TreeSort { get; set; }
-{% for col in columns -%}
-{% if col.is_pk == ""0"" %}
-    public {{ col.net_type }}{% if col.is_nullable == ""1"" and col.net_type != ""string"" and col.net_type != ""string?"" %}?{% endif %} {{ col.property_name }} { get; set; }{% if col.net_type == ""string"" %} = string.Empty;{% endif %}
-{% endif -%}
-{% endfor %}
+{{ for col in columns -}}
+{{ if col.is_pk == ""0"" }}
+    public {{ col.net_type }}{{ if col.is_nullable == ""1"" && col.net_type != ""string"" && col.net_type != ""string?"" }}?{{ end }} {{ col.property_name }} { get; set; }{{ if col.net_type == ""string"" }} = string.Empty;{{ end }}
+{{ end -}}
+{{ end }}
 }";
 
     public const string Dto = @"namespace {{ module_namespace }}.Application.DTOs;
 
 public class {{ class_name }}Dto
 {
-{% for col in columns -%}
-{% if col.is_list == ""1"" %}
-    public {{ col.net_type }}{% if col.is_nullable == ""1"" and col.net_type != ""string"" and col.net_type != ""string?"" %}?{% endif %} {{ col.property_name }} { get; set; }{% if col.net_type == ""string"" %} = string.Empty;{% endif %}
-{% endif -%}
-{% endfor %}
+{{ for col in columns -}}
+{{ if col.is_list == ""1"" }}
+    public {{ col.net_type }}{{ if col.is_nullable == ""1"" && col.net_type != ""string"" && col.net_type != ""string?"" }}?{{ end }} {{ col.property_name }} { get; set; }{{ if col.net_type == ""string"" }} = string.Empty;{{ end }}
+{{ end -}}
+{{ end }}
 }
 
 public class {{ class_name }}SaveDto
 {
-{% for col in columns -%}
-{% if col.is_pk == ""0"" %}
-    public {{ col.net_type }}{% if col.is_nullable == ""1"" and col.net_type != ""string"" and col.net_type != ""string?"" %}?{% endif %} {{ col.property_name }} { get; set; }{% if col.net_type == ""string"" %} = string.Empty;{% endif %}
-{% endif -%}
-{% endfor %}
+{{ for col in columns -}}
+{{ if col.is_pk == ""0"" }}
+    public {{ col.net_type }}{{ if col.is_nullable == ""1"" && col.net_type != ""string"" && col.net_type != ""string?"" }}?{{ end }} {{ col.property_name }} { get; set; }{{ if col.net_type == ""string"" }} = string.Empty;{{ end }}
+{{ end -}}
+{{ end }}
 }";
 
     public const string Controller = @"using JeeSiteNET.Core;
@@ -406,11 +406,11 @@ public class {{ class_name }}Service
 
     private static {{ class_name }}Dto MapToDto({{ class_name }} e) => new()
     {
-{% for col in columns -%}
-{% if col.is_list == ""1"" %}
+{{ for col in columns -}}
+{{ if col.is_list == ""1"" }}
         {{ col.property_name }} = e.{{ col.property_name }},
-{% endif -%}
-{% endfor %}
+{{ end -}}
+{{ end }}
     };
 }";
 
@@ -493,11 +493,11 @@ public class {{ class_name }}ModuleInstaller : IModuleInstaller
     </a-table>
     <a-modal v-model:open=""modalVisible"" title=""{{ function_name }}"" @ok=""handleOk"" :confirm-loading=""modalLoading"">
       <a-form :model=""formState"" :label-col=""{ span: 6 }"" :wrapper-col=""{ span: 16 }"">
-{% for col in vue_form_fields -%}
+{{ for col in vue_form_fields -}}
         <a-form-item label=""{{ col.comment }}"">
           <a-input v-model:value=""formState.{{ col.property_name }}"" />
         </a-form-item>
-{% endfor -%}
+{{ end -}}
       </a-form>
     </a-modal>
   </a-card>
@@ -517,9 +517,9 @@ const pagination = reactive({ current: 1, pageSize: 20, total: 0 })
 const formState = reactive<Record<string, any>>({})
 
 const columns = [
-{% for col in vue_table_fields -%}
+{{ for col in vue_table_fields -}}
   { title: '{{ col.comment }}', dataIndex: '{{ col.property_name }}', key: '{{ col.property_name }}' },
-{% endfor -%}
+{{ end -}}
   { title: '操作', key: 'action' }
 ]
 
@@ -591,11 +591,11 @@ onMounted(fetchData)
           <a-tree-select v-model:value=""formState.parentCode"" :tree-data=""formatTree(dataList)"" allow-clear
             tree-default-expand-all placeholder=""请选择上级"" />
         </a-form-item>
-{% for col in vue_form_fields -%}
+{{ for col in vue_form_fields -}}
         <a-form-item label=""{{ col.comment }}"">
           <a-input v-model:value=""formState.{{ col.property_name }}"" />
         </a-form-item>
-{% endfor -%}
+{{ end -}}
       </a-form>
     </a-modal>
   </a-card>
@@ -613,9 +613,9 @@ const modalLoading = ref(false)
 const formState = reactive<Record<string, any>>({})
 
 const columns = [
-{% for col in vue_table_fields -%}
+{{ for col in vue_table_fields -}}
   { title: '{{ col.comment }}', dataIndex: '{{ col.property_name }}', key: '{{ col.property_name }}' },
-{% endfor -%}
+{{ end -}}
   { title: '操作', key: 'action' }
 ]
 

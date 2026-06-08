@@ -8,9 +8,17 @@
         <a-col :span="6"><a-form-item label="功能名"><a-input v-model:value="form.functionName" placeholder="如 用户管理" /></a-form-item></a-col>
       </a-row>
       <a-row :gutter="16">
-        <a-col :span="8"><a-form-item label="作者"><a-input v-model:value="form.functionAuthor" /></a-form-item></a-col>
-        <a-col :span="8"><a-form-item label="业务名"><a-input v-model:value="form.businessName" placeholder="如 user" /></a-form-item></a-col>
-        <a-col :span="8"><a-form-item label="备注"><a-input v-model:value="form.tableComment" /></a-form-item></a-col>
+        <a-col :span="6"><a-form-item label="作者"><a-input v-model:value="form.functionAuthor" /></a-form-item></a-col>
+        <a-col :span="6"><a-form-item label="业务名"><a-input v-model:value="form.businessName" placeholder="如 user" /></a-form-item></a-col>
+        <a-col :span="6"><a-form-item label="模板分类">
+          <a-select v-model:value="form.tplCategory">
+            <a-select-option value="crud">单表 (CRUD)</a-select-option>
+            <a-select-option value="tree">树表 (Tree)</a-select-option>
+            <a-select-option value="query">仅查询 (Query)</a-select-option>
+            <a-select-option value="service">仅服务 (Service)</a-select-option>
+          </a-select>
+        </a-form-item></a-col>
+        <a-col :span="6"><a-form-item label="备注"><a-input v-model:value="form.tableComment" /></a-form-item></a-col>
       </a-row>
     </a-form>
 
@@ -59,7 +67,7 @@ const route = useRoute(); const router = useRouter()
 const isNew = computed(() => !route.query.tableName)
 const saving = ref(false); const loaded = ref(false)
 
-const form = reactive({ tableName: '', className: '', moduleCode: '', functionName: '', functionAuthor: '', businessName: '', tableComment: '', columns: [] as any[] })
+const form = reactive({ tableName: '', className: '', moduleCode: '', functionName: '', functionAuthor: '', businessName: '', tplCategory: 'crud', tableComment: '', columns: [] as any[] })
 const colColumns = [
   { title: '列名', dataIndex: 'columnName', width: 100 },
   { title: '属性名', dataIndex: 'propertyName', width: 100 },
@@ -82,6 +90,7 @@ async function load() {
     form.tableName = res.data.tableName; form.className = res.data.className
     form.moduleCode = res.data.moduleCode; form.functionName = res.data.functionName || ''
     form.functionAuthor = res.data.functionAuthor || ''; form.businessName = res.data.businessName || ''
+    form.tplCategory = res.data.tplCategory || 'crud'
     form.tableComment = res.data.tableComment || ''; form.columns = res.data.columns || []
   }
   loaded.value = true
