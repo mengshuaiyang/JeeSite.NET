@@ -11,51 +11,47 @@ using ZiggyCreatures.Caching.Fusion;
 
 namespace JeeSiteNET.Modules.Sys.Application.Services;
 
-public class AuthService
+public class LdapAuthService
 {
     private readonly IUserRepository _userRepository;
     private readonly IUserRoleRepository _userRoleRepository;
     private readonly IMenuRepository _menuRepository;
     private readonly IConfiguration _configuration;
-    private readonly IFusionCache _cache;
 
-    public AuthService(IUserRepository userRepository, IUserRoleRepository userRoleRepository, IMenuRepository menuRepository, IConfiguration configuration, IFusionCache cache)
+    public LdapAuthService(IUserRepository userRepository, IUserRoleRepository userRoleRepository, IMenuRepository menuRepository, IConfiguration configuration)
     {
         _userRepository = userRepository;
         _userRoleRepository = userRoleRepository;
         _menuRepository = menuRepository;
         _configuration = configuration;
-        _cache = cache;
     }
 
-    public async Task<ApiResult<LoginResultDto>> LoginAsync(LoginDto dto)
+    public async Task<ApiResult<LoginResultDto>> LdapLoginAsync(LoginDto dto)
     {
-        if (string.IsNullOrEmpty(dto.LoginCode) || string.IsNullOrEmpty(dto.Password))
-            return ApiResult<LoginResultDto>.Fail(400, "登录名和密码不能为空");
+        var ldapSection = _configuration.GetSection("Ldap");
+        var ldapUrl = ldapSection["Url"] ?? "";
+        var bindDn = ldapSection["BindDn"] ?? "";
+        var bindPassword = ldapSection["BindPassword"] ?? "";
+        var searchBase = ldapSection["SearchBase"] ?? "";
+        var filterTemplate = ldapSection["Filter"] ?? "(uid={0})";
+
+        if (string.IsNullOrEmpty(ldapUrl))
+            return ApiResult<LoginResultDto>.Fail(400, "LDAP 未配置");
+
+        var filter = string.Format(filterTemplate, dto.LoginCode);
+        var authenticated = LdapAuthUtil.Authenticate(ldapUrl, bindDn, bindPassword, searchBase, filter, dto.Password);
+
+        if (!authenticated)
+            return ApiResult<LoginResultDto>.Fail(400, "LDAP 认证失败");
 
         var user = await _userRepository.GetByLoginCodeAsync(dto.LoginCode);
         if (user == null)
-            return ApiResult<LoginResultDto>.Fail(400, "登录名或密码错误");
+            return ApiResult<LoginResultDto>.Fail(400, "本地用户不存在");
 
         if (user.Status == "1")
             return ApiResult<LoginResultDto>.Fail(400, "该账号已被禁用");
 
-        if (!string.IsNullOrEmpty(dto.ValidCodeKey))
-        {
-            var cached = await _cache.GetOrDefaultAsync<string>($"Captcha:{dto.ValidCodeKey}");
-            if (string.IsNullOrEmpty(cached))
-                return ApiResult<LoginResultDto>.Fail(400, "验证码已过期，请刷新后重新输入");
-            if (!string.Equals(cached, dto.ValidCode, StringComparison.OrdinalIgnoreCase))
-                return ApiResult<LoginResultDto>.Fail(400, "验证码错误");
-            await _cache.RemoveAsync($"Captcha:{dto.ValidCodeKey}");
-        }
-
-        var inputPwd = EncryptUtil.Md5(dto.Password);
-        if (user.Password != inputPwd)
-            return ApiResult<LoginResultDto>.Fail(400, "登录名或密码错误");
-
         var token = GenerateToken(user);
-
         List<string> permissions;
         if (user.UserCode == "admin")
             permissions = ["*"];
@@ -81,8 +77,6 @@ public class AuthService
                 OrgCode = user.OrgCode,
                 OrgName = user.OrgName,
                 Status = user.Status,
-                LoginDate = user.LoginDate,
-                CreateDate = user.CreateDate,
                 Permissions = permissions
             }
         });
@@ -107,14 +101,7 @@ public class AuthService
             new Claim("UserType", user.UserType),
         };
 
-        var token = new JwtSecurityToken(
-            issuer: issuer,
-            audience: audience,
-            claims: claims,
-            expires: DateTime.UtcNow.AddHours(expiryHours),
-            signingCredentials: credentials
-        );
-
+        var token = new JwtSecurityToken(issuer, audience, claims, expires: DateTime.UtcNow.AddHours(expiryHours), signingCredentials: credentials);
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }

@@ -9,7 +9,14 @@ declare module 'vue-router' {
 }
 
 const routes: RouteRecordRaw[] = [
-  { path: '/login', name: 'Login', component: () => import('@/views/Login.vue'), meta: { title: '登录' } },
+  { path: '/login', name: 'Login', component: () => import('@/views/Login.vue'), meta: { title: '登录', public: true } },
+
+  // ---- CMS 前端展示 (公开) ----
+  { path: '/cms', name: 'CmsSite', component: () => import('@/views/cms-front/CmsSite.vue'), meta: { title: 'CMS 首页', public: true } },
+  { path: '/cms/category/:categoryCode', name: 'CmsArticleList', component: () => import('@/views/cms-front/CmsArticleList.vue'), meta: { title: '文章列表', public: true } },
+  { path: '/cms/article/:articleCode', name: 'CmsArticleDetail', component: () => import('@/views/cms-front/CmsArticleDetail.vue'), meta: { title: '文章详情', public: true } },
+  { path: '/cms/search', name: 'CmsSearch', component: () => import('@/views/cms-front/CmsSearch.vue'), meta: { title: '搜索', public: true } },
+
   {
     path: '/',
     component: () => import('@/layouts/MainLayout.vue'),
@@ -33,6 +40,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'sys/msg/template', name: 'MsgTemplate', component: () => import('@/views/sys/MsgTemplateList.vue'), meta: { title: '消息模板', permission: 'sys:msg' } },
       { path: 'sys/lang', name: 'Lang', component: () => import('@/views/sys/LangList.vue'), meta: { title: '国际化', permission: 'sys:lang' } },
       { path: 'sys/biz-category', name: 'BizCategory', component: () => import('@/views/sys/BizCategoryTree.vue'), meta: { title: '业务分类', permission: 'sys:biz-category' } },
+      { path: 'sys/cache', name: 'Cache', component: () => import('@/views/sys/CacheList.vue'), meta: { title: '缓存管理', permission: 'sys:cache:view' } },
+      { path: 'sys/online', name: 'OnlineUser', component: () => import('@/views/sys/OnlineUserList.vue'), meta: { title: '在线用户', permission: 'sys:online:view' } },
       { path: 'cms/category', name: 'CmsCategory', component: () => import('@/views/cms/CategoryList.vue'), meta: { title: '栏目管理', permission: 'cms:category' } },
       { path: 'cms/article', name: 'CmsArticle', component: () => import('@/views/cms/ArticleList.vue'), meta: { title: '文章管理', permission: 'cms:article' } },
       { path: 'cms/article/edit', name: 'CmsArticleEdit', component: () => import('@/views/cms/ArticleEdit.vue'), meta: { title: '编辑文章', permission: 'cms:article:edit' } },
@@ -58,7 +67,8 @@ const router = createRouter({ history: createWebHistory(), routes })
 
 router.beforeEach((to) => {
   const token = localStorage.getItem('token')
-  if (to.path !== '/login' && !token) return '/login'
+  if (to.meta.public) return
+  if (!token) return '/login'
 })
 
 export default router

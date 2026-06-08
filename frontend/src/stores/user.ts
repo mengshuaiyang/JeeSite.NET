@@ -8,8 +8,8 @@ export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '')
   const user = ref<UserDto | null>(null)
 
-  async function login(loginCode: string, password: string) {
-    const res = await authApi.login({ loginCode, password })
+  async function login(params: { loginCode: string; password: string; validCode?: string; validCodeKey?: string }) {
+    const res = await authApi.login(params)
     if (res.code === 200 && res.data) {
       token.value = res.data.token
       user.value = res.data.user

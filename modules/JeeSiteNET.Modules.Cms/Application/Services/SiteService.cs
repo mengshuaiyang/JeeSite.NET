@@ -11,6 +11,12 @@ public class SiteService
     private readonly ISiteRepository _siteRepository;
     public SiteService(ISiteRepository siteRepository) => _siteRepository = siteRepository;
 
+    public async Task<List<SiteDto>> GetAllAsync()
+    {
+        var list = await _siteRepository.Query().Where(s => s.Status == "0").ToListAsync();
+        return list.Select(SiteDto.FromEntity).ToList();
+    }
+
     public async Task<SiteDto?> GetAsync(string siteCode)
     {
         var entity = await _siteRepository.GetAsync(siteCode);

@@ -40,6 +40,9 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<MenuService>();
         services.AddScoped<OrganizationService>();
         services.AddScoped<AuthService>();
+        services.AddScoped<CasAuthService>();
+        services.AddScoped<ISmsSender, SmsService>();
+        services.AddScoped<IEmailSender, EmailService>();
         services.AddScoped<DictTypeService>();
         services.AddScoped<DictDataService>();
         services.AddScoped<PostService>();

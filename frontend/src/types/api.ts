@@ -22,12 +22,15 @@ export interface PageResult<T> {
 export interface LoginDto {
   loginCode: string
   password: string
+  validCode?: string
+  validCodeKey?: string
 }
 
 export interface LoginResult {
   token: string
   expires: string
   user: UserDto
+  isValidCodeLogin?: boolean
 }
 
 export interface UserDto {
@@ -452,4 +455,3 @@ export interface ArticleSaveDto {
   tags?: string; isTop?: string; isRecommend?: string
   isHot?: string; publishDate?: string
 }
-
