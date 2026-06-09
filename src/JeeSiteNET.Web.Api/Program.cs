@@ -16,6 +16,7 @@ using JeeSiteNET.Web.Api.Hubs;
 using JeeSiteNET.Web.Api.Services;
 using JeeSiteNET.Web.Api.Swagger;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using ZiggyCreatures.Caching.Fusion;
 using ZiggyCreatures.Caching.Fusion.Serialization.SystemTextJson;
 using Microsoft.Extensions.Caching.Memory;
@@ -67,6 +68,18 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", policy =>
         policy.WithOrigins("http://localhost:5173", "http://localhost:4173", "http://localhost:3000")
             .AllowAnyHeader().AllowAnyMethod().AllowCredentials());
+});
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = 429;
+    options.AddFixedWindowLimiter("Global", config =>
+    {
+        config.PermitLimit = 100;
+        config.Window = TimeSpan.FromMinutes(1);
+        config.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+        config.QueueLimit = 10;
+    });
 });
 
 builder.Services.AddHttpContextAccessor();
@@ -156,6 +169,7 @@ if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Docker"))
 }
 
 app.UseCors("AllowFrontend");
+app.UseRateLimiter();
 app.UseMiddleware<JeeSiteNET.Web.Api.Middleware.SecurityHeadersMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
