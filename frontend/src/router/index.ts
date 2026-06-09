@@ -10,6 +10,8 @@ declare module 'vue-router' {
 
 const routes: RouteRecordRaw[] = [
   { path: '/login', name: 'Login', component: () => import('@/views/Login.vue'), meta: { title: '登录', public: true } },
+  { path: '/register', name: 'Register', component: () => import('@/views/Register.vue'), meta: { title: '注册', public: true } },
+  { path: '/forgot-password', name: 'ForgotPassword', component: () => import('@/views/ForgotPassword.vue'), meta: { title: '找回密码', public: true } },
 
   // ---- CMS 前端展示 (公开) ----
   { path: '/cms', name: 'CmsSite', component: () => import('@/views/cms-front/CmsSite.vue'), meta: { title: 'CMS 首页', public: true } },

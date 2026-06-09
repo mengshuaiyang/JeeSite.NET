@@ -21,6 +21,10 @@
         <a-form-item>
           <a-button type="primary" html-type="submit" block size="large" :loading="loading">登 录</a-button>
         </a-form-item>
+        <div style="display:flex;justify-content:space-between">
+          <a href="/register">注册账号</a>
+          <a href="/forgot-password">忘记密码</a>
+        </div>
       </a-form>
     </a-card>
   </div>
