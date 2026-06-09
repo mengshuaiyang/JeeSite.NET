@@ -1,0 +1,26 @@
+/* Light theme (default) */
+:root {
+  --bg-color: #f0f2f5;
+  --header-bg: #fff;
+  --text-color: rgba(0, 0, 0, 0.85);
+  --card-bg: #fff;
+  --border-color: #f0f0f0;
+}
+
+/* Dark theme */
+[data-theme='dark'] {
+  --bg-color: #141414;
+  --header-bg: #1f1f1f;
+  --text-color: rgba(255, 255, 255, 0.85);
+  --card-bg: #1f1f1f;
+  --border-color: #303030;
+}
+
+[data-theme='dark'] body {
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+
+[data-theme='dark'] .header { background: var(--header-bg) !important; }
+[data-theme='dark'] .ant-layout-content { background: var(--bg-color); }
+[data-theme='dark'] .ant-card { background: var(--card-bg); border-color: var(--border-color); }

@@ -20,8 +20,15 @@ export const useAppStore = defineStore('app', () => {
   const collapsed = ref(false)
   const menus = ref<MenuTreeNode[]>([])
   const permissions = ref<string[]>([])
+  const darkMode = ref(localStorage.getItem('darkMode') === 'true')
 
   function toggleCollapsed() { collapsed.value = !collapsed.value }
+
+  function toggleDarkMode() {
+    darkMode.value = !darkMode.value
+    localStorage.setItem('darkMode', String(darkMode.value))
+    document.documentElement.setAttribute('data-theme', darkMode.value ? 'dark' : 'light')
+  }
 
   async function loadMenus() {
     const res = await menuApi.getUserMenus()
@@ -33,5 +40,5 @@ export const useAppStore = defineStore('app', () => {
   function setPermissions(list: string[]) { permissions.value = list }
   function hasPermission(p: string) { return permissions.value.length === 0 || permissions.value.includes(p) }
 
-  return { collapsed, menus, permissions, toggleCollapsed, loadMenus, setPermissions, hasPermission }
+  return { collapsed, menus, permissions, darkMode, toggleCollapsed, toggleDarkMode, loadMenus, setPermissions, hasPermission }
 })

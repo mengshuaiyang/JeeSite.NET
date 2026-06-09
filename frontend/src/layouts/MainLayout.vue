@@ -23,7 +23,11 @@
         <menu-unfold-outlined v-if="app.collapsed" @click="app.toggleCollapsed" />
         <menu-fold-outlined v-else @click="app.toggleCollapsed" />
         <span style="margin-left: 16px">欢迎, {{ userStore.user?.userName || '用户' }}</span>
-        <a-button type="link" style="float:right" @click="handleLogout">退出</a-button>
+        <div style="flex:1" />
+        <a-tooltip :title="app.darkMode ? '切换亮色' : '切换暗色'">
+          <a-button type="text" @click="app.toggleDarkMode" :icon="app.darkMode ? SunOutlined : MoonOutlined" />
+        </a-tooltip>
+        <a-button type="link" @click="handleLogout">退出</a-button>
       </a-layout-header>
       <a-layout-content class="content">
         <router-view />
@@ -92,7 +96,8 @@ import {
   FallOutlined, RiseOutlined, StockOutlined,
   AreaChartOutlined, BarChartOutlined, LineChartOutlined,
   PieChartFilled, FundOutlined, RadarChartOutlined,
-  HeatMapOutlined, SlidersOutlined, AntDesignOutlined
+  HeatMapOutlined, SlidersOutlined, AntDesignOutlined,
+  SunOutlined, MoonOutlined
 } from '@ant-design/icons-vue'
 
 const iconMap: Record<string, any> = {
@@ -175,6 +180,6 @@ function handleLogout() { userStore.logout(); router.push('/login') }
 
 <style scoped>
 .logo { height: 64px; line-height: 64px; text-align: center; color: #fff; font-size: 18px; font-weight: bold; }
-.header { background: #fff; padding: 0 24px; display: flex; align-items: center; }
+.header { background: #fff; padding: 0 24px; display: flex; align-items: center; gap: 8px; }
 .content { margin: 24px; min-height: 280px; }
 </style>

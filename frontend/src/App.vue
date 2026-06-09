@@ -9,5 +9,6 @@ import { useAppStore } from '@/stores/app'
 const app = useAppStore()
 onMounted(async () => {
   if (localStorage.getItem('token')) await app.loadMenus()
+  if (app.darkMode) document.documentElement.setAttribute('data-theme', 'dark')
 })
 </script>
