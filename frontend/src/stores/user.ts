@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import type { UserDto } from '@/types/api'
 import { authApi } from '@/api/auth'
 import { useAppStore } from './app'
+import { connectSignalR, disconnectSignalR } from '@/utils/signalr'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '')
@@ -17,11 +18,13 @@ export const useUserStore = defineStore('user', () => {
       const app = useAppStore()
       if (res.data.user?.permissions) app.setPermissions(res.data.user.permissions)
       await app.loadMenus()
+      connectSignalR(res.data.token)
     }
     return res
   }
 
   function logout() {
+    disconnectSignalR()
     token.value = ''
     user.value = null
     localStorage.removeItem('token')

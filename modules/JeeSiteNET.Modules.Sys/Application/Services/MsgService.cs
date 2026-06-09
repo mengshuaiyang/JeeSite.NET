@@ -15,19 +15,22 @@ public class MsgService
     private readonly IMsgPushedRepository _msgPushedRepository;
     private readonly IMsgTemplateRepository _msgTemplateRepository;
     private readonly JeeSiteDbContext _db;
+    private readonly INotificationService _notification;
 
     public MsgService(
         IMsgInnerRepository msgInnerRepository,
         IMsgPushRepository msgPushRepository,
         IMsgPushedRepository msgPushedRepository,
         IMsgTemplateRepository msgTemplateRepository,
-        JeeSiteDbContext db)
+        JeeSiteDbContext db,
+        INotificationService notification)
     {
         _msgInnerRepository = msgInnerRepository;
         _msgPushRepository = msgPushRepository;
         _msgPushedRepository = msgPushedRepository;
         _msgTemplateRepository = msgTemplateRepository;
         _db = db;
+        _notification = notification;
     }
 
     public async Task<ApiResult> SendAsync(MsgInnerSaveDto dto)
@@ -62,6 +65,8 @@ public class MsgService
 
         await _msgInnerRepository.AddRecordsAsync(records);
         await _msgInnerRepository.SaveChangesAsync();
+
+        await _notification.SendToUsersAsync(receiveCodes, dto.MsgTitle, dto.MsgContent ?? "", "msg");
 
         return ApiResult.Ok();
     }

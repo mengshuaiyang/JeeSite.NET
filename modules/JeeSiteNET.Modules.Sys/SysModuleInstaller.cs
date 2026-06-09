@@ -1,3 +1,4 @@
+using JeeSiteNET.Core;
 using JeeSiteNET.Core.Modules;
 using JeeSiteNET.Core.Security;
 using JeeSiteNET.Core.Storage;
@@ -79,5 +80,6 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<BizCategoryService>();
         services.AddScoped<MonitorService>();
         services.AddScoped<ChunkUploadService>();
+        services.AddScoped<INotificationService>(_ => new NullNotificationService());
     }
 }

@@ -12,6 +12,8 @@ using JeeSiteNET.Modules.Sys.Infrastructure;
 using JeeSiteNET.Modules.Tasks.Application.Services;
 
 using JeeSiteNET.Web.Api.Filters;
+using JeeSiteNET.Web.Api.Hubs;
+using JeeSiteNET.Web.Api.Services;
 using JeeSiteNET.Web.Api.Swagger;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using ZiggyCreatures.Caching.Fusion;
@@ -69,6 +71,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddSignalR();
 builder.Services.AddScoped<ITenantContext, TenantContext>();
 
 // Register module assemblies for EF Core configuration discovery
@@ -132,6 +135,9 @@ builder.Services.AddFusionCache()
 var moduleLoader = new ModuleLoader();
 moduleLoader.LoadModules(builder.Services, builder.Configuration);
 
+// Override NullNotificationService with SignalR implementation
+builder.Services.AddScoped<JeeSiteNET.Core.INotificationService, NotificationService>();
+
 var app = builder.Build();
 
 // Seed data
@@ -156,6 +162,7 @@ app.UseAuthorization();
 app.UseMiddleware<JeeSiteNET.Web.Api.Middleware.RequestLogMiddleware>();
 app.UseMiddleware<JeeSiteNET.Web.Api.Middleware.TenantResolutionMiddleware>();
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notifications");
 app.Run();
 
 public partial class Program { }
