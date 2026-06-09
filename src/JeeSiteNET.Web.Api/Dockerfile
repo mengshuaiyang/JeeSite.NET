@@ -23,5 +23,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+HEALTHCHECK --interval=30s --timeout=10s --retries=5 --start-period=10s CMD curl -f http://localhost:8080/api/v1/health || exit 1
 COPY --from=build /app .
 ENTRYPOINT ["dotnet", "JeeSiteNET.Web.Api.dll"]
