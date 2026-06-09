@@ -2,6 +2,10 @@
 src/**/*.js
 src/**/*.vue.js
 
+# Playwright compiled JS (use .ts source)
+playwright.config.js
+e2e/*.spec.js
+
 # TypeScript build info
 tsconfig.tsbuildinfo
 
