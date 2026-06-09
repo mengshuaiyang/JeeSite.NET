@@ -1,8 +1,26 @@
+using JeeSiteNET.Core.Security;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using Swashbuckle.AspNetCore.SwaggerUI;
+using System.Reflection;
 
 namespace JeeSiteNET.Web.Api.Swagger;
+
+public class ApiResponseOperationFilter : IOperationFilter
+{
+    public void Apply(OpenApiOperation operation, OperationFilterContext context)
+    {
+        foreach (var attr in context.MethodInfo.GetCustomAttributes())
+        {
+            if (attr is PermissionAttribute perm)
+            {
+                var perms = string.Join(", ", perm.Permissions);
+                operation.Summary ??= $"[{perms}]";
+                operation.Description ??= $"需要权限: {perms}";
+            }
+        }
+    }
+}
 
 public static class SwaggerConfiguration
 {
@@ -51,6 +69,8 @@ public static class SwaggerConfiguration
             var xmlFiles = Directory.GetFiles(AppContext.BaseDirectory, "*.xml");
             foreach (var xmlFile in xmlFiles)
                 options.IncludeXmlComments(xmlFile, includeControllerXmlComments: true);
+
+            options.OperationFilter<ApiResponseOperationFilter>();
         });
         return services;
     }
