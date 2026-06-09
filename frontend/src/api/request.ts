@@ -20,8 +20,8 @@ request.interceptors.response.use(
   }
 )
 
-export async function post<T>(url: string, data?: any): Promise<ApiResult<T>> {
-  const res = await request.post<ApiResult<T>>(url, data)
+export async function post<T>(url: string, data?: any, params?: any): Promise<ApiResult<T>> {
+  const res = await request.post<ApiResult<T>>(url, data, { params })
   return res.data
 }
 

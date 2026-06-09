@@ -1,9 +1,23 @@
-import { request } from '@/utils/request'
+import { get, post } from './request'
+import type { ApiResult } from '@/types/api'
+
+export interface LeaveDto {
+  leaveRequestId: string
+  applicant: string
+  leaveType: string
+  startDate: string
+  endDate: string
+  durationDays: number
+  reason?: string
+  status: string
+  submitDate?: string
+  history?: any[]
+}
 
 export const leaveApi = {
-  myLeaves: (applicant: string) => request.get('/bpm/leave/my-leaves', { params: { applicant } }),
-  pending: (approver: string) => request.get('/bpm/leave/pending', { params: { approver } }),
-  submit: (data: any) => request.post('/bpm/leave/submit', data),
-  approve: (data: any) => request.post('/bpm/leave/approve', data),
-  detail: (leaveRequestId: string) => request.get('/bpm/leave/detail', { params: { leaveRequestId } })
+  myLeaves: (applicant: string) => get<LeaveDto[]>('/bpm/leave/my-leaves', { applicant }),
+  pending: (approver: string) => get<LeaveDto[]>('/bpm/leave/pending', { approver }),
+  submit: (data: any) => post<any>('/bpm/leave/submit', data),
+  approve: (data: any) => post<any>('/bpm/leave/approve', data),
+  detail: (leaveRequestId: string) => get<LeaveDto>('/bpm/leave/detail', { leaveRequestId })
 }

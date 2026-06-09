@@ -25,7 +25,14 @@
         <span style="margin-left: 16px">欢迎, {{ userStore.user?.userName || '用户' }}</span>
         <div style="flex:1" />
         <a-tooltip :title="app.darkMode ? '切换亮色' : '切换暗色'">
-          <a-button type="text" @click="app.toggleDarkMode" :icon="app.darkMode ? SunOutlined : MoonOutlined" />
+          <a-button type="text" @click="app.toggleDarkMode">
+            <template #icon>
+              <svg viewBox="0 0 1024 1024" width="1em" height="1em" fill="currentColor" style="font-size:18px">
+                <path v-if="app.darkMode" d="M512 256c-141.4 0-256 114.6-256 256s114.6 256 256 256 256-114.6 256-256-114.6-256-256-256zm0 448c-105.9 0-192-86.1-192-192s86.1-192 192-192 192 86.1 192 192-86.1 192-192 192zM512 128c17.7 0 32-14.3 32-32V64c0-17.7-14.3-32-32-32s-32 14.3-32 32v32c0 17.7 14.3 32 32 32zm0 768c-17.7 0-32 14.3-32 32v32c0 17.7 14.3 32 32 32s32-14.3 32-32v-32c0-17.7-14.3-32-32-32zM195.2 195.2c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l22.6 22.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L195.2 195.2zm611.2 633.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3l-22.6-22.6c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l22.6 22.6zM128 512c0-17.7-14.3-32-32-32H64c-17.7 0-32 14.3-32 32s14.3 32 32 32h32c17.7 0 32-14.3 32-32zm768 0c0-17.7 14.3-32 32-32h32c17.7 0 32 14.3 32 32s-14.3 32-32 32h-32c-17.7 0-32-14.3-32-32zM195.2 828.8l-22.6 22.6c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l22.6-22.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0zM828.8 195.2l22.6-22.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-22.6 22.6c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0z"/>
+                <path v-else d="M512 64c-17.7 0-32 14.3-32 32v64c0 17.7 14.3 32 32 32s32-14.3 32-32V96c0-17.7-14.3-32-32-32zm0 768c-17.7 0-32 14.3-32 32v64c0 17.7 14.3 32 32 32s32-14.3 32-32v-64c0-17.7-14.3-32-32-32zM195.2 195.2c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l45.3 45.3c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3l-45.3-45.3zm633.6 633.6c12.5-12.5 12.5-32.8 0-45.3l-45.3-45.3c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l45.3 45.3c12.5 12.5 32.8 12.5 45.3 0zM128 512c0-17.7-14.3-32-32-32H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h64c17.7 0 32-14.3 32-32zm768 0c0-17.7-14.3-32-32-32h-64c-17.7 0-32 14.3-32 32s14.3 32 32 32h64c17.7 0 32-14.3 32-32zM512 320c-106 0-192 86-192 192s86 192 192 192 192-86 192-192-86-192-192-192zm0 320c-70.7 0-128-57.3-128-128s57.3-128 128-128 128 57.3 128 128-57.3 128-128 128z"/>
+              </svg>
+            </template>
+          </a-button>
         </a-tooltip>
         <a-button type="link" @click="handleLogout">退出</a-button>
       </a-layout-header>
@@ -96,8 +103,7 @@ import {
   FallOutlined, RiseOutlined, StockOutlined,
   AreaChartOutlined, BarChartOutlined, LineChartOutlined,
   PieChartFilled, FundOutlined, RadarChartOutlined,
-  HeatMapOutlined, SlidersOutlined, AntDesignOutlined,
-  SunOutlined, MoonOutlined
+  HeatMapOutlined, SlidersOutlined, AntDesignOutlined
 } from '@ant-design/icons-vue'
 
 const iconMap: Record<string, any> = {

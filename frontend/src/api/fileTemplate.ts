@@ -1,8 +1,8 @@
-import { request } from '@/utils/request'
+import { get, post } from './request'
 
 export const fileTemplateApi = {
-  list: () => request.get('/cms/file-template/list'),
-  get: (name: string) => request.get('/cms/file-template/get', { params: { name } }),
-  save: (name: string, content: string) => request.post('/cms/file-template/save', { name, content }),
-  delete: (name: string) => request.post('/cms/file-template/delete', { name })
+  list: () => get<any[]>('/cms/file-template/list'),
+  get: (name: string) => get<any>('/cms/file-template/get', { name }),
+  save: (name: string, content: string) => post<any>('/cms/file-template/save', { name, content }),
+  delete: (name: string) => post<any>('/cms/file-template/delete', { name })
 }

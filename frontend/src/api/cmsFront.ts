@@ -8,6 +8,7 @@ export interface SiteDto {
   logo?: string
   keywords?: string
   description?: string
+  copyright?: string
   status?: string
 }
 
