@@ -68,12 +68,14 @@ jeesite.net/
 │   └── JeeSiteNET.Web.Api/       #   Web API 主机
 ├── modules/                      # 业务模块
 │   ├── Sys/                      #   系统管理 (用户/角色/菜单/字典/文件)
-│   ├── Cms/                      #   内容管理 (栏目/文章/评论)
-│   ├── CodeGen/                  #   代码生成 (表导入/Scriban 模板)
-│   ├── Tasks/                    #   定时任务 (Quartz.NET)
-│   ├── Bpm/                      #   工作流 (规划中)
-│   └── App/                      #   移动端 API
-├── frontend/                     # Vue 3 + Ant Design Vue 4
+│   ├── Cms/                      #   内容管理 (站点/栏目/文章/评论/留言)
+│   ├── CodeGen/                  #   代码生成 (表导入/Scriban 模板/预览/下载)
+│   ├── Tasks/                    #   定时任务 (Quartz.NET 调度)
+│   ├── Bpm/                      #   工作流 (请假审批流程 Demo)
+│   └── App/                      #   移动端 API (意见反馈/版本管理)
+├── frontend/                     # Vue 3 + Ant Design Vue 4 + Pinia
+├── load-test/                    # k6 性能压测脚本
+├── tests/                        # 后端单元测试
 └── docs/                         # 项目文档
 ```
 
@@ -83,18 +85,20 @@ jeesite.net/
 # 后端编译
 dotnet build
 
-# 后端测试
+# 后端测试（55+ 用例）
 dotnet test
 
-# 数据库迁移
-dotnet ef migrations add {Name}
-dotnet ef database update
+# 前端测试（6 用例）
+cd frontend && pnpm test
 
 # 前端构建
 cd frontend && pnpm build
 
 # Docker 部署
 docker compose up -d
+
+# 性能压测（需安装 k6）
+k6 run load-test/scenario.js
 ```
 
 ## 了解更多
