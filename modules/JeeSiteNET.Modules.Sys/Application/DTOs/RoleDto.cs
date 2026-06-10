@@ -2,13 +2,21 @@ namespace JeeSiteNET.Modules.Sys.Application.DTOs;
 
 public class RoleDto
 {
+    [Core.Utils.ExcelField("角色编码")]
     public string RoleCode { get; set; } = string.Empty;
+    [Core.Utils.ExcelField("角色名称", ColumnWidth = 25)]
     public string RoleName { get; set; } = string.Empty;
+    [Core.Utils.ExcelField("角色类型")]
     public string? RoleType { get; set; }
+    [Core.Utils.ExcelField("是否系统")]
     public string? IsSys { get; set; }
+    [Core.Utils.ExcelField("用户类型")]
     public string? UserType { get; set; }
+    [Core.Utils.ExcelField("排序")]
     public decimal? Sort { get; set; }
+    [Core.Utils.ExcelField("状态")]
     public string? Status { get; set; }
+    [Core.Utils.ExcelField("创建时间", DataFormat = "yyyy-MM-dd HH:mm:ss", ColumnWidth = 25)]
     public DateTime? CreateDate { get; set; }
 }
 

@@ -3,6 +3,7 @@ using JeeSiteNET.Core.Modules;
 using JeeSiteNET.Core.Search;
 using JeeSiteNET.Core.Security;
 using JeeSiteNET.Core.Storage;
+using JeeSiteNET.Core.Utils;
 using JeeSiteNET.Infrastructure.Storage;
 using JeeSiteNET.Infrastructure.FileStorage;
 using JeeSiteNET.Infrastructure.Search;
@@ -97,6 +98,7 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<IBizCategoryRepository, BizCategoryRepository>();
         services.AddScoped<BizCategoryService>();
         services.AddScoped<MonitorService>();
+        services.AddSingleton<ExcelService>();
         services.AddScoped<DashboardService>();
         services.AddScoped<AuditService>();
         services.AddScoped<PreviewService>();
