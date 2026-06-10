@@ -1,9 +1,11 @@
 using JeeSiteNET.Core;
 using JeeSiteNET.Core.Modules;
+using JeeSiteNET.Core.Search;
 using JeeSiteNET.Core.Security;
 using JeeSiteNET.Core.Storage;
 using JeeSiteNET.Infrastructure.Storage;
 using JeeSiteNET.Infrastructure.FileStorage;
+using JeeSiteNET.Infrastructure.Search;
 using JeeSiteNET.Modules.Sys.Application.Services;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
 using JeeSiteNET.Modules.Sys.Infrastructure;
@@ -94,6 +96,16 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<AuditService>();
         services.AddScoped<PreviewService>();
         services.AddScoped<ChunkUploadService>();
+
+        var esUrl = configuration.GetValue<string>("Elasticsearch:Url");
+        if (!string.IsNullOrEmpty(esUrl))
+        {
+            services.AddSingleton(new Elastic.Clients.Elasticsearch.ElasticsearchClient(
+                new Uri(esUrl)));
+            services.AddSingleton<ISearchService, ElasticsearchService>();
+            services.AddScoped<SearchService>();
+        }
+
         services.AddScoped<INotificationService>(_ => new NullNotificationService());
     }
 
