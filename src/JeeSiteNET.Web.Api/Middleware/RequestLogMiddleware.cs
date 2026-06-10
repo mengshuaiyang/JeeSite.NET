@@ -68,6 +68,7 @@ public class RequestLogMiddleware
                 ExceptionInfo = capturedException?.ToString(),
                 UserCode = currentUser.UserCode,
                 UserName = currentUser.UserName,
+                CreateByName = currentUser.UserName,
                 RemoteIp = context.Connection.RemoteIpAddress?.ToString(),
                 UserAgent = userAgent,
                 ServerAddr = System.Net.Dns.GetHostName(),

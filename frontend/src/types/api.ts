@@ -230,6 +230,7 @@ export interface LogDto {
   executeTime?: number
   userCode?: string
   userName?: string
+  createByName?: string
   orgCode?: string
   remoteIp?: string
   createDate?: string

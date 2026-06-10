@@ -10,6 +10,7 @@ public class LogDto
     public decimal? ExecuteTime { get; set; }
     public string? UserCode { get; set; }
     public string? UserName { get; set; }
+    public string? CreateByName { get; set; }
     public string? OrgCode { get; set; }
     public string? RemoteIp { get; set; }
     public DateTime? CreateDate { get; set; }

@@ -23,6 +23,7 @@ public class LogConfiguration : IEntityTypeConfiguration<Log>
         builder.Property(e => e.BizType).HasMaxLength(100);
         builder.Property(e => e.UserCode).HasMaxLength(100);
         builder.Property(e => e.UserName).HasMaxLength(200);
+        builder.Property(e => e.CreateByName).HasMaxLength(200);
         builder.Property(e => e.OrgCode).HasMaxLength(100);
         builder.Property(e => e.RemoteIp).HasMaxLength(100);
         builder.Property(e => e.ServerAddr).HasMaxLength(100);

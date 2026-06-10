@@ -40,6 +40,7 @@ public class LogService
         LogId = e.LogId, LogType = e.LogType, LogTitle = e.LogTitle,
         RequestUri = e.RequestUri, RequestMethod = e.RequestMethod,
         ExecuteTime = e.ExecuteTime, UserCode = e.UserCode, UserName = e.UserName,
+        CreateByName = e.CreateByName,
         OrgCode = e.OrgCode, RemoteIp = e.RemoteIp, CreateDate = e.CreateDate
     };
 }

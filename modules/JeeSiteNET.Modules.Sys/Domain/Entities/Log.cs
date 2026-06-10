@@ -16,6 +16,7 @@ public class Log : BaseEntity, ICorpEntity
     public decimal? ExecuteTime { get; set; }
     public string? UserCode { get; set; }
     public string? UserName { get; set; }
+    public string? CreateByName { get; set; }
     public string? OrgCode { get; set; }
     public string? RemoteIp { get; set; }
     public string? ServerAddr { get; set; }
