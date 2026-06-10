@@ -26,5 +26,6 @@ public class CmsModuleInstaller : IModuleInstaller
         services.AddScoped<CategoryService>();
         services.AddScoped<ArticleService>();
         services.AddScoped<CmsService>();
+        services.AddScoped<AiChatService>();
     }
 }

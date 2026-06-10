@@ -12,6 +12,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/login', name: 'Login', component: () => import('@/views/Login.vue'), meta: { title: '登录', public: true } },
   { path: '/register', name: 'Register', component: () => import('@/views/Register.vue'), meta: { title: '注册', public: true } },
   { path: '/forgot-password', name: 'ForgotPassword', component: () => import('@/views/ForgotPassword.vue'), meta: { title: '找回密码', public: true } },
+  { path: '/oauth2/callback', name: 'OAuth2Callback', component: () => import('@/views/OAuth2Callback.vue'), meta: { title: '第三方登录', public: true } },
 
   // ---- CMS 前端展示 (公开) ----
   { path: '/cms', name: 'CmsSite', component: () => import('@/views/cms-front/CmsSite.vue'), meta: { title: 'CMS 首页', public: true } },
@@ -51,6 +52,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'codegen/table', name: 'Codegen', component: () => import('@/views/codegen/GenTableList.vue'), meta: { title: '代码生成', permission: 'codegen:table:list' } },
       { path: 'codegen/table/edit', name: 'CodegenEdit', component: () => import('@/views/codegen/GenTableEdit.vue'), meta: { title: '编辑表配置', permission: 'codegen:table:edit' } },
       { path: 'tasks/job', name: 'Job', component: () => import('@/views/tasks/JobList.vue'), meta: { title: '任务调度', permission: 'tasks:job:list' } },
+      { path: 'cms/ai-chat', name: 'AiChat', component: () => import('@/views/AiChat.vue'), meta: { title: 'AI 助手', permission: 'cms:article' } },
       { path: 'cms/comment', name: 'CmsComment', component: () => import('@/views/cms/CommentList.vue'), meta: { title: '评论管理', permission: 'cms:comment' } },
       { path: 'cms/guestbook', name: 'CmsGuestbook', component: () => import('@/views/cms/GuestbookList.vue'), meta: { title: '留言管理', permission: 'cms:guestbook' } },
       { path: 'app/comment', name: 'AppComment', component: () => import('@/views/app/AppCommentList.vue'), meta: { title: '意见反馈', permission: 'app:comment' } },

@@ -7,6 +7,7 @@ using JeeSiteNET.Infrastructure.Storage;
 using JeeSiteNET.Infrastructure.FileStorage;
 using JeeSiteNET.Infrastructure.Search;
 using JeeSiteNET.Modules.Sys.Application.Services;
+using JeeSiteNET.Modules.Sys.Application.Services.OAuth2;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
 using JeeSiteNET.Modules.Sys.Infrastructure;
 using JeeSiteNET.Modules.Sys.Infrastructure.Repositories;
@@ -48,6 +49,10 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<OrganizationService>();
         services.AddScoped<AuthService>();
         services.AddScoped<CasAuthService>();
+        services.AddScoped<OAuth2Service>();
+        services.AddSingleton<IOAuth2Provider, GitHubOAuth2Provider>();
+        services.AddSingleton<IOAuth2Provider, WeChatOAuth2Provider>();
+        services.AddSingleton<IOAuth2Provider, DingTalkOAuth2Provider>();
         services.AddScoped<ISmsSender, SmsService>();
         services.AddScoped<IEmailSender, EmailService>();
         services.AddScoped<DictTypeService>();

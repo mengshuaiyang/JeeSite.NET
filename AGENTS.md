@@ -9,7 +9,8 @@
 - 技术栈: .NET 10, ASP.NET Core, EF Core, Vue 3, Ant Design Vue
 - 包管理: NuGet + npm/pnpm
 - 缓存: FusionCache 2.6 (L1 Memory + L2 Redis)
-- 部署: Docker Compose (SQL Server + Redis + WebApi + Vue/nginx)
+- 数据库支持: SqlServer, Sqlite, PostgreSQL/GaussDB, 达梦 DM8, 人大金仓 KingbaseES
+- 部署: Docker Compose (SQL Server + Redis + MinIO + Elasticsearch + WebApi + Vue/nginx + Loki + Grafana)
 
 ## 编码规范
 
@@ -48,7 +49,13 @@ JeeSiteNET.Modules.{Name}/
 - `dotnet build` — 编译
 - `dotnet test` — 运行测试
 - `dotnet ef migrations add {Name}` — 添加迁移
+- `dotnet ef migrations add {Name} -- "{ConnStr}"` — 指定连接字符串 (默认 SqlServer)
+- `dotnet ef migrations add {Name} -- "{ConnStr}" "PostgreSQL"` — 指定 provider (PostgreSQL/Dm/KingbaseES)
 - `dotnet ef database update` — 更新数据库
 - `docker compose up -d` — 启动全部 Docker 容器
 - `docker compose down` — 停止全部 Docker 容器
 - `docker compose build webapi` — 单独构建 WebApi 镜像
+- `docker compose up -d minio elasticsearch` — 启动存储和搜索服务
+- `docker compose run --rm minio-setup` — 手动创建 MinIO bucket (自动部署时自动执行)
+- `curl http://localhost:9200/_cluster/health` — 验证 ES 集群状态
+- `curl http://localhost:9000/minio/health/live` — 验证 MinIO 健康状态

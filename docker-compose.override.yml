@@ -1,4 +1,13 @@
 services:
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  elasticsearch:
+    ports:
+      - "9200:9200"
+
   webapi:
     environment:
       ASPNETCORE_ENVIRONMENT: Development

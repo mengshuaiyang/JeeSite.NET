@@ -25,6 +25,24 @@
           <a href="/register">注册账号</a>
           <a href="/forgot-password">忘记密码</a>
         </div>
+        <a-divider style="margin:12px 0;font-size:12px;color:#999">第三方登录</a-divider>
+        <div style="display:flex;gap:12px;justify-content:center">
+          <a-tooltip title="GitHub">
+            <a-button shape="circle" size="large" @click="oauthLogin('github')">
+              <template #icon><github-outlined /></template>
+            </a-button>
+          </a-tooltip>
+          <a-tooltip title="微信">
+            <a-button shape="circle" size="large" @click="oauthLogin('wechat')">
+              <template #icon><wechat-outlined /></template>
+            </a-button>
+          </a-tooltip>
+          <a-tooltip title="钉钉">
+            <a-button shape="circle" size="large" @click="oauthLogin('dingtalk')">
+              <template #icon><dingtalk-outlined /></template>
+            </a-button>
+          </a-tooltip>
+        </div>
       </a-form>
     </a-card>
   </div>
@@ -35,8 +53,9 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { message } from 'ant-design-vue'
-import { UserOutlined, LockOutlined, SafetyOutlined } from '@ant-design/icons-vue'
+import { UserOutlined, LockOutlined, SafetyOutlined, GithubOutlined, WechatOutlined, DingtalkOutlined } from '@ant-design/icons-vue'
 import { authApi } from '@/api/auth'
+import { oauth2Api } from '@/api/oauth2'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -51,6 +70,10 @@ function refreshCaptcha() {
 }
 
 const form = reactive({ loginCode: 'admin', password: 'admin', validCode: '' })
+
+function oauthLogin(provider: string) {
+  window.location.href = oauth2Api.getLoginUrl(provider)
+}
 
 async function handleLogin() {
   loading.value = true

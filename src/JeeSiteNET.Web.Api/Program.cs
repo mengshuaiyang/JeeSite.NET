@@ -103,23 +103,21 @@ builder.Services.AddScoped<IDbConnectionStringResolver, DbConnectionStringResolv
 
 builder.Services.AddDbContext<JeeSiteDbContext>((sp, options) =>
 {
-    var dbProvider = builder.Configuration.GetValue<string>("DatabaseProvider") ?? "SqlServer";
+    var dbProvider = DatabaseProviderFactory.Parse(
+        builder.Configuration.GetValue<string>("DatabaseProvider"));
+    var resolver = sp.GetRequiredService<IDbConnectionStringResolver>();
+    var connStr = resolver.GetConnectionString(DbOperation.Write);
 
-    if (dbProvider == "Sqlite")
+    if (dbProvider == DatabaseProviderType.Sqlite)
     {
         var dbPath = builder.Configuration.GetValue<string>("SqliteDbPath")
             ?? Path.Combine(AppContext.BaseDirectory, "JeeSiteNET.db");
-        options.UseSqlite($"DataSource={dbPath}", sql => { });
+        options.UseSqlite($"DataSource={dbPath}");
     }
     else
     {
-        var resolver = sp.GetRequiredService<IDbConnectionStringResolver>();
-        var connStr = resolver.GetConnectionString(DbOperation.Write);
-        options.UseSqlServer(connStr, sql =>
-        {
-            sql.MigrationsAssembly(typeof(JeeSiteDbContext).Assembly.FullName)
-               .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
-        });
+        options.UseProvider(dbProvider, connStr,
+            typeof(JeeSiteDbContext).Assembly.FullName);
     }
 
     options.AddInterceptors(

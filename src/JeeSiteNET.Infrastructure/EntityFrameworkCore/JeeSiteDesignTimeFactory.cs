@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -11,11 +12,30 @@ public class JeeSiteDesignTimeFactory : IDesignTimeDbContextFactory<JeeSiteDbCon
             ? args[0]
             : "Server=localhost;Database=JeeSiteNET;Trusted_Connection=true;TrustServerCertificate=true";
 
-        var options = new DbContextOptionsBuilder<JeeSiteDbContext>();
-        options.UseSqlServer(connStr, sql =>
-            sql.MigrationsAssembly(typeof(JeeSiteDbContext).Assembly.FullName)
-               .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery));
+        var providerType = args.Length > 1
+            ? DatabaseProviderFactory.Parse(args[1])
+            : DatabaseProviderType.SqlServer;
 
-        return new JeeSiteDbContext(options.Options, []);
+        var options = new DbContextOptionsBuilder<JeeSiteDbContext>();
+        if (providerType == DatabaseProviderType.Sqlite)
+        {
+            options.UseSqlite(connStr);
+        }
+        else
+        {
+            options.UseProvider(providerType, connStr,
+                typeof(JeeSiteDbContext).Assembly.FullName);
+        }
+
+        Assembly[] assemblies =
+        [
+            Assembly.Load("JeeSiteNET.Modules.Sys"),
+            Assembly.Load("JeeSiteNET.Modules.Tasks"),
+            Assembly.Load("JeeSiteNET.Modules.Cms"),
+            Assembly.Load("JeeSiteNET.Modules.Bpm"),
+            Assembly.Load("JeeSiteNET.Modules.CodeGen"),
+        ];
+
+        return new JeeSiteDbContext(options.Options, assemblies);
     }
 }
