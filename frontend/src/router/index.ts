@@ -41,6 +41,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'sys/msg/inbox', name: 'MsgInbox', component: () => import('@/views/sys/MsgInbox.vue'), meta: { title: '收件箱', permission: 'sys:msg' } },
       { path: 'sys/msg/sent', name: 'MsgSent', component: () => import('@/views/sys/MsgSent.vue'), meta: { title: '发件箱', permission: 'sys:msg' } },
       { path: 'sys/msg/template', name: 'MsgTemplate', component: () => import('@/views/sys/MsgTemplateList.vue'), meta: { title: '消息模板', permission: 'sys:msg' } },
+      { path: 'sys/msg/push', name: 'MsgPush', component: () => import('@/views/sys/MsgPushList.vue'), meta: { title: '推送记录', permission: 'sys:msg:push:list' } },
       { path: 'sys/lang', name: 'Lang', component: () => import('@/views/sys/LangList.vue'), meta: { title: '国际化', permission: 'sys:lang' } },
       { path: 'sys/biz-category', name: 'BizCategory', component: () => import('@/views/sys/BizCategoryTree.vue'), meta: { title: '业务分类', permission: 'sys:biz-category' } },
       { path: 'sys/cache', name: 'Cache', component: () => import('@/views/sys/CacheList.vue'), meta: { title: '缓存管理', permission: 'sys:cache:view' } },

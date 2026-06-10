@@ -67,6 +67,20 @@ public class MsgTemplateDto
     public string? Status { get; set; }
 }
 
+public class MsgPushSaveDto
+{
+    public string? Id { get; set; }
+    public string MsgType { get; set; } = "pc";
+    public string MsgTitle { get; set; } = string.Empty;
+    public string MsgContent { get; set; } = string.Empty;
+    public string? BizKey { get; set; }
+    public string? BizType { get; set; }
+    public string? ReceiveCode { get; set; }
+    public string? ReceiveUserCode { get; set; }
+    public string? ReceiveUserName { get; set; }
+    public DateTime? PlanPushDate { get; set; }
+}
+
 public class MsgTemplateSaveDto
 {
     public string? Id { get; set; }

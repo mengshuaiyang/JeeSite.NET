@@ -143,6 +143,73 @@ public class MsgService
         return ApiResult.Ok();
     }
 
+    public async Task<PageResult<MsgPushDto>> GetPushListAsync(PageRequest request)
+    {
+        var query = _msgPushRepository.Query()
+            .OrderByDescending(p => p.CreateDate);
+        var total = await query.CountAsync();
+        var list = await query.Skip((request.PageNo - 1) * request.PageSize).Take(request.PageSize).ToListAsync();
+        return new PageResult<MsgPushDto>
+        {
+            List = list.Select(p => new MsgPushDto
+            {
+                Id = p.Id,
+                MsgType = p.MsgType,
+                MsgTitle = p.MsgTitle,
+                MsgContent = p.MsgContent,
+                BizKey = p.BizKey,
+                BizType = p.BizType,
+                ReceiveUserCode = p.ReceiveUserCode,
+                ReceiveUserName = p.ReceiveUserName,
+                SendUserCode = p.SendUserCode,
+                SendUserName = p.SendUserName,
+                SendDate = p.SendDate,
+                PushStatus = p.PushStatus,
+                ReadStatus = p.ReadStatus,
+            }).ToList(),
+            Total = total,
+            PageNo = request.PageNo,
+            PageSize = request.PageSize
+        };
+    }
+
+    public async Task<ApiResult> SendPushAsync(MsgPushSaveDto dto)
+    {
+        var now = DateTime.Now;
+        var entity = new MsgPush
+        {
+            Id = IdGenerator.NewId(),
+            MsgType = dto.MsgType,
+            MsgTitle = dto.MsgTitle,
+            MsgContent = dto.MsgContent,
+            BizKey = dto.BizKey,
+            BizType = dto.BizType,
+            ReceiveCode = dto.ReceiveCode ?? "",
+            ReceiveUserCode = dto.ReceiveUserCode ?? "",
+            ReceiveUserName = dto.ReceiveUserName ?? "",
+            SendDate = now,
+            PlanPushDate = dto.PlanPushDate ?? now,
+            PushStatus = "pending",
+            ReadStatus = "0"
+        };
+        await _msgPushRepository.AddAsync(entity);
+        await _msgPushRepository.SaveChangesAsync();
+        return ApiResult.Ok(new { entity.Id });
+    }
+
+    public async Task<ApiResult> RetryPushAsync(string id)
+    {
+        var entity = await _msgPushRepository.GetAsync(id);
+        if (entity == null) return ApiResult.NotFound("推送记录不存在");
+
+        entity.PushStatus = "pending";
+        entity.PushNumber = (entity.PushNumber ?? 0) + 1;
+        entity.PushDate = DateTime.Now;
+        await _msgPushRepository.UpdateAsync(entity);
+        await _msgPushRepository.SaveChangesAsync();
+        return ApiResult.Ok();
+    }
+
     public async Task<ApiResult> SaveTemplateAsync(MsgTemplateSaveDto dto)
     {
         var now = DateTime.Now;
