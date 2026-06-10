@@ -3,6 +3,7 @@ using JeeSiteNET.Core.Modules;
 using JeeSiteNET.Core.Security;
 using JeeSiteNET.Core.Storage;
 using JeeSiteNET.Infrastructure.Storage;
+using JeeSiteNET.Infrastructure.FileStorage;
 using JeeSiteNET.Modules.Sys.Application.Services;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
 using JeeSiteNET.Modules.Sys.Infrastructure;
@@ -10,6 +11,7 @@ using JeeSiteNET.Modules.Sys.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace JeeSiteNET.Modules.Sys;
 
@@ -30,6 +32,8 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<IModuleRepository, ModuleRepository>();
         services.AddScoped<ILogRepository, LogRepository>();
         services.AddScoped<IRoleMenuRepository, RoleMenuRepository>();
+        services.AddScoped<IAuditRepository, AuditRepository>();
+        services.AddScoped<IEmpUserRepository, EmpUserRepository>();
         services.AddScoped<IRoleDataScopeRepository, RoleDataScopeRepository>();
         services.AddScoped<IUserDataScopeRepository, UserDataScopeRepository>();
         services.AddScoped<IRoleFieldScopeRepository, RoleFieldScopeRepository>();
@@ -60,10 +64,17 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<FileService>();
         services.AddSingleton<IFileStorageProvider>(sp =>
         {
-            var env = sp.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
-            var basePath = Path.Combine(env.ContentRootPath, "uploads");
-            var baseUrl = "/uploads";
-            return new LocalFileStorageProvider(basePath, baseUrl);
+            var config = sp.GetRequiredService<IConfiguration>();
+            var options = config.GetSection("Storage").Get<StorageOptions>() ?? new StorageOptions();
+
+            return options.Provider.ToLowerInvariant() switch
+            {
+                "s3" or "minio" => new S3StorageProvider(options.S3 ?? new S3Options(),
+                    sp.GetRequiredService<ILogger<S3StorageProvider>>()),
+                "aliyun" or "oss" => new AliyunOssStorageProvider(options.Aliyun ?? new AliyunOssOptions(),
+                    sp.GetRequiredService<ILogger<AliyunOssStorageProvider>>()),
+                _ => CreateLocalProvider(sp),
+            };
         });
         services.AddScoped<IMsgInnerRepository, MsgInnerRepository>();
         services.AddScoped<IMsgPushRepository, MsgPushRepository>();
@@ -80,7 +91,17 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<BizCategoryService>();
         services.AddScoped<MonitorService>();
         services.AddScoped<DashboardService>();
+        services.AddScoped<AuditService>();
+        services.AddScoped<PreviewService>();
         services.AddScoped<ChunkUploadService>();
         services.AddScoped<INotificationService>(_ => new NullNotificationService());
+    }
+
+    private static IFileStorageProvider CreateLocalProvider(IServiceProvider sp)
+    {
+        var env = sp.GetRequiredService<IWebHostEnvironment>();
+        return new LocalFileStorageProvider(
+            Path.Combine(env.ContentRootPath, "uploads"),
+            "/uploads");
     }
 }

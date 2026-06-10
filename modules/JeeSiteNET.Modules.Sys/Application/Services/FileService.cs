@@ -164,6 +164,11 @@ public class FileService
         return ApiResult.Ok();
     }
 
+    public async Task<Stream?> GetByPathAsync(string path)
+    {
+        return await _storage.GetAsync(path);
+    }
+
     private static string ComputeMd5(byte[] bytes)
     {
         var hash = MD5.HashData(bytes);

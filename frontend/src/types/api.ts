@@ -472,3 +472,9 @@ export interface ArticleSaveDto {
   tags?: string; isTop?: string; isRecommend?: string
   isHot?: string; publishDate?: string
 }
+
+export interface EmpUser {
+  empCode: string; userCode: string
+  empName?: string; loginCode?: string; userName?: string
+  createBy?: string; createDate?: string
+}

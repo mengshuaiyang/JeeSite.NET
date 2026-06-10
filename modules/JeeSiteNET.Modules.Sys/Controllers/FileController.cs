@@ -83,4 +83,12 @@ public class FileController : ControllerBase
     {
         return await _chunkUploadService.MergeAsync(uploadId, bizType, bizKey);
     }
+
+    [HttpGet("download/by-path")]
+    public async Task<IActionResult> DownloadByPath([FromQuery] string path)
+    {
+        var stream = await _fileService.GetByPathAsync(path);
+        if (stream == null) return NotFound();
+        return File(stream, "application/octet-stream");
+    }
 }
