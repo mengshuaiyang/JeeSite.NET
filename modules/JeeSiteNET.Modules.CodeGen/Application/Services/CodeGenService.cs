@@ -2,9 +2,7 @@
 using JeeSiteNET.Modules.CodeGen.Application.DTOs;
 using JeeSiteNET.Modules.CodeGen.Domain.Entities;
 using JeeSiteNET.Modules.CodeGen.Domain.Interfaces;
-using JeeSiteNET.Infrastructure.EntityFrameworkCore;
-using Microsoft.Data.SqlClient;
-using Microsoft.EntityFrameworkCore;
+using JeeSiteNET.Modules.CodeGen.Infrastructure.Introspection;
 using Scriban;
 using Scriban.Runtime;
 
@@ -12,74 +10,20 @@ namespace JeeSiteNET.Modules.CodeGen.Application.Services;
 
 public class CodeGenService
 {
-    private readonly JeeSiteDbContext _db;
+    private readonly IDbIntrospectionProvider _introspection;
     private readonly IGenTableRepository _genTableRepository;
     private readonly IGenTableColumnRepository _genTableColumnRepository;
 
-    public CodeGenService(JeeSiteDbContext db, IGenTableRepository genTableRepository, IGenTableColumnRepository genTableColumnRepository)
+    public CodeGenService(IDbIntrospectionProvider introspection, IGenTableRepository genTableRepository, IGenTableColumnRepository genTableColumnRepository)
     {
-        _db = db;
+        _introspection = introspection;
         _genTableRepository = genTableRepository;
         _genTableColumnRepository = genTableColumnRepository;
     }
 
-    public async Task<List<DbTableInfo>> FindDbTablesAsync()
-    {
-        var tables = new List<DbTableInfo>();
-        using var conn = new SqlConnection(_db.Database.GetConnectionString());
-        await conn.OpenAsync();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
-            SELECT t.TABLE_NAME, ISNULL(p.value, '') AS TABLE_COMMENT
-            FROM INFORMATION_SCHEMA.TABLES t
-            LEFT JOIN sys.tables st ON st.name = t.TABLE_NAME
-            LEFT JOIN sys.extended_properties p ON p.major_id = st.object_id AND p.minor_id = 0 AND p.name = 'MS_Description'
-            WHERE t.TABLE_TYPE = 'BASE TABLE' AND t.TABLE_SCHEMA = 'dbo'
-            ORDER BY t.TABLE_NAME";
-        using var reader = await cmd.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-        {
-            tables.Add(new DbTableInfo
-            {
-                TableName = reader.GetString(0),
-                TableComment = reader.IsDBNull(1) ? null : reader.GetString(1)
-            });
-        }
-        return tables;
-    }
+    public Task<List<DbTableInfo>> FindDbTablesAsync() => _introspection.FindDbTablesAsync();
 
-    public async Task<List<ColumnInfo>> FindDbColumnsAsync(string tableName)
-    {
-        var columns = new List<ColumnInfo>();
-        using var conn = new SqlConnection(_db.Database.GetConnectionString());
-        await conn.OpenAsync();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
-            SELECT c.COLUMN_NAME, ISNULL(p.value, '') AS COLUMN_COMMENT,
-                   c.DATA_TYPE, c.IS_NULLABLE, c.CHARACTER_MAXIMUM_LENGTH,
-                   c.COLUMN_DEFAULT
-            FROM INFORMATION_SCHEMA.COLUMNS c
-            LEFT JOIN sys.columns sc ON sc.name = c.COLUMN_NAME AND OBJECT_ID('[' + c.TABLE_NAME + ']') = sc.object_id
-            LEFT JOIN sys.extended_properties p ON p.major_id = sc.object_id AND p.minor_id = sc.column_id AND p.name = 'MS_Description'
-            WHERE c.TABLE_NAME = @tableName AND c.TABLE_SCHEMA = 'dbo'
-            ORDER BY c.ORDINAL_POSITION";
-        cmd.Parameters.AddWithValue("@tableName", tableName);
-        using var reader = await cmd.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-        {
-            var dataType = reader.GetString(2).ToLower();
-            columns.Add(new ColumnInfo
-            {
-                ColumnName = reader.GetString(0),
-                ColumnComment = reader.IsDBNull(1) ? null : reader.GetString(1),
-                ColumnType = dataType,
-                NetType = MapToNetType(dataType),
-                IsNullable = reader.GetString(3) == "YES" ? "1" : "0",
-                MaxLength = reader.IsDBNull(4) ? null : (int?)reader.GetInt32(4)
-            });
-        }
-        return columns;
-    }
+    public Task<List<ColumnInfo>> FindDbColumnsAsync(string tableName) => _introspection.FindDbColumnsAsync(tableName);
 
     public async Task<ApiResult> ImportTablesAsync(ImportTableRequest request)
     {
@@ -89,8 +33,8 @@ public class CodeGenService
             if (await _genTableRepository.GetAsync(tableName) != null)
                 continue;
 
-            var columns = await FindDbColumnsAsync(tableName);
-            var dbTable = (await FindDbTablesAsync()).FirstOrDefault(t => t.TableName == tableName);
+            var columns = await _introspection.FindDbColumnsAsync(tableName);
+            var dbTable = (await _introspection.FindDbTablesAsync()).FirstOrDefault(t => t.TableName == tableName);
             var className = ToPascalCase(tableName);
             var moduleCode = className.Split('_').FirstOrDefault() ?? "Sys";
             var businessName = string.Join("_", className.Split('_').Skip(1)).ToLower();
@@ -160,43 +104,74 @@ public class CodeGenService
         var ctx = BuildTemplateContext(table, cfg);
         var tpl = cfg.TplCategory;
 
-        // Entity + Configuration (common to all categories)
         result.Add(new() { FileName = $"Domain/Entities/{cfg.ClassName}.cs", Content = Render(tpl == "tree" ? "TreeEntity" : "Entity", ctx) });
         result.Add(new() { FileName = $"Infrastructure/EntityConfigurations/{cfg.ClassName}Configuration.cs", Content = Render(tpl == "tree" ? "TreeConfiguration" : "Configuration", ctx) });
 
-        // Dto
         if (tpl == "tree")
             result.Add(new() { FileName = $"Application/DTOs/{cfg.ClassName}Dto.cs", Content = Render("TreeDto", ctx) });
         else
             result.Add(new() { FileName = $"Application/DTOs/{cfg.ClassName}Dto.cs", Content = Render("Dto", ctx) });
 
-        // Repository (common to all)
         result.Add(new() { FileName = $"Domain/Interfaces/I{cfg.ClassName}Repository.cs", Content = Render("RepositoryInterface", ctx) });
         result.Add(new() { FileName = $"Infrastructure/Repositories/{cfg.ClassName}Repository.cs", Content = Render("Repository", ctx) });
 
-        // Service
         string serviceTpl = tpl switch { "tree" => "TreeService", "query" => "QueryService", _ => "Service" };
         if (tpl != "query")
             result.Add(new() { FileName = $"Application/Services/{cfg.ClassName}Service.cs", Content = Render(serviceTpl, ctx) });
 
-        // Controller
         if (tpl != "service")
         {
             string ctrlTpl = tpl switch { "tree" => "TreeController", "query" => "QueryController", _ => "Controller" };
             result.Add(new() { FileName = $"Controllers/{cfg.ClassName}Controller.cs", Content = Render(ctrlTpl, ctx) });
         }
 
-        // Vue
         if (tpl != "query" && tpl != "service")
         {
             string vueTpl = tpl == "tree" ? "VueTree" : "VueList";
             result.Add(new() { FileName = $"frontend/src/views/{table.ModuleCode.ToLower()}/{table.BusinessName}/index.vue", Content = Render(vueTpl, ctx) });
         }
 
-        // ModuleInstaller (common to all)
         result.Add(new() { FileName = $"{cfg.ClassName}ModuleInstaller.cs", Content = Render("ModuleInstaller", ctx) });
 
         return result;
+    }
+
+    public async Task<ApiResult> GenerateAsync(string tableName, string? outputDir)
+    {
+        if (string.IsNullOrEmpty(outputDir))
+            outputDir = Path.Combine(Directory.GetCurrentDirectory(), "..", "generated");
+
+        var items = await PreviewAsync(tableName);
+        if (items.Count == 0) return ApiResult.NotFound("表配置不存在");
+
+        foreach (var item in items)
+        {
+            var filePath = Path.Combine(outputDir, item.FileName);
+            var dir = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+            await File.WriteAllTextAsync(filePath, item.Content);
+        }
+
+        return ApiResult.Ok(items.Select(i => i.FileName).ToList());
+    }
+
+    public async Task<byte[]> DownloadAsync(string tableName)
+    {
+        var items = await PreviewAsync(tableName);
+        if (items.Count == 0) return [];
+
+        using var ms = new MemoryStream();
+        using (var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Create, true))
+        {
+            foreach (var item in items)
+            {
+                var entry = zip.CreateEntry(item.FileName);
+                using var writer = new StreamWriter(entry.Open());
+                await writer.WriteAsync(item.Content);
+            }
+        }
+        return ms.ToArray();
     }
 
     private ScriptObject BuildTemplateContext(GenTable table, GenConfigDto cfg)
@@ -289,31 +264,11 @@ public class CodeGenService
             "ModuleInstaller" => CodeGenTemplates.ModuleInstaller,
             "VueList" => CodeGenTemplates.VueList,
             "VueTree" => CodeGenTemplates.VueTree,
-            _ => throw new ArgumentException($"Unknown template: {templateName}")
+            _ => throw new ArgumentException($"未知模板: {templateName}")
         };
         var template = Template.Parse(source);
         return template.Render(model);
     }
-
-    private static string MapToNetType(string sqlType) => sqlType switch
-    {
-        "bigint" => "long",
-        "binary" or "varbinary" => "byte[]",
-        "bit" => "bool",
-        "char" or "nchar" or "ntext" or "nvarchar" or "text" or "varchar" => "string",
-        "date" or "datetime" or "datetime2" or "smalldatetime" => "DateTime",
-        "datetimeoffset" => "DateTimeOffset",
-        "decimal" or "money" or "numeric" or "smallmoney" => "decimal",
-        "float" => "double",
-        "image" => "byte[]",
-        "int" => "int",
-        "real" => "float",
-        "smallint" => "short",
-        "time" => "TimeSpan",
-        "tinyint" => "byte",
-        "uniqueidentifier" => "Guid",
-        _ => "string"
-    };
 
     private static string ToPascalCase(string name)
     {

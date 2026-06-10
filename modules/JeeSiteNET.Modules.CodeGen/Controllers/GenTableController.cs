@@ -3,7 +3,6 @@ using JeeSiteNET.Modules.CodeGen.Application.DTOs;
 using JeeSiteNET.Modules.CodeGen.Application.Services;
 using JeeSiteNET.Modules.CodeGen.Domain.Entities;
 using JeeSiteNET.Core.Security;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JeeSiteNET.Modules.CodeGen.Controllers;
@@ -60,6 +59,21 @@ public class GenTableController : ControllerBase
     [HttpGet("preview")]
     public async Task<ApiResult<List<GenPreviewItem>>> Preview([FromQuery] string tableName)
         => ApiResult<List<GenPreviewItem>>.Ok(await _codeGenService.PreviewAsync(tableName));
+
+    [Permission("codegen:table:edit")]
+    [HttpPost("generate")]
+    public async Task<ApiResult> Generate([FromBody] GenerateRequest request)
+        => await _codeGenService.GenerateAsync(request.TableName, request.OutputDir);
+
+    [Permission("codegen:table:edit")]
+    [HttpGet("download")]
+    public async Task<IActionResult> Download([FromQuery] string tableName)
+    {
+        var bytes = await _codeGenService.DownloadAsync(tableName);
+        if (bytes.Length == 0) return NotFound();
+        return File(bytes, "application/zip", $"{tableName}.zip");
+    }
 }
 
 public class DeleteGenTableRequest { public string TableName { get; set; } = string.Empty; }
+public class GenerateRequest { public string TableName { get; set; } = string.Empty; public string? OutputDir { get; set; } }

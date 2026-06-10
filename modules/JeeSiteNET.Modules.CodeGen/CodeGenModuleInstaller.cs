@@ -1,6 +1,7 @@
 using JeeSiteNET.Core.Modules;
 using JeeSiteNET.Modules.CodeGen.Application.Services;
 using JeeSiteNET.Modules.CodeGen.Domain.Interfaces;
+using JeeSiteNET.Modules.CodeGen.Infrastructure.Introspection;
 using JeeSiteNET.Modules.CodeGen.Infrastructure.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,6 +13,7 @@ public class CodeGenModuleInstaller : IModuleInstaller
 {
     public void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddScoped<IDbIntrospectionProvider, DbIntrospectionProvider>();
         services.AddScoped<IGenTableRepository, GenTableRepository>();
         services.AddScoped<IGenTableColumnRepository, GenTableColumnRepository>();
         services.AddScoped<GenTableService>();
