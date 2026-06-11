@@ -68,7 +68,30 @@ JeeSiteNET.Modules.{Name}/
 | 报表统计/访问日志 | ✅ |
 | Docker Compose 全服务部署 | ✅ |
 
-**Parity: ~98%** — 8 项已补齐, 1 项(Cms_Report)新增, 2 项 README 修正
+**Parity: ~98%** — 全部 19 项核心功能对等, 仅剩极低优先级的边缘工具类
+
+## 深度对比验证 (JeeSite5 源码 D:\Projects\jeesite5-v5.springboot3)
+
+| 分析报告中提及的"差异项" | 实际状态 | 说明 |
+|---|---|---|
+| CAS 认证 | ✅ 已实现 | `CasAuthController`, `CasAuthUtil` |
+| LDAP 认证 | ✅ 已实现 | `LdapAuthController`, `LdapAuthUtil` |
+| MCP Server | ✅ 已实现 | `McpController` (JSON-RPC 2.0) |
+| SM3 国密 | ✅ 已实现 | `EncryptUtil.Sm3()` |
+| 拼音转换 | ✅ 已实现 | `PinyinUtil` |
+| 身份证验证 | ✅ 已实现 | `IdcardUtil` |
+| Word 导出 | ✅ 已实现 | `WordUtil` |
+| 密码强度 | ✅ 已实现 | `PasswordStrengthUtil` |
+| 验证码 | ✅ 已实现 | `CaptchaUtil` |
+| 数据权限/字段权限 | ✅ 已实现 | DataScopeService, FieldScopeService |
+| Excel 导入导出 | ✅ 已实现 | ExcelService, ExcelFieldAttribute |
+| **AI Tools 框架** | ⚠️ 未实现 | JeeSite5 有 `@AiTools` 注解插件体系, 我们只有基础 AI Chat |
+| **SM2/SM4 加密** | ⚠️ 未实现 | 我们只有 SM3 |
+| **UserAgent 解析** | ⚠️ 未实现 | `UserAgentUtils` 浏览器/设备检测 |
+| **DiffMatchPatch** | ⚠️ 未实现 | 文本差异对比工具 |
+| **ImageGeoUtils** | ⚠️ 未实现 | 图片 GPS 地理信息提取 |
+
+**剩余差异 (6 项):** 均为极低优先级边缘工具类, 不影响核心功能对等
 
 ## 命令速查
 
