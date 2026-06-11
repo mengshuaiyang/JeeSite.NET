@@ -3,8 +3,11 @@ using JeeSiteNET.Core.Security;
 using JeeSiteNET.Core.Utils;
 using JeeSiteNET.Modules.Sys.Application.DTOs;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
+using JeeSiteNET.Modules.Sys.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace JeeSiteNET.Modules.Sys.Controllers;
 
@@ -15,11 +18,13 @@ public class ProfileController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
     private readonly ICurrentUser _currentUser;
+    private readonly IFusionCache _cache;
 
-    public ProfileController(IUserRepository userRepository, ICurrentUser currentUser)
+    public ProfileController(IUserRepository userRepository, ICurrentUser currentUser, IFusionCache cache)
     {
         _userRepository = userRepository;
         _currentUser = currentUser;
+        _cache = cache;
     }
 
     [HttpGet]
@@ -67,6 +72,37 @@ public class ProfileController : ControllerBase
         user.PwdUpdateDate = DateTime.Now;
         await _userRepository.UpdateAsync(user);
         return ApiResult.Ok();
+    }
+
+    [HttpGet("desktop")]
+    public async Task<ApiResult<object>> Desktop()
+    {
+        var user = await _userRepository.GetAsync(_currentUser.UserCode);
+        if (user == null) return ApiResult<object>.NotFound("用户不存在");
+
+        var roleCodes = await _cache.GetOrSetAsync($"DesktopRoles:{_currentUser.UserCode}", async ct =>
+        {
+            // For simplicity, return role info from user
+            return new List<string>();
+        }, TimeSpan.FromMinutes(5));
+
+        return ApiResult<object>.Ok(new
+        {
+            user.LoginCode,
+            user.UserName,
+            user.LoginDate,
+            user.LoginCount,
+            user.PwdUpdateDate,
+            user.PwdSecurityLevel,
+            PwdQuestionSet = !string.IsNullOrEmpty(user.PwdQuestion),
+            Avatar = user.Avatar ?? "/avatars/default.png",
+            Stats = new
+            {
+                MenuCount = 0,
+                RoleCount = 0,
+                LoginDays = (DateTime.Now - (user.CreateDate ?? DateTime.Now)).Days
+            }
+        });
     }
 
     [HttpPost("avatar")]

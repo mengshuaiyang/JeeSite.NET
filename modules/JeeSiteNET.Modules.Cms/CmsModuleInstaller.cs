@@ -33,6 +33,7 @@ public class CmsModuleInstaller : IModuleInstaller
         services.AddScoped<ArticleService>();
         services.AddScoped<CmsService>();
         services.AddScoped<AiChatService>();
+        services.AddScoped<PageCacheService>();
 
         services.AddSingleton<AiToolRegistry>();
     }

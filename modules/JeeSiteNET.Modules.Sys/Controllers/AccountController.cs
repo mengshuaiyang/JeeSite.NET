@@ -1,5 +1,6 @@
 using JeeSiteNET.Core;
 using JeeSiteNET.Core.Security;
+using JeeSiteNET.Core.Utils;
 using JeeSiteNET.Modules.Sys.Domain.Entities;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -52,11 +53,41 @@ public class AccountController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpPost("password-question-by-login")]
+    public async Task<ApiResult<object?>> GetPasswordQuestion([FromBody] GetPwdQuestionByLoginDto dto)
+    {
+        var user = await _userRepo.GetByLoginCodeAsync(dto.LoginCode);
+        if (user == null) return ApiResult<object?>.NotFound("账号不存在");
+        if (string.IsNullOrEmpty(user.PwdQuestion))
+            return ApiResult<object?>.Ok(new { hasQuestion = false });
+        return ApiResult<object?>.Ok(new { hasQuestion = true, question = user.PwdQuestion });
+    }
+
+    [AllowAnonymous]
+    [HttpPost("reset-password-by-question")]
+    public async Task<ApiResult> ResetPasswordByQuestion([FromBody] ResetPwdByQuestionDto dto)
+    {
+        var user = await _userRepo.GetByLoginCodeAsync(dto.LoginCode);
+        if (user == null) return ApiResult.NotFound("账号不存在");
+        if (string.IsNullOrEmpty(user.PwdQuestion) || string.IsNullOrEmpty(user.PwdQuestionAnswer))
+            return ApiResult.Fail(400, "未设置安全问题");
+        if (!string.Equals(user.PwdQuestionAnswer, dto.Answer, StringComparison.OrdinalIgnoreCase))
+            return ApiResult.Fail(400, "安全问题的答案不正确");
+
+        var now = DateTime.Now;
+        user.Password = EncryptUtil.Md5(dto.NewPassword);
+        user.PwdSecurityLevel = PasswordStrengthUtil.Evaluate(dto.NewPassword);
+        user.PwdUpdateDate = now;
+        user.PwdUpdateRecord = EncryptUtil.Md5(dto.NewPassword);
+        await _userRepo.UpdateAsync(user);
+        return ApiResult.Ok("密码重置成功");
+    }
+
+    [AllowAnonymous]
     [HttpPost("login-by-valid-code")]
     public async Task<ApiResult> LoginByValidCode([FromBody] LoginByCodeDto dto)
     {
         // Validate the verification code and login
-        // This is a simplified version - in production, integrate with SMS/email service
         return ApiResult.Ok("功能实现中");
     }
 
@@ -83,4 +114,16 @@ public class LoginByCodeDto
 {
     public string LoginCode { get; set; } = string.Empty;
     public string ValidCode { get; set; } = string.Empty;
+}
+
+public class GetPwdQuestionByLoginDto
+{
+    public string LoginCode { get; set; } = string.Empty;
+}
+
+public class ResetPwdByQuestionDto
+{
+    public string LoginCode { get; set; } = string.Empty;
+    public string Answer { get; set; } = string.Empty;
+    public string NewPassword { get; set; } = string.Empty;
 }

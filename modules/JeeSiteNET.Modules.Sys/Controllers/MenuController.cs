@@ -78,6 +78,15 @@ public class MenuController : ControllerBase
         var codes = await _menuService.GetSysCodesAsync();
         return ApiResult<List<string>>.Ok(codes);
     }
+
+    /// <summary>修复菜单树数据</summary>
+    [Permission("sys:menu:edit")]
+    [HttpPost("fix-tree")]
+    public async Task<ApiResult> FixTree()
+    {
+        var result = await _menuService.FixTreeDataAsync();
+        return result;
+    }
 }
 
 public class DeleteMenuRequest

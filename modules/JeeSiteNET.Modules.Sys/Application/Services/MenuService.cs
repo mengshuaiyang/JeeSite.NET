@@ -154,6 +154,42 @@ public class MenuService
         return ApiResult.Ok();
     }
 
+    public async Task<ApiResult> FixTreeDataAsync()
+    {
+        var all = await _menuRepository.Query()
+            .OrderBy(m => m.TreeSort)
+            .ToListAsync();
+
+        var nodes = all.Select(m => new TreeFixNode
+        {
+            Id = m.MenuCode,
+            ParentId = m.ParentCode ?? "0",
+            Name = m.MenuName ?? "",
+            TreeSort = m.TreeSort
+        }).ToList();
+
+        var fixedNodes = TreeFixUtil.FixTreeData(nodes);
+        var nodeMap = fixedNodes.ToDictionary(n => n.Id);
+
+        foreach (var menu in all)
+        {
+            if (nodeMap.TryGetValue(menu.MenuCode, out var fixedNode))
+            {
+                menu.ParentCodes = fixedNode.ParentCodes;
+                menu.TreeSort = (decimal)fixedNode.TreeSort;
+                menu.TreeLevel = fixedNode.TreeLevel;
+                menu.TreeNames = fixedNode.TreeNames;
+            }
+        }
+
+        foreach (var menu in all)
+            await _menuRepository.UpdateAsync(menu);
+
+        await _cache.RemoveAsync(CacheKeys.MenuTree("all"));
+
+        return ApiResult.Ok("树结构修复完成");
+    }
+
     private static MenuDto MapToDto(Menu menu) => new()
     {
         MenuCode = menu.MenuCode,

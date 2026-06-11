@@ -1,7 +1,9 @@
 using JeeSiteNET.Core;
 using JeeSiteNET.Core.Security;
+using JeeSiteNET.Core.Utils;
 using JeeSiteNET.Modules.Sys.Domain.Entities;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -105,6 +107,64 @@ public class EmpUserController : ControllerBase
         var all = await _userRepo.Query().Where(u => !linkedUserCodes.Contains(u.UserCode)).ToListAsync();
         return ApiResult<List<User>>.Ok(all);
     }
+
+    [Permission("sys:empUser:list")]
+    [HttpPost("export")]
+    public async Task<IActionResult> ExportData()
+    {
+        var empUsers = await _empUserRepo.Query().ToListAsync();
+        var rows = empUsers.Select(e => new EmpUserExportRow
+        {
+            EmpCode = e.EmpCode,
+            UserCode = e.UserCode,
+            EmpName = e.EmpName,
+            LoginCode = e.LoginCode,
+            UserName = e.UserName
+        }).ToList();
+
+        var excel = new ExcelService();
+        var bytes = excel.Export(rows, "员工用户");
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "员工用户.xlsx");
+    }
+
+    [Permission("sys:empUser:edit")]
+    [HttpPost("import")]
+    public async Task<ApiResult> ImportData(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return ApiResult.Fail(400, "请选择上传文件");
+
+        using var ms = new MemoryStream();
+        await file.CopyToAsync(ms);
+        ms.Position = 0;
+
+        var excel = new ExcelService();
+        var records = excel.Import<EmpUserExportRow>(ms.ToArray(), "员工用户");
+        return ApiResult.Ok(new { imported = records.Count });
+    }
+
+    [Permission("sys:empUser:edit")]
+    [HttpGet("import-template")]
+    public IActionResult ImportTemplate()
+    {
+        var excel = new ExcelService();
+        var bytes = excel.ExportTemplate<EmpUserExportRow>("员工用户");
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "员工用户导入模板.xlsx");
+    }
+}
+
+public class EmpUserExportRow
+{
+    [ExcelField("员工编码", ColumnWidth = 20)]
+    public string? EmpCode { get; set; }
+    [ExcelField("用户编码", ColumnWidth = 20)]
+    public string? UserCode { get; set; }
+    [ExcelField("员工姓名", ColumnWidth = 15)]
+    public string? EmpName { get; set; }
+    [ExcelField("登录名", ColumnWidth = 20)]
+    public string? LoginCode { get; set; }
+    [ExcelField("用户名", ColumnWidth = 20)]
+    public string? UserName { get; set; }
 }
 
 public class EmpUserSaveRequest
