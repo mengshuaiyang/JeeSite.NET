@@ -29,4 +29,11 @@ public class SwitchController : ControllerBase
     {
         return ApiResult.Ok("主题已切换");
     }
+
+    [Permission("sys:switch:view")]
+    [HttpPost("corp/{corpCode}")]
+    public ApiResult SwitchCorp(string corpCode)
+    {
+        return ApiResult.Ok("企业已切换");
+    }
 }

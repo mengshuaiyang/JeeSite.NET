@@ -19,6 +19,8 @@ function menuToTree(dto: MenuDto): MenuTreeNode {
 export const useAppStore = defineStore('app', () => {
   const collapsed = ref(false)
   const menus = ref<MenuTreeNode[]>([])
+  const sysCodes = ref<string[]>([])
+  const currentSysCode = ref<string>('')
   const permissions = ref<string[]>([])
   const darkMode = ref(localStorage.getItem('darkMode') === 'true')
 
@@ -30,15 +32,28 @@ export const useAppStore = defineStore('app', () => {
     document.documentElement.setAttribute('data-theme', darkMode.value ? 'dark' : 'light')
   }
 
-  async function loadMenus() {
-    const res = await menuApi.getUserMenus()
+  async function loadMenus(sysCode?: string) {
+    const res = await menuApi.getUserMenus(sysCode || currentSysCode.value || undefined)
     if (res.data) {
       menus.value = res.data.filter(m => m.isShow !== '0').map(menuToTree)
     }
   }
 
+  async function loadSysCodes() {
+    const res = await menuApi.getSysCodes()
+    if (res.data) {
+      sysCodes.value = res.data
+      if (!currentSysCode.value && res.data.length) currentSysCode.value = res.data[0]
+    }
+  }
+
+  function switchSysCode(code: string) {
+    currentSysCode.value = code
+    loadMenus(code)
+  }
+
   function setPermissions(list: string[]) { permissions.value = list }
   function hasPermission(p: string) { return permissions.value.length === 0 || permissions.value.includes(p) }
 
-  return { collapsed, menus, permissions, darkMode, toggleCollapsed, toggleDarkMode, loadMenus, setPermissions, hasPermission }
+  return { collapsed, menus, sysCodes, currentSysCode, permissions, darkMode, toggleCollapsed, toggleDarkMode, loadMenus, loadSysCodes, switchSysCode, setPermissions, hasPermission }
 })

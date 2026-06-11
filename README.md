@@ -14,13 +14,13 @@
 | 运行时 | .NET 10 LTS |
 | 后端框架 | ASP.NET Core 10 |
 | ORM | Entity Framework Core 10 |
-| 身份认证 | ASP.NET Core Identity + JWT |
-| 缓存 | FusionCache (Memory + Redis) |
-| 消息队列 | RabbitMQ + MassTransit |
+| 身份认证 | JWT (自定义) + OAuth2 (GitHub/WeChat/DingTalk) + CAS + LDAP |
+| 缓存 | FusionCache (L1 Memory + L2 Redis) |
+| 消息队列 | SignalR 实时推送 (内置) — 支持 MassTransit 扩展 |
 | 工作流 | Elsa Workflows 3.x |
 | 前端(分离) | Vue 3 + Vite + Ant Design Vue 4 + TypeScript |
 | 前端(全栈) | Blazor / Razor Pages + Bootstrap 5 |
-| 数据库 | SQL Server / MySQL / PostgreSQL |
+| 数据库 | SQL Server / Sqlite / PostgreSQL / GaussDB / 达梦 DM8 / 人大金仓 KingbaseES |
 
 ## 文档导航
 
@@ -42,7 +42,12 @@ JeeSite.NET.sln
 │   └── JeeSiteNET.Web.Host/            # 全栈版
 ├── modules/
 │   ├── JeeSiteNET.Modules.Sys/         # 系统管理模块
-│   └── ...
+│   ├── JeeSiteNET.Modules.Cms/         # 内容管理模块
+│   ├── JeeSiteNET.Modules.Bpm/         # 工作流模块
+│   ├── JeeSiteNET.Modules.CodeGen/     # 代码生成模块
+│   ├── JeeSiteNET.Modules.Tasks/       # 任务调度模块
+│   ├── JeeSiteNET.Modules.App/         # 移动应用模块
+│   └── JeeSiteNET.Modules.Test/        # 测试/演示模块
 ├── frontend/
 │   └── jeesite-vue/                    # Vue 3 分离前端
 ├── docs/                               # 架构文档

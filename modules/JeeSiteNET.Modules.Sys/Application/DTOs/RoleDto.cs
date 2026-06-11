@@ -40,6 +40,7 @@ public class MenuDto
     public string? Permission { get; set; }
     public decimal? Weight { get; set; }
     public string? IsShow { get; set; }
+    public string? SysCode { get; set; }
     public string? ModuleCode { get; set; }
     public string ParentCode { get; set; } = "0";
     public string ParentCodes { get; set; } = string.Empty;

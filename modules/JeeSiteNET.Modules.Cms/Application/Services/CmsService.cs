@@ -13,19 +13,22 @@ public class CmsService
     private readonly ITagRepository _tagRepository;
     private readonly IVisitLogRepository _visitLogRepository;
     private readonly IArticleTagRepository _articleTagRepository;
+    private readonly IReportRepository _reportRepository;
 
     public CmsService(
         ICommentRepository commentRepository,
         IGuestbookRepository guestbookRepository,
         ITagRepository tagRepository,
         IVisitLogRepository visitLogRepository,
-        IArticleTagRepository articleTagRepository)
+        IArticleTagRepository articleTagRepository,
+        IReportRepository reportRepository)
     {
         _commentRepository = commentRepository;
         _guestbookRepository = guestbookRepository;
         _tagRepository = tagRepository;
         _visitLogRepository = visitLogRepository;
         _articleTagRepository = articleTagRepository;
+        _reportRepository = reportRepository;
     }
 
     // --- Comments ---
@@ -173,6 +176,50 @@ public class CmsService
             List = result.List.Select(VisitLogDto.FromEntity).ToList(),
             Total = result.Total, PageNo = result.PageNo, PageSize = result.PageSize
         };
+    }
+
+    // --- Report ---
+
+    public async Task<PageResult<ReportDto>> FindReportPageAsync(PageRequest<Report> request)
+    {
+        var result = await _reportRepository.FindPageAsync(request);
+        return new PageResult<ReportDto>
+        {
+            List = result.List.Select(ReportDto.FromEntity).ToList(),
+            Total = result.Total, PageNo = result.PageNo, PageSize = result.PageSize
+        };
+    }
+
+    public async Task<ApiResult> SaveReportAsync(ReportSaveDto dto)
+    {
+        var entity = new Report
+        {
+            ReportCode = Guid.NewGuid().ToString("N")[..20],
+            ArticleCode = dto.ArticleCode, ArticleTitle = dto.ArticleTitle,
+            ReportType = dto.ReportType, Content = dto.Content,
+            Status = "0", CreateDate = DateTime.Now
+        };
+        await _reportRepository.AddAsync(entity);
+        return ApiResult.Ok();
+    }
+
+    public async Task<ApiResult> DealReportAsync(string reportCode, string dealResult)
+    {
+        var entity = await _reportRepository.GetAsync(reportCode);
+        if (entity == null) return ApiResult.NotFound("举报记录不存在");
+        entity.Status = "1";
+        entity.DealResult = dealResult;
+        entity.DealDate = DateTime.Now;
+        await _reportRepository.UpdateAsync(entity);
+        return ApiResult.Ok();
+    }
+
+    public async Task<ApiResult> DeleteReportAsync(string reportCode)
+    {
+        var entity = await _reportRepository.GetAsync(reportCode);
+        if (entity == null) return ApiResult.NotFound("举报记录不存在");
+        await _reportRepository.DeleteAsync(entity);
+        return ApiResult.Ok();
     }
 
     // --- Helpers ---

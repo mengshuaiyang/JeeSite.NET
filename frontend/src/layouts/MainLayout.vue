@@ -23,6 +23,12 @@
         <menu-unfold-outlined v-if="app.collapsed" @click="app.toggleCollapsed" />
         <menu-fold-outlined v-else @click="app.toggleCollapsed" />
         <span style="margin-left: 16px">欢迎, {{ userStore.user?.userName || '用户' }}</span>
+        <a-select v-if="app.sysCodes.length>1" v-model:value="app.currentSysCode" style="width:140px;margin-left:12px" @change="app.switchSysCode" size="small">
+          <a-select-option v-for="c in app.sysCodes" :key="c" :value="c">{{ c }}</a-select-option>
+        </a-select>
+        <a-select v-if="companies.length>1" v-model:value="currentCorp" style="width:160px;margin-left:8px" @change="switchCorp" size="small">
+          <a-select-option v-for="c in companies" :key="c.companyCode" :value="c.companyCode">{{ c.companyName }}</a-select-option>
+        </a-select>
         <div style="flex:1" />
         <a-tooltip :title="app.darkMode ? '切换亮色' : '切换暗色'">
           <a-button type="text" @click="app.toggleDarkMode">
@@ -44,10 +50,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
+import { companyApi } from '@/api/company'
+import { switchApi } from '@/api/switch'
 import {
   PieChartOutlined, SettingOutlined, MenuUnfoldOutlined, MenuFoldOutlined,
   UserOutlined, TeamOutlined, AppstoreOutlined, FileTextOutlined,
@@ -172,8 +180,32 @@ const route = useRoute()
 const app = useAppStore()
 const userStore = useUserStore()
 const selectedKeys = ref<string[]>([route.path])
+const companies = ref<{companyCode:string;companyName:string}[]>([])
+const currentCorp = ref<string>('')
 
 watch(() => route.path, (p) => { selectedKeys.value = [p] })
+
+onMounted(async () => {
+  try {
+    const res = await companyApi.tree()
+    if (res.code === 200 && res.data) {
+      companies.value = flattenTree(res.data, 'children')
+      if (companies.value.length) currentCorp.value = companies.value[0].companyCode
+    }
+  } catch {}
+})
+
+function flattenTree(list: any[], childKey: string, result: any[] = []): any[] {
+  for (const item of list) {
+    result.push({ companyCode: item.companyCode, companyName: item.companyName })
+    if (item[childKey]?.length) flattenTree(item[childKey], childKey, result)
+  }
+  return result
+}
+
+async function switchCorp(corpCode: string) {
+  await switchApi.switchCorp(corpCode)
+}
 
 function resolveIcon(name?: string) {
   if (!name) return AppstoreOutlined

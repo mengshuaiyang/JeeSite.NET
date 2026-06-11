@@ -64,10 +64,19 @@ public class MenuController : ControllerBase
     /// <summary>获取当前用户菜单树（按权限过滤）</summary>
     [Authorize]
     [HttpGet("user-menus")]
-    public async Task<ApiResult<List<MenuDto>>> UserMenus()
+    public async Task<ApiResult<List<MenuDto>>> UserMenus([FromQuery] string? sysCode = null)
     {
-        var tree = await _menuService.GetUserMenusAsync();
+        var tree = await _menuService.GetUserMenusAsync(sysCode);
         return ApiResult<List<MenuDto>>.Ok(tree);
+    }
+
+    /// <summary>获取当前用户可用的系统编码列表</summary>
+    [Authorize]
+    [HttpGet("sys-codes")]
+    public async Task<ApiResult<List<string>>> SysCodes()
+    {
+        var codes = await _menuService.GetSysCodesAsync();
+        return ApiResult<List<string>>.Ok(codes);
     }
 }
 

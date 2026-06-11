@@ -22,12 +22,15 @@ public class MenuService
         _currentUser = currentUser;
     }
 
-    public async Task<List<MenuDto>> GetUserMenusAsync()
+    public async Task<List<MenuDto>> GetUserMenusAsync(string? sysCode = null)
     {
-        var all = await _menuRepository.Query()
-            .Where(m => m.Status == "0" && m.IsShow != "0")
-            .OrderBy(m => m.TreeSort)
-            .ToListAsync();
+        var query = _menuRepository.Query()
+            .Where(m => m.Status == "0" && m.IsShow != "0");
+
+        if (!string.IsNullOrEmpty(sysCode))
+            query = query.Where(m => m.SysCode == sysCode);
+
+        var all = await query.OrderBy(m => m.TreeSort).ToListAsync();
 
         if (_currentUser.IsSuperAdmin || _currentUser.Permissions.Count == 0)
             return BuildTree(all, "0");
@@ -36,6 +39,17 @@ public class MenuService
         var filtered = all.Where(m =>
             string.IsNullOrEmpty(m.Permission) || perms.Contains(m.Permission)).ToList();
         return BuildTree(filtered, "0");
+    }
+
+    public async Task<List<string>> GetSysCodesAsync()
+    {
+        var codes = await _menuRepository.Query()
+            .Where(m => m.Status == "0" && !string.IsNullOrEmpty(m.SysCode))
+            .Select(m => m.SysCode!)
+            .Distinct()
+            .OrderBy(c => c)
+            .ToListAsync();
+        return codes;
     }
 
     public async Task<MenuDto?> GetAsync(string menuCode)
@@ -150,6 +164,7 @@ public class MenuService
         Permission = menu.Permission,
         Weight = menu.Weight,
         IsShow = menu.IsShow,
+        SysCode = menu.SysCode,
         ModuleCode = menu.ModuleCode,
         ParentCode = menu.ParentCode,
         ParentCodes = menu.ParentCodes,

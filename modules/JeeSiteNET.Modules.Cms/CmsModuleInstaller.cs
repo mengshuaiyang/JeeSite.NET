@@ -22,6 +22,10 @@ public class CmsModuleInstaller : IModuleInstaller
         services.AddScoped<ICommentRepository, CommentRepository>();
         services.AddScoped<IGuestbookRepository, GuestbookRepository>();
         services.AddScoped<IVisitLogRepository, VisitLogRepository>();
+        services.AddScoped<IReportRepository, ReportRepository>();
+        services.AddScoped<IArticleIndexService, DefaultArticleIndexService>();
+        services.AddScoped<IArticleVectorStore, DefaultArticleVectorStore>();
+        services.AddScoped<IArticleAuthService, DefaultArticleAuthService>();
         services.AddScoped<SiteService>();
         services.AddScoped<CategoryService>();
         services.AddScoped<ArticleService>();

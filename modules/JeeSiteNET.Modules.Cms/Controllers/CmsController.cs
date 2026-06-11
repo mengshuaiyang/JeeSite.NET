@@ -91,8 +91,31 @@ public class CmsController : ControllerBase
     [HttpGet("stats/today-visits")]
     public async Task<ApiResult<long>> TodayVisits()
         => ApiResult<long>.Ok(await _cmsService.GetTodayVisitCountAsync());
+
+    // --- Report ---
+
+    [AllowAnonymous]
+    [HttpPost("report/save")]
+    public async Task<ApiResult> ReportSave([FromBody] ReportSaveDto dto)
+        => await _cmsService.SaveReportAsync(dto);
+
+    [Permission("cms:report:list")]
+    [HttpPost("report/list")]
+    public async Task<ApiResult<PageResult<ReportDto>>> ReportList([FromBody] PageRequest<Report> request)
+        => ApiResult<PageResult<ReportDto>>.Ok(await _cmsService.FindReportPageAsync(request));
+
+    [Permission("cms:report:deal")]
+    [HttpPost("report/deal")]
+    public async Task<ApiResult> ReportDeal([FromQuery] string reportCode, [FromQuery] string dealResult)
+        => await _cmsService.DealReportAsync(reportCode, dealResult);
+
+    [Permission("cms:report:delete")]
+    [HttpPost("report/delete")]
+    public async Task<ApiResult> ReportDelete([FromBody] DeleteReportRequest request)
+        => await _cmsService.DeleteReportAsync(request.ReportCode);
 }
 
 public class DeleteCommentRequest { public string CommentCode { get; set; } = string.Empty; }
 public class DeleteGuestbookRequest { public string GbCode { get; set; } = string.Empty; }
 public class DeleteTagRequest { public string TagName { get; set; } = string.Empty; }
+public class DeleteReportRequest { public string ReportCode { get; set; } = string.Empty; }

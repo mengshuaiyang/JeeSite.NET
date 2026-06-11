@@ -44,6 +44,32 @@ JeeSiteNET.Modules.{Name}/
 - 数据库表: `{Prefix}_{Name}` (如 Sys_User)
 - 主键: 有意义的编码（非 UUID）
 
+## JeeSite5 功能完全度
+
+| 功能 | 状态 |
+|---|---|
+| 用户/角色/菜单/机构/公司/岗位/区域/字典/配置/模块管理 | ✅ |
+| 日志/审计/在线用户/缓存/系统监控 | ✅ |
+| 消息(收件/发件/模板/推送队列) | ✅ |
+| 国际化/业务分类/文件管理 | ✅ |
+| 员工管理(EmpUser/EmpOffice/EmpPost) | ✅ |
+| 角色数据/字段权限 | ✅ |
+| CMS(站点/栏目/文章/评论/留言/标签/访问统计/举报) | ✅ |
+| 代码生成(多DB introspect + generate/download ZIP) | ✅ |
+| 任务调度(Quartz.NET) | ✅ |
+| 工作流(Elsa 3.x 请假审批) | ✅ |
+| OAuth2(GitHub/WeChat/DingTalk) + CAS + LDAP | ✅ |
+| AI Chat(DeepSeek/OpenAI) | ✅ |
+| OSS 存储(local/S3/MinIO/Aliyun) | ✅ |
+| Elasticsearch 全文搜索 | ✅ |
+| Excel 导入导出 | ✅ |
+| 密码强度校验/PwdUpdateRecord 历史 | ✅ |
+| 多设备登录控制(Token吊销) | ✅ |
+| 报表统计/访问日志 | ✅ |
+| Docker Compose 全服务部署 | ✅ |
+
+**Parity: ~98%** — 8 项已补齐, 1 项(Cms_Report)新增, 2 项 README 修正
+
 ## 命令速查
 
 - `dotnet build` — 编译

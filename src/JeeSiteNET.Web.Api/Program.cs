@@ -18,6 +18,7 @@ using JeeSiteNET.Web.Api.Swagger;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using ZiggyCreatures.Caching.Fusion;
+using Microsoft.Extensions.DependencyInjection;
 using ZiggyCreatures.Caching.Fusion.Serialization.SystemTextJson;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
@@ -54,6 +55,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtSection["Issuer"] ?? "JeeSiteNET",
             ValidAudience = jwtSection["Audience"] ?? "JeeSiteNET.Client",
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret))
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async ctx =>
+            {
+                var cache = ctx.HttpContext.RequestServices.GetRequiredService<IFusionCache>();
+                var tokenStr = ctx.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+                var blacklisted = await cache.GetOrDefaultAsync<string>($"TokenBlacklist:{tokenStr}");
+                if (!string.IsNullOrEmpty(blacklisted))
+                    ctx.Fail("Token has been revoked");
+            }
         };
     });
 builder.Services.AddAuthorization(options =>

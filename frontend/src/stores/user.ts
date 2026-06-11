@@ -17,6 +17,7 @@ export const useUserStore = defineStore('user', () => {
       localStorage.setItem('token', res.data.token)
       const app = useAppStore()
       if (res.data.user?.permissions) app.setPermissions(res.data.user.permissions)
+      await app.loadSysCodes()
       await app.loadMenus()
       connectSignalR(res.data.token)
     }

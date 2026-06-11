@@ -47,6 +47,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'sys/cache', name: 'Cache', component: () => import('@/views/sys/CacheList.vue'), meta: { title: '缓存管理', permission: 'sys:cache:view' } },
       { path: 'sys/online', name: 'OnlineUser', component: () => import('@/views/sys/OnlineUserList.vue'), meta: { title: '在线用户', permission: 'sys:online:view' } },
       { path: 'sys/monitor', name: 'MonitorServer', component: () => import('@/views/sys/MonitorServer.vue'), meta: { title: '系统监控', permission: 'sys:monitor:view' } },
+      { path: 'sys/audit', name: 'Audit', component: () => import('@/views/sys/AuditList.vue'), meta: { title: '审计跟踪', permission: 'sys:audit:view' } },
       { path: 'cms/category', name: 'CmsCategory', component: () => import('@/views/cms/CategoryList.vue'), meta: { title: '栏目管理', permission: 'cms:category' } },
       { path: 'cms/article', name: 'CmsArticle', component: () => import('@/views/cms/ArticleList.vue'), meta: { title: '文章管理', permission: 'cms:article' } },
       { path: 'cms/article/edit', name: 'CmsArticleEdit', component: () => import('@/views/cms/ArticleEdit.vue'), meta: { title: '编辑文章', permission: 'cms:article:edit' } },

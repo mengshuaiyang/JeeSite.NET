@@ -54,7 +54,13 @@ public class AuthService
         if (user.Password != inputPwd)
             return ApiResult<LoginResultDto>.Fail(400, "登录名或密码错误");
 
+        // Check multi-device token
+        var existingToken = await _cache.GetOrDefaultAsync<string>($"OnlineToken:{user.UserCode}");
+        if (!string.IsNullOrEmpty(existingToken))
+            await _cache.RemoveAsync($"TokenBlacklist:{existingToken}");
+
         var token = GenerateToken(user);
+        await _cache.SetAsync($"OnlineToken:{user.UserCode}", token, TimeSpan.FromHours(12));
 
         List<string> permissions;
         if (user.LoginCode == "admin")
@@ -97,6 +103,7 @@ public class AuthService
         if (existing != null)
             return ApiResult.Fail(400, "该登录名已被注册");
 
+        var now = DateTime.Now;
         var user = new Domain.Entities.User
         {
             UserCode = IdGenerator.NewId(),
@@ -107,7 +114,10 @@ public class AuthService
             Email = dto.Email,
             Phone = dto.Phone,
             Status = "0",
-            CreateDate = DateTime.Now
+            PwdSecurityLevel = PasswordStrengthUtil.Evaluate(dto.Password),
+            PwdUpdateDate = now,
+            PwdUpdateRecord = EncryptUtil.Md5(dto.Password),
+            CreateDate = now
         };
         await _userRepository.AddAsync(user);
         return ApiResult.Ok();
@@ -141,7 +151,11 @@ public class AuthService
         if (user == null)
             return ApiResult.Fail(400, "用户不存在");
 
+        var now = DateTime.Now;
         user.Password = EncryptUtil.Md5(dto.NewPassword);
+        user.PwdSecurityLevel = PasswordStrengthUtil.Evaluate(dto.NewPassword);
+        user.PwdUpdateDate = now;
+        user.PwdUpdateRecord = EncryptUtil.Md5(dto.NewPassword);
         await _cache.RemoveAsync($"ResetPwd:{dto.Token}");
         return ApiResult.Ok();
     }
