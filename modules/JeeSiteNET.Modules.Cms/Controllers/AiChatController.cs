@@ -1,4 +1,5 @@
 using JeeSiteNET.Core;
+using JeeSiteNET.Core.AiTools;
 using JeeSiteNET.Modules.Cms.Application.DTOs;
 using JeeSiteNET.Modules.Cms.Application.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -12,10 +13,12 @@ namespace JeeSiteNET.Modules.Cms.Controllers;
 public class AiChatController : ControllerBase
 {
     private readonly AiChatService _aiChatService;
+    private readonly AiToolRegistry _toolRegistry;
 
-    public AiChatController(AiChatService aiChatService)
+    public AiChatController(AiChatService aiChatService, AiToolRegistry toolRegistry)
     {
         _aiChatService = aiChatService;
+        _toolRegistry = toolRegistry;
     }
 
     [HttpPost("chat")]
@@ -26,5 +29,15 @@ public class AiChatController : ControllerBase
 
         var result = await _aiChatService.ChatAsync(request);
         return ApiResult<AiChatResponse>.Ok(result);
+    }
+
+    [HttpGet("tools")]
+    public ApiResult<object> GetTools()
+    {
+        var tools = _toolRegistry.GetToolDefinitions()
+            .Select(t => new { t.Name, t.Description, t.Category })
+            .ToList();
+
+        return ApiResult<object>.Ok(new { tools, total = tools.Count });
     }
 }

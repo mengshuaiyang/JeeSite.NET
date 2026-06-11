@@ -1,4 +1,6 @@
+using JeeSiteNET.Core.AiTools;
 using JeeSiteNET.Core.Modules;
+using JeeSiteNET.Modules.Cms.Application.AiTools;
 using JeeSiteNET.Modules.Cms.Application.Services;
 using JeeSiteNET.Modules.Cms.Domain.Interfaces;
 using JeeSiteNET.Modules.Cms.Infrastructure.Repositories;
@@ -7,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace JeeSiteNET.Modules.Cms;
 
-[ModuleDescription(Code = "Cms", Name = "内容管理模块", Version = "1.1.0")]
+[ModuleDescription(Code = "Cms", Name = "内容管理模块", Version = "1.2.0")]
 public class CmsModuleInstaller : IModuleInstaller
 {
     public void ConfigureServices(IServiceCollection services, IConfiguration configuration)
@@ -31,5 +33,7 @@ public class CmsModuleInstaller : IModuleInstaller
         services.AddScoped<ArticleService>();
         services.AddScoped<CmsService>();
         services.AddScoped<AiChatService>();
+
+        services.AddSingleton<AiToolRegistry>();
     }
 }

@@ -68,7 +68,7 @@ JeeSiteNET.Modules.{Name}/
 | 报表统计/访问日志 | ✅ |
 | Docker Compose 全服务部署 | ✅ |
 
-**Parity: ~98%** — 全部 19 项核心功能对等, 仅剩极低优先级的边缘工具类
+**Parity: 100%** — 全部 19 项核心 + 6 项边缘工具类已补齐
 
 ## 深度对比验证 (JeeSite5 源码 D:\Projects\jeesite5-v5.springboot3)
 
@@ -85,13 +85,14 @@ JeeSiteNET.Modules.{Name}/
 | 验证码 | ✅ 已实现 | `CaptchaUtil` |
 | 数据权限/字段权限 | ✅ 已实现 | DataScopeService, FieldScopeService |
 | Excel 导入导出 | ✅ 已实现 | ExcelService, ExcelFieldAttribute |
-| **AI Tools 框架** | ⚠️ 未实现 | JeeSite5 有 `@AiTools` 注解插件体系, 我们只有基础 AI Chat |
-| **SM2/SM4 加密** | ⚠️ 未实现 | 我们只有 SM3 |
-| **UserAgent 解析** | ⚠️ 未实现 | `UserAgentUtils` 浏览器/设备检测 |
-| **DiffMatchPatch** | ⚠️ 未实现 | 文本差异对比工具 |
-| **ImageGeoUtils** | ⚠️ 未实现 | 图片 GPS 地理信息提取 |
+| **AI Tools 框架** | ✅ 已实现 | `AiToolAttribute` + `IAiTool` + `AiToolRegistry` + 3 内置工具, 集成 DeepSeek Function Calling |
+| **SM2/SM4 加密** | ✅ 已实现 | `Sm2Util` (ECDSA签名/验签+混合加密) + `Sm4Util` (CBC模式, S盒+密钥扩展) |
+| **UserAgent 解析** | ✅ 已实现 | `UserAgentUtil` 浏览器/OS/设备检测 |
+| **DiffMatchPatch** | ✅ 已实现 | `DiffMatchPatch` 文本差异对比 + 补丁应用 |
+| **ImageGeoUtils** | ✅ 已实现 | `ImageGeoUtil` SkiaSharp 图片 GPS 信息提取 |
+| **VideoUtils** | ✅ 已实现 | `VideoUtil` FFmpeg 截图/转码/信息读取 |
 
-**剩余差异 (6 项):** 均为极低优先级边缘工具类, 不影响核心功能对等
+**功能完全度: 100%** — 全部 19 项核心 + 6 项边缘工具类已补齐
 
 ## 命令速查
 
