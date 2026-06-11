@@ -24,14 +24,13 @@ public static class BarcodeUtil
             }
         }
 
+        using var font = new SKFont { Size = 14 };
         using var paint = new SKPaint
         {
             Color = SKColors.Black,
-            TextSize = 14,
-            IsAntialias = true,
-            TextAlign = SKTextAlign.Center
+            IsAntialias = true
         };
-        canvas.DrawText(text, width / 2f, height - 4, paint);
+        canvas.DrawText(text, width / 2f, height - 4, SKTextAlign.Center, font, paint);
 
         using var image = SKImage.FromBitmap(bitmap);
         using var data = image.Encode(SKEncodedImageFormat.Png, 100);
