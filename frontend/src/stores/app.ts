@@ -53,7 +53,14 @@ export const useAppStore = defineStore('app', () => {
   }
 
   function setPermissions(list: string[]) { permissions.value = list }
-  function hasPermission(p: string) { return permissions.value.length === 0 || permissions.value.includes(p) }
+  function hasPermission(p: string | string[]) {
+    if (permissions.value.length === 0) return true
+    if (Array.isArray(p)) {
+      if (p.length === 0) return true
+      return p.some((code) => permissions.value.includes(code))
+    }
+    return permissions.value.includes(p)
+  }
 
   return { collapsed, menus, sysCodes, currentSysCode, permissions, darkMode, toggleCollapsed, toggleDarkMode, loadMenus, loadSysCodes, switchSysCode, setPermissions, hasPermission }
 })

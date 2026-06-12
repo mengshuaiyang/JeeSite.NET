@@ -1,10 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
+import { useAppStore } from '@/stores/app'
 
 declare module 'vue-router' {
   interface RouteMeta {
     permission?: string
     title?: string
+    public?: boolean
   }
 }
 
@@ -79,8 +81,17 @@ const router = createRouter({ history: createWebHistory(), routes })
 
 router.beforeEach((to) => {
   const token = localStorage.getItem('token')
+
   if (to.meta.public) return
+
   if (!token) return '/login'
+
+  if (to.meta.permission) {
+    const appStore = useAppStore()
+    if (!appStore.hasPermission(to.meta.permission)) {
+      return '/dashboard'
+    }
+  }
 })
 
 export default router
