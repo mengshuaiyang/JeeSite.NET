@@ -1,4 +1,5 @@
 using JeeSiteNET.Core;
+using JeeSiteNET.Core.Utils;
 using JeeSiteNET.Modules.Cms.Application.DTOs;
 using JeeSiteNET.Modules.Cms.Domain.Entities;
 using JeeSiteNET.Modules.Cms.Domain.Interfaces;
@@ -51,20 +52,31 @@ public class ArticleService
     public async Task<ApiResult> SaveAsync(ArticleSaveDto dto)
     {
         var now = DateTime.Now;
+
+        // ---- XSS 防御: HTML 白名单清洗 ----
+        var safeContent = string.IsNullOrEmpty(dto.Content) ? null : HtmlSanitizerUtil.SanitizeRich(dto.Content);
+        var safeTitle = string.IsNullOrEmpty(dto.Title) ? null : HtmlSanitizerUtil.SanitizeStrict(dto.Title);
+        var safeSubtitle = string.IsNullOrEmpty(dto.Subtitle) ? null : HtmlSanitizerUtil.SanitizeStrict(dto.Subtitle);
+        var safeSummary = string.IsNullOrEmpty(dto.Summary) ? null : HtmlSanitizerUtil.SanitizeStrict(dto.Summary);
+        var safeAuthor = string.IsNullOrEmpty(dto.Author) ? null : HtmlSanitizerUtil.SanitizeStrict(dto.Author);
+        var safeSource = string.IsNullOrEmpty(dto.Source) ? null : HtmlSanitizerUtil.SanitizeStrict(dto.Source);
+        var safeImage = string.IsNullOrEmpty(dto.Image) ? null : HtmlSanitizerUtil.SanitizeStrict(dto.Image);
+        var safeTags = string.IsNullOrEmpty(dto.Tags) ? null : HtmlSanitizerUtil.SanitizeStrict(dto.Tags);
+
         Article? entity;
         if (!string.IsNullOrEmpty(dto.ArticleCode))
         {
             entity = await _articleRepository.GetWithDetailAsync(dto.ArticleCode);
             if (entity == null) return ApiResult.NotFound("文章不存在");
-            entity.CategoryCode = dto.CategoryCode; entity.Title = dto.Title; entity.Subtitle = dto.Subtitle;
-            entity.Summary = dto.Summary; entity.Author = dto.Author;
-            entity.Source = dto.Source; entity.Image = dto.Image; entity.Tags = dto.Tags;
+            entity.CategoryCode = dto.CategoryCode ?? string.Empty; entity.Title = safeTitle ?? string.Empty; entity.Subtitle = safeSubtitle ?? string.Empty;
+            entity.Summary = safeSummary; entity.Author = safeAuthor;
+            entity.Source = safeSource; entity.Image = safeImage; entity.Tags = safeTags;
             entity.IsTop = dto.IsTop; entity.IsRecommend = dto.IsRecommend; entity.IsHot = dto.IsHot;
             entity.PublishDate = dto.PublishDate; entity.UpdateDate = now;
             if (entity.ArticleData != null)
-                entity.ArticleData.Content = dto.Content;
-            else if (!string.IsNullOrEmpty(dto.Content))
-                entity.ArticleData = new ArticleData { ArticleCode = entity.ArticleCode, Content = dto.Content };
+                entity.ArticleData.Content = safeContent;
+            else if (!string.IsNullOrEmpty(safeContent))
+                entity.ArticleData = new ArticleData { ArticleCode = entity.ArticleCode, Content = safeContent };
             await _articleRepository.UpdateAsync(entity);
         }
         else
@@ -72,15 +84,15 @@ public class ArticleService
             entity = new Article
             {
                 ArticleCode = Guid.NewGuid().ToString("N")[..20],
-                CategoryCode = dto.CategoryCode, Title = dto.Title, Subtitle = dto.Subtitle,
-                Summary = dto.Summary, Author = dto.Author,
-                Source = dto.Source, Image = dto.Image, Tags = dto.Tags,
+                CategoryCode = dto.CategoryCode ?? string.Empty, Title = safeTitle ?? string.Empty, Subtitle = safeSubtitle ?? string.Empty,
+                Summary = safeSummary, Author = safeAuthor,
+                Source = safeSource, Image = safeImage, Tags = safeTags,
                 IsTop = dto.IsTop ?? "0", IsRecommend = dto.IsRecommend ?? "0", IsHot = dto.IsHot ?? "0",
                 ClickCount = 0, PublishDate = dto.PublishDate ?? now,
                 CreateDate = now, UpdateDate = now
             };
-            if (!string.IsNullOrEmpty(dto.Content))
-                entity.ArticleData = new ArticleData { ArticleCode = entity.ArticleCode, Content = dto.Content };
+            if (!string.IsNullOrEmpty(safeContent))
+                entity.ArticleData = new ArticleData { ArticleCode = entity.ArticleCode, Content = safeContent };
             await _articleRepository.AddAsync(entity);
         }
         await _cache.RemoveAsync(CacheKeys.CmsArticle(entity.ArticleCode));

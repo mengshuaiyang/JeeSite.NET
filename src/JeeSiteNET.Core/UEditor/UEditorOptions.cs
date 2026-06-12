@@ -31,7 +31,7 @@ public sealed class UEditorOptions
     public string VideoFieldName { get; set; } = "upfile";
     public string VideoPathFormat { get; set; } = "upload/video/{yyyy}{mm}{dd}/{time}{rand:6}";
     public int VideoMaxSize { get; set; } = 102400000;
-    public string[] VideoAllowFiles { get; set; } = [".flv", ".swf", ".mkv", ".avi", ".rm", ".rmvb", ".mpeg", ".mpg", ".ogg", ".ogv", ".mov", ".wmv", ".mp4", ".webm", ".mp3", ".wav", ".mid"];
+    public string[] VideoAllowFiles { get; set; } = [".flv", ".mkv", ".avi", ".rm", ".rmvb", ".mpeg", ".mpg", ".ogg", ".ogv", ".mov", ".wmv", ".mp4", ".webm", ".mp3", ".wav", ".mid"];
     public string VideoUrlPrefix { get; set; } = "";
 
     /* ===================== 上传文件配置 ===================== */
@@ -39,7 +39,7 @@ public sealed class UEditorOptions
     public string FileFieldName { get; set; } = "upfile";
     public string FilePathFormat { get; set; } = "upload/file/{yyyy}{mm}{dd}/{time}{rand:6}";
     public int FileMaxSize { get; set; } = 51200000;
-    public string[] FileAllowFiles { get; set; } = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".flv", ".swf", ".mkv", ".avi", ".rm", ".rmvb", ".mpeg", ".mpg", ".ogg", ".ogv", ".mov", ".wmv", ".mp4", ".webm", ".mp3", ".wav", ".mid", ".rar", ".zip", ".tar", ".gz", ".7z", ".bz2", ".cab", ".iso", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".pdf", ".txt", ".md", ".xml"];
+    public string[] FileAllowFiles { get; set; } = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".flv", ".mkv", ".avi", ".rm", ".rmvb", ".mpeg", ".mpg", ".ogg", ".ogv", ".mov", ".wmv", ".mp4", ".webm", ".mp3", ".wav", ".mid", ".rar", ".zip", ".tar", ".gz", ".7z", ".bz2", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".pdf", ".txt", ".md"];
     public string FileUrlPrefix { get; set; } = "";
 
     /* ===================== 抓取远程文件配置 ===================== */
@@ -64,5 +64,5 @@ public sealed class UEditorOptions
     public string FileManagerListPath { get; set; } = "upload/file/";
     public int FileManagerListSize { get; set; } = 20;
     public string FileManagerUrlPrefix { get; set; } = "";
-    public string[] FileManagerAllowFiles { get; set; } = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".flv", ".swf", ".mkv", ".avi", ".rm", ".rmvb", ".mpeg", ".mpg", ".ogg", ".ogv", ".mov", ".wmv", ".mp4", ".webm", ".mp3", ".wav", ".mid", ".rar", ".zip", ".tar", ".gz", ".7z", ".bz2", ".cab", ".iso", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".pdf", ".txt", ".md", ".xml"];
+    public string[] FileManagerAllowFiles { get; set; } = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".flv", ".mkv", ".avi", ".rm", ".rmvb", ".mpeg", ".mpg", ".ogg", ".ogv", ".mov", ".wmv", ".mp4", ".webm", ".mp3", ".wav", ".mid", ".rar", ".zip", ".tar", ".gz", ".7z", ".bz2", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".pdf", ".txt", ".md"];
 }

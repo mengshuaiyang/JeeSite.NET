@@ -33,12 +33,28 @@ public class FileService
         if (file == null || file.Length == 0)
             return ApiResult<FileUploadResult>.Fail(400, "请选择文件");
 
+        // ---- 安全校验 1: 文件名清洗 + 扩展名白名单 ----
+        var safeFileName = FileSecurityUtil.SanitizeFileName(file.FileName);
+        var extension = Path.GetExtension(safeFileName).ToLowerInvariant();
+
+        if (!FileSecurityUtil.IsExtensionSafe(extension))
+            return ApiResult<FileUploadResult>.Fail(400, $"不允许的文件类型: {extension}");
+
+        // ---- 安全校验 2: 文件大小上限（默认 50MB，可通过配置调整） ----
+        const long maxSize = 50 * 1024 * 1024; // 50 MB
+        if (file.Length > maxSize)
+            return ApiResult<FileUploadResult>.Fail(400, $"文件大小超过限制（{maxSize / 1024 / 1024}MB）");
+
         var now = DateTime.Now;
-        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
 
         using var ms = new MemoryStream();
         await file.CopyToAsync(ms);
         var bytes = ms.ToArray();
+
+        // ---- 安全校验 3: 文件签名（Magic Number）与扩展名一致 ----
+        var (contentOk, reason) = FileSecurityUtil.ValidateUpload(bytes, safeFileName);
+        if (!contentOk)
+            return ApiResult<FileUploadResult>.Fail(400, $"文件内容校验失败: {reason}");
 
         var md5 = ComputeMd5(bytes);
         var existing = await _fileEntityRepo.GetByMd5Async(md5);
@@ -73,7 +89,7 @@ public class FileService
         {
             Id = IdGenerator.NewId(),
             FileId = fileId,
-            FileName = file.FileName,
+            FileName = safeFileName,
             FileType = extension.TrimStart('.'),
             BizKey = bizKey,
             BizType = bizType,
@@ -166,7 +182,16 @@ public class FileService
 
     public async Task<Stream?> GetByPathAsync(string path)
     {
-        return await _storage.GetAsync(path);
+        if (string.IsNullOrWhiteSpace(path))
+            return null;
+
+        // ---- 路径遍历防御: 拒绝 ../ 以及 URL/Unicode 编码变体 ----
+        if (FileSecurityUtil.IsPathTraversalAttempt(path))
+            return null;
+
+        // ---- 路径规范化: 只保留相对路径段，禁止跳出基础目录 ----
+        var normalized = path.Trim();
+        return await _storage.GetAsync(normalized);
     }
 
     private static string ComputeMd5(byte[] bytes)

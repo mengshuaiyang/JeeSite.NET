@@ -1,3 +1,4 @@
+using JeeSiteNET.Core.Utils;
 using Microsoft.AspNetCore.Http;
 using System.Collections.Concurrent;
 using System.Net.Http;
@@ -124,24 +125,34 @@ public sealed class UEditorActionHandler
     {
         var file = context.Request.Form.Files.GetFile(_opts.ImageFieldName);
         if (file == null) return JsonError("请选择文件");
-        if (!_opts.ImageAllowFiles.Contains(Path.GetExtension(file.FileName).ToLowerInvariant()))
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!_opts.ImageAllowFiles.Contains(extension))
             return JsonError("不允许的图片扩展名");
         if (file.Length > _opts.ImageMaxSize) return JsonError("图片大小超出限制");
 
+        // ---- 安全校验: 文件名清洗 + 文件签名 ----
+        var safeFileName = FileSecurityUtil.SanitizeFileName(file.FileName);
+
+        using var ms = new MemoryStream();
+        await file.CopyToAsync(ms);
+        var bytes = ms.ToArray();
+        if (!FileSecurityUtil.IsFileContentSafe(bytes, extension))
+            return JsonError("文件内容与扩展名不匹配");
+
         var path = UEditorPathFormatter.WithExtension(
             UEditorPathFormatter.Format(_opts.ImagePathFormat),
-            Path.GetExtension(file.FileName));
-        await using var stream = file.OpenReadStream();
-        var result = await _store.StoreAsync(path, stream, file.ContentType, file.Length);
+            extension);
+        using var storeStream = new MemoryStream(bytes);
+        var result = await _store.StoreAsync(path, storeStream, file.ContentType, bytes.Length);
 
         return JsonSerializer.Serialize(new UEditorUploadResult
         {
             State = "SUCCESS",
             Url = result.Url,
             Title = Path.GetFileName(path),
-            Original = file.FileName,
-            Type = Path.GetExtension(file.FileName),
-            Size = file.Length
+            Original = safeFileName,
+            Type = extension,
+            Size = bytes.Length
         });
     }
 
@@ -157,6 +168,10 @@ public sealed class UEditorActionHandler
         catch { return JsonError("涂鸦内容格式错误"); }
 
         if (bytes.Length > _opts.ScrawlMaxSize) return JsonError("涂鸦大小超出限制");
+
+        // ---- 安全校验: PNG magic number (89 50 4E 47 0D 0A 1A 0A) ----
+        if (!FileSecurityUtil.IsFileContentSafe(bytes, ".png"))
+            return JsonError("涂鸦内容不是合法的图片");
 
         var path = UEditorPathFormatter.WithExtension(
             UEditorPathFormatter.Format(_opts.ScrawlPathFormat), ".png");
@@ -178,24 +193,33 @@ public sealed class UEditorActionHandler
     {
         var file = context.Request.Form.Files.GetFile(_opts.VideoFieldName);
         if (file == null) return JsonError("请选择文件");
-        if (!_opts.VideoAllowFiles.Contains(Path.GetExtension(file.FileName).ToLowerInvariant()))
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!_opts.VideoAllowFiles.Contains(extension))
             return JsonError("不允许的视频扩展名");
         if (file.Length > _opts.VideoMaxSize) return JsonError("视频大小超出限制");
 
+        var safeFileName = FileSecurityUtil.SanitizeFileName(file.FileName);
+
+        using var ms = new MemoryStream();
+        await file.CopyToAsync(ms);
+        var bytes = ms.ToArray();
+        if (!FileSecurityUtil.IsFileContentSafe(bytes, extension))
+            return JsonError("文件内容与扩展名不匹配");
+
         var path = UEditorPathFormatter.WithExtension(
             UEditorPathFormatter.Format(_opts.VideoPathFormat),
-            Path.GetExtension(file.FileName));
-        await using var stream = file.OpenReadStream();
-        var result = await _store.StoreAsync(path, stream, file.ContentType, file.Length);
+            extension);
+        using var storeStream = new MemoryStream(bytes);
+        var result = await _store.StoreAsync(path, storeStream, file.ContentType, bytes.Length);
 
         return JsonSerializer.Serialize(new UEditorUploadResult
         {
             State = "SUCCESS",
             Url = result.Url,
             Title = Path.GetFileName(path),
-            Original = file.FileName,
-            Type = Path.GetExtension(file.FileName),
-            Size = file.Length
+            Original = safeFileName,
+            Type = extension,
+            Size = bytes.Length
         });
     }
 
@@ -203,24 +227,33 @@ public sealed class UEditorActionHandler
     {
         var file = context.Request.Form.Files.GetFile(_opts.FileFieldName);
         if (file == null) return JsonError("请选择文件");
-        if (!_opts.FileAllowFiles.Contains(Path.GetExtension(file.FileName).ToLowerInvariant()))
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!_opts.FileAllowFiles.Contains(extension))
             return JsonError("不允许的文件扩展名");
         if (file.Length > _opts.FileMaxSize) return JsonError("文件大小超出限制");
 
+        var safeFileName = FileSecurityUtil.SanitizeFileName(file.FileName);
+
+        using var ms = new MemoryStream();
+        await file.CopyToAsync(ms);
+        var bytes = ms.ToArray();
+        if (!FileSecurityUtil.IsFileContentSafe(bytes, extension))
+            return JsonError("文件内容与扩展名不匹配");
+
         var path = UEditorPathFormatter.WithExtension(
             UEditorPathFormatter.Format(_opts.FilePathFormat),
-            Path.GetExtension(file.FileName));
-        await using var stream = file.OpenReadStream();
-        var result = await _store.StoreAsync(path, stream, file.ContentType, file.Length);
+            extension);
+        using var storeStream = new MemoryStream(bytes);
+        var result = await _store.StoreAsync(path, storeStream, file.ContentType, bytes.Length);
 
         return JsonSerializer.Serialize(new UEditorUploadResult
         {
             State = "SUCCESS",
             Url = result.Url,
             Title = Path.GetFileName(path),
-            Original = file.FileName,
-            Type = Path.GetExtension(file.FileName),
-            Size = file.Length
+            Original = safeFileName,
+            Type = extension,
+            Size = bytes.Length
         });
     }
 
@@ -238,10 +271,32 @@ public sealed class UEditorActionHandler
             if (string.IsNullOrWhiteSpace(src)) continue;
             try
             {
+                // ---- SSRF 防护: 只允许 http/https, 拒绝内网 IP, file:// 等 ----
+                if (!Uri.TryCreate(src, UriKind.Absolute, out var uri) ||
+                    (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                {
+                    list.Add(new UEditorCatcherEntry { Url = src, Source = src, State = "不支持的协议" });
+                    continue;
+                }
+                var host = uri.Host;
+                if (host == "localhost" || host.StartsWith("127.") || host.StartsWith("192.168.") ||
+                    host.StartsWith("10.") || host.StartsWith("172.") ||
+                    host.Equals("::1", StringComparison.OrdinalIgnoreCase))
+                {
+                    list.Add(new UEditorCatcherEntry { Url = src, Source = src, State = "禁止访问内网地址" });
+                    continue;
+                }
+
                 var bytes = await httpClient.GetByteArrayAsync(src);
                 if (bytes.Length > _opts.CatcherMaxSize) { list.Add(new UEditorCatcherEntry { Url = src, Source = src, State = "大小超出限制" }); continue; }
                 var ext = GuessImageExtension(bytes, src);
                 if (!_opts.CatcherAllowFiles.Contains(ext)) { list.Add(new UEditorCatcherEntry { Url = src, Source = src, State = "不允许的扩展名" }); continue; }
+
+                if (!FileSecurityUtil.IsFileContentSafe(bytes, ext))
+                {
+                    list.Add(new UEditorCatcherEntry { Url = src, Source = src, State = "文件内容与扩展名不匹配" });
+                    continue;
+                }
 
                 var path = UEditorPathFormatter.WithExtension(
                     UEditorPathFormatter.Format(_opts.CatcherPathFormat), ext);
