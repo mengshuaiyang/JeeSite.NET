@@ -18,7 +18,7 @@ const loading = ref(false)
 const data = reactive({ list: [] as any[], total: 0, pageNo: 1, pageSize: 20 })
 const query = reactive({ auditType: '', loginCode: '' })
 
-const columns = [
+const columns: Array<{ title: string; dataIndex?: string; key?: string; width?: number }> = [
   { title: '审计类型', dataIndex: 'auditType', width: 120 },
   { title: '登录名', dataIndex: 'loginCode', width: 120 },
   { title: '用户名', dataIndex: 'userName', width: 120 },
