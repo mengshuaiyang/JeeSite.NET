@@ -111,7 +111,7 @@ public class ExcelService
                 cell = row.GetCell(colIdx);
                 if (cell == null) continue;
 
-                var val = GetCellValue(cell, kv.Value.PropType);
+                var val = GetCellValue(cell, kv.Value, kv.Value.PropType);
                 if (val != null && (val.ToString() != "" || kv.Value.PropType != typeof(string)))
                 {
                     kv.Value.Setter(item, val);
@@ -152,6 +152,18 @@ public class ExcelService
 
     private static void SetCellValue(ICell cell, object? val, ExcelPropInfo prop)
     {
+        var fieldType = prop.GetFieldTypeInstance();
+        if (fieldType != null)
+        {
+            var iface = fieldType.GetType().GetInterface("IExcelFieldType");
+            if (iface != null)
+            {
+                var valueToCell = iface.GetMethod("ValueToCell");
+                var formatted = valueToCell?.Invoke(fieldType, new[] { val }) as string;
+                if (formatted != null) { cell.SetCellValue(formatted); return; }
+            }
+        }
+
         if (val == null) { cell.SetCellValue(string.Empty); return; }
 
         if (prop.PropType == typeof(int) || prop.PropType == typeof(long) ||
@@ -176,9 +188,22 @@ public class ExcelService
             cell.SetCellValue(val?.ToString() ?? "");
     }
 
-    private static object? GetCellValue(ICell cell, Type targetType)
+    private static object? GetCellValue(ICell cell, ExcelPropInfo prop, Type targetType)
     {
         if (cell == null) return null;
+
+        var fieldType = prop.GetFieldTypeInstance();
+        if (fieldType != null)
+        {
+            var iface = fieldType.GetType().GetInterface("IExcelFieldType");
+            if (iface != null)
+            {
+                var cellToValue = iface.GetMethod("CellToValue");
+                var rawText = GetRawCellText(cell);
+                var val = cellToValue?.Invoke(fieldType, new[] { rawText });
+                if (val != null) return val;
+            }
+        }
 
         switch (cell.CellType)
         {
@@ -228,10 +253,28 @@ public class ExcelService
         return null;
     }
 
+    private static string GetRawCellText(ICell cell)
+    {
+        try
+        {
+            return cell.CellType switch
+            {
+                CellType.Numeric => cell.NumericCellValue.ToString(),
+                CellType.String => cell.StringCellValue,
+                CellType.Boolean => cell.BooleanCellValue.ToString(),
+                CellType.Formula => cell.StringCellValue ?? cell.NumericCellValue.ToString(),
+                _ => ""
+            };
+        }
+        catch { return ""; }
+    }
+
     private class ExcelPropInfo
     {
         private readonly PropertyInfo _prop;
         private readonly ExcelFieldAttribute? _attr;
+        private Type? FieldType { get; }
+        private object? _fieldTypeInstance;
 
         public int Sort => _attr?.Sort ?? 999;
         public bool IsExport => _attr?.IsExport ?? true;
@@ -243,6 +286,22 @@ public class ExcelService
         {
             _prop = prop;
             _attr = prop.GetCustomAttribute<ExcelFieldAttribute>();
+            FieldType = _attr?.FieldType;
+        }
+
+        public object? GetFieldTypeInstance()
+        {
+            if (FieldType == null) return null;
+            if (_fieldTypeInstance != null) return _fieldTypeInstance;
+            try
+            {
+                _fieldTypeInstance = Activator.CreateInstance(FieldType);
+            }
+            catch
+            {
+                _fieldTypeInstance = null;
+            }
+            return _fieldTypeInstance;
         }
 
         public string GetTitle() => _attr?.Title ?? _prop.Name;

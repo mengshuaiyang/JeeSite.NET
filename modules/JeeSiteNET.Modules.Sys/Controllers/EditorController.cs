@@ -1,6 +1,8 @@
 using JeeSiteNET.Core;
 using JeeSiteNET.Core.Security;
+using JeeSiteNET.Core.UEditor;
 using JeeSiteNET.Modules.Sys.Application.Services;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,16 +13,16 @@ namespace JeeSiteNET.Modules.Sys.Controllers;
 public class EditorController : ControllerBase
 {
     private readonly FileService _fileService;
+    private readonly UEditorActionHandler _ueditor;
 
-    public EditorController(FileService fileService)
+    public EditorController(FileService fileService, IWebHostEnvironment env)
     {
-        _fileService = fileService;
+        _fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
+        var webRoot = env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+        _ueditor = new UEditorActionHandler(new UEditorOptions(), new LocalFileUploadStore(webRoot, "/"));
     }
 
-    /// <summary>
-    /// Vditor file upload — returns Vditor-compatible JSON:
-    /// { "msg": "", "code": 0, "data": { "errFiles": [], "succMap": { "filename": "url" } } }
-    /// </summary>
+    /// <summary>原上传接口，兼容 Vditor 与 UEditor 两种响应格式</summary>
     [HttpPost("upload")]
     [Permission("sys:editor:upload")]
     public async Task<IActionResult> Upload(IFormFile file, [FromQuery] string? editor)
@@ -83,5 +85,23 @@ public class EditorController : ControllerBase
                 original = result.Data?.FileName ?? "",
             },
         });
+    }
+
+    /// <summary>
+    /// UEditor 标准 action 端点。
+    /// 
+    /// UEditor 前端通过统一 URL: /api/v1/sys/editor?action=xxx 与后端通信
+    /// 支持 action：
+    ///   config / uploadimage / uploadscrawl / uploadvideo / uploadfile /
+    ///   catchimage / listimage / listfile
+    /// </summary>
+    [ApiExplorerSettings(IgnoreApi = false)]
+    [Route("")]
+    [Route("ueditor")]
+    [Permission("sys:editor:upload")]
+    public async Task<IActionResult> UEditor([FromQuery] string? action)
+    {
+        var json = await _ueditor.HandleAsync(HttpContext);
+        return Content(json, "application/json; charset=utf-8");
     }
 }
