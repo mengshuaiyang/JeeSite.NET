@@ -1,0 +1,254 @@
+# CAS 单点登录
+
+本文档描述 JeeSite.NET 如何作为 **CAS Client（Service）** 接入企业内部 Apereo CAS
+Server（Protocol 3.0+），实现"登录一次即可访问所有接入 CAS 的业务系统"的 SSO 体验。
+
+---
+
+## 一、协议概述
+
+- **标准**：Apereo CAS Protocol 3.0（兼容 2.0）。
+- **角色**：
+  - `CAS Server`：企业统一认证中心（典型部署：https://cas.example.com/cas）。
+  - `CAS Service (Client)`：JeeSite.NET 应用自身。
+  - `Principal`：最终用户。
+- **典型场景**：企业内部多系统均接入 CAS；用户访问 JeeSite.NET 时，若尚未在 CAS
+  登录，则自动跳转 CAS 登录页面，登录后携带 Ticket 返回 JeeSite.NET。
+- **认证流程（简化）**：
+
+```
+用户访问 /
+  └─> 未登录 → 重定向到 CAS Server /login?service=...
+         └─> 用户在 CAS 登录（账号/密码 + 双因素可选）
+                └─> CAS Server 签发 ST (Service Ticket)
+                       └─> 302 回到 JeeSite.NET /cas/callback?ticket=ST-xxx
+                              └─> JeeSite.NET 使用 ST 调用 /p3/serviceValidate
+                                     校验 → 解析 XML → 构造本地 JWT
+                                            └─> 返回前端首页
+```
+
+### 1.1 CAS 3.0 serviceValidate 响应示例
+
+```xml
+<cas:serviceResponse xmlns:cas='http://www.yale.edu/tp/cas'>
+  <cas:authenticationSuccess>
+    <cas:user>zhangsan</cas:user>
+    <cas:attributes>
+      <cas:email>zhangsan@example.com</cas:email>
+      <cas:displayName>张三</cas:displayName>
+      <cas:department>技术中心</cas:department>
+      <cas:employeeNumber>10086</cas:employeeNumber>
+    </cas:attributes>
+  </cas:authenticationSuccess>
+</cas:serviceResponse>
+```
+
+---
+
+## 二、配置项 (appsettings.json)
+
+```json
+{
+  "Cas": {
+    "Enabled": true,
+    "ServerUrl": "https://cas.example.com/cas",
+    "ServiceUrl": "https://your-app.com/api/v1/sys/cas/callback",
+    "LoginUrl": "https://cas.example.com/cas/login",
+    "LogoutUrl": "https://cas.example.com/cas/logout",
+    "ValidateUrl": "https://cas.example.com/cas/p3/serviceValidate",
+    "DefaultCorpCode": "C001",
+    "DefaultOrgCode": "O001",
+    "AutoCreateUser": true
+  }
+}
+```
+
+### 2.1 字段说明
+
+| 字段 | 类型 | 默认值 | 说明 |
+|-----|------|-------|------|
+| `Enabled` | `bool` | `false` | 是否启用 CAS 登录入口。 |
+| `ServerUrl` | `string` | — | CAS Server 根路径。 |
+| `ServiceUrl` | `string` | — | JeeSite.NET 回调地址，会作为 `service` 参数签名。 |
+| `LoginUrl` | `string` | `{ServerUrl}/login` | CAS 登录页面。 |
+| `LogoutUrl` | `string` | `{ServerUrl}/logout` | CAS 登出页面。 |
+| `ValidateUrl` | `string` | `{ServerUrl}/p3/serviceValidate` | CAS 3.0 Ticket 校验接口。 |
+| `DefaultCorpCode` | `string` | — | 自动创建用户时分配的默认公司。 |
+| `DefaultOrgCode` | `string` | — | 自动创建用户时分配的默认机构。 |
+| `AutoCreateUser` | `bool` | `true` | CAS 登录成功但本地无账号时，是否自动创建。 |
+
+---
+
+## 三、核心服务：CasAuthService
+
+位于：`JeeSiteNET.Modules.Sys/Application/Services/CasAuthService.cs`
+
+### 3.1 ChallengeAsync(returnUrl)
+
+```csharp
+public string ChallengeAsync(string returnUrl = null)
+{
+    // service 参数必须与 ServiceUrl 一致，否则 CAS 校验失败
+    var service = _casOptions.ServiceUrl;
+    var redirect = string.IsNullOrEmpty(returnUrl)
+        ? service
+        : $"{service}?returnUrl={Uri.EscapeDataString(returnUrl)}";
+
+    return $"{_casOptions.LoginUrl}?service={Uri.EscapeDataString(redirect)}";
+}
+```
+
+控制器对 `/api/v1/sys/cas/login` 的请求执行 **302 重定向** 到上述 URL。
+
+### 3.2 CallbackAsync(ticket, returnUrl)
+
+```
+1. 构造 serviceValidate 请求：
+   GET {ValidateUrl}?ticket={ticket}&service={ServiceUrl}&format=XML
+2. 读取 XML 响应：
+   ├── <cas:user> → login_code（必须存在，否则拒绝）
+   └── <cas:attributes> → email / displayName / department 等
+3. 在 sys_user 表中按 login_code 查询：
+   ├── 命中 → 刷新最近登录信息与字段映射
+   └── 未命中且 AutoCreateUser = true → 基于属性映射创建新用户
+4. 构造本地 JWT（与 JWT 认证机制文档完全一致）
+5. 302 到前端首页 / 或 returnUrl 指定页面
+```
+
+关键伪代码：
+
+```csharp
+public async Task<(string Token, string ReturnUrl)> CallbackAsync(string ticket, string returnUrl)
+{
+    var xml = await _httpClient.GetStringAsync(
+        $"{_casOptions.ValidateUrl}?ticket={ticket}&service={_casOptions.ServiceUrl}");
+
+    var (casUser, attributes) = ParseCasResponse(xml);
+    var user = await _userRepository.GetByCodeAsync(casUser) ??
+               (_casOptions.AutoCreateUser
+                   ? await CreateUserFromCas(casUser, attributes)
+                   : throw new UnauthorizedAccessException("CAS 用户未在本地开户"));
+
+    var token = await _authService.CreateTokenAsync(user);
+    return (token.Token, returnUrl ?? "/");
+}
+```
+
+### 3.3 LogoutAsync()
+
+CAS 登出有两层：
+
+1. **本地登出**：调用 `AuthService.LogoutAsync(userCode)`，将当前 jti 加入黑名单；
+2. **单点登出（SLO, Single Log-Out）**：浏览器跳转
+   `{LogoutUrl}?service={ServiceUrl}`，由 CAS Server 通知所有接入系统清理会话。
+
+若只需要本地登出，可在前端单独调用 `/sys/auth/logout`，不触发 CAS 登出。
+
+---
+
+## 四、控制器端点
+
+### CasAuthController
+
+位于：`JeeSiteNET.Modules.Sys/Controllers/CasAuthController.cs`
+
+| 方法 | 路径 | 说明 |
+|-----|------|------|
+| `GET` | `/api/v1/sys/cas/login` | 发起 CAS 登录（302 到 CAS Server 登录页）。 |
+| `GET` | `/api/v1/sys/cas/callback` | CAS 回调，解析 `ticket` 参数并校验。 |
+| `POST` / `GET` | `/api/v1/sys/cas/logout` | CAS 登出（同时跳转 CAS Server 登出页）。 |
+
+### 4.1 前端按钮示例
+
+```vue
+<el-button
+  v-if="authConfig.casEnabled"
+  type="success"
+  @click="window.location.href='/api/v1/sys/cas/login'">
+  企业 CAS 登录
+</el-button>
+```
+
+---
+
+## 五、用户属性映射
+
+### 5.1 字段映射表
+
+CAS `<cas:attributes>` 中的字段名由企业 IAM 配置决定，JeeSite.NET 通过配置文件
+支持自定义映射：
+
+| JeeSite.NET 字段 | 默认读取的 CAS attribute | 说明 |
+|------------------|--------------------------|------|
+| `login_code`     | `<cas:user>`             | 必选，用作唯一登录账号。 |
+| `user_name`      | `displayName` / `name`   | 展示用姓名。 |
+| `email`          | `mail` / `email`         | 用于通知与找回密码。 |
+| `mobile`         | `mobile` / `telephoneNumber` | 用于短信通知。 |
+| `corp_code`      | —（取自 DefaultCorpCode） | 新用户默认归属公司。 |
+| `org_code`       | `department`             | 可配置由 attribute 映射或使用 DefaultOrgCode。 |
+| `avatar`         | `avatar`                 | 可选。 |
+
+### 5.2 appsettings.json 中的映射示例
+
+```json
+{
+  "Cas": {
+    "AttributeMappings": {
+      "user_name": "displayName",
+      "email": "mail",
+      "mobile": "telephoneNumber",
+      "org_code": "department"
+    }
+  }
+}
+```
+
+未配置的字段使用默认值（由 `Default*` 决定）。
+
+### 5.3 自动创建用户的默认角色
+
+- 若 `AutoCreateUser = true`，新用户默认加入「普通员工」角色（`role_code = employee`）；
+- 该默认角色可在 `sys_config`（`sys:cas:default_role`）中按公司覆盖；
+- 管理员需定期审核"自动创建"的账号，避免越权访问。
+
+---
+
+## 六、常见问题与排错
+
+### 6.1 `ticket not recognized`
+
+- `service` 参数与 CAS Server 中登记的 Service 白名单不完全一致（路径、大小写、
+  结尾 `/`）；
+- ST 为一次性票据，且有效期通常仅 10 秒，重放或延迟会导致失败。
+
+### 6.2 用户信息为空但 ticket 有效
+
+- 检查 `serviceValidate` 是否返回 `<cas:authenticationFailure>`；
+- 该账号可能在 CAS Server 上被禁用或未授权访问本 Service。
+
+### 6.3 重定向循环
+
+- 应用在 `/cas/callback` 校验成功后签发了 JWT，但前端未正确保存；
+- 检查 `https://` 是否与应用 Base URL 匹配，避免跨协议 Cookie 丢失。
+
+### 6.4 SLO（单点登出）不生效
+
+- CAS Server 会向各 Service 的 `/logout` 端点发送后台回调清除票据；
+- 若部署在反向代理后，需确保 ServiceUrl 对外可被 CAS Server 访问。
+
+---
+
+## 七、安全注意事项
+
+1. **HTTPS 强制**：CAS Server 与 Service 之间通信必须走 HTTPS，避免 ST 被窃听。
+2. **service 严格匹配**：禁止通配符，避免钓鱼网站伪造 service 窃取票据。
+3. **ST 一次性使用**：应用需对已使用的 ST 在本地做 5 分钟黑名单，防止重放。
+4. **自动创建用户受控**：建议默认角色仅保留最基本权限，升级需由管理员审批。
+5. **日志审计**：CAS 登录事件写入 `sys_log`，字段 `login_from = "CAS"`，
+   并记录 `cas:user` 与 ticket 摘要，便于溯源。
+
+---
+
+**小结**：CAS SSO 为 JeeSite.NET 提供了企业级统一入口能力。通过 `CasAuthService`
+封装 Ticket 校验与属性映射，结合本地 JWT 签发机制，可实现与既有账号体系的平滑集成。
+建议在正式上线前完成 CAS Server 白名单、HTTPS 证书与默认角色权限三项评审。
