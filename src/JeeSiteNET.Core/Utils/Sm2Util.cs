@@ -1,148 +1,126 @@
-using System.Security.Cryptography;
+using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.Crypto.Engines;
+using Org.BouncyCastle.Crypto.Generators;
+using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Math;
+using Org.BouncyCastle.Math.EC;
+using Org.BouncyCastle.Security;
 using System.Text;
 
 namespace JeeSiteNET.Core.Utils;
 
+/// <summary>
+/// SM2 椭圆曲线国密算法工具类（基于 BouncyCastle 标准实现）。
+/// 曲线：sm2p256v1（GB/T 32918-2016）。
+/// 签名：SM2withSM3（GM/T 0003.2-2012）。
+/// 加密：C1C2C3 ASN.1 DER 混合加密。
+/// </summary>
 public static class Sm2Util
 {
-    public static string GeneratePrivateKey()
+    private static readonly ECDomainParameters _sm2Domain = InitSm2Domain();
+    private static readonly SecureRandom _random = new();
+
+    private static ECDomainParameters InitSm2Domain()
     {
-        using var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var param = ecdsa.ExportParameters(true);
-        var bytes = param.D ?? throw new InvalidOperationException("私钥生成失败");
-        return Convert.ToHexString(bytes).ToLower();
+        var ecParams = Org.BouncyCastle.Crypto.EC.CustomNamedCurves.GetByName("sm2p256v1");
+        if (ecParams == null)
+            throw new InvalidOperationException("无法获取 sm2p256v1 曲线参数");
+        return new ECDomainParameters(ecParams.Curve, ecParams.G, ecParams.N, ecParams.H, ecParams.GetSeed());
     }
 
+    private static BigInteger ByteArrayToBigInt(byte[] bytes) => new(1, bytes);
+
+    /// <summary>生成 256 位 SM2 私钥（hex 小写，64 字符）</summary>
+    public static string GeneratePrivateKey()
+    {
+        var gen = new ECKeyGenerationParameters(_sm2Domain, _random);
+        var keyGen = new ECKeyPairGenerator();
+        keyGen.Init(gen);
+        var pair = keyGen.GenerateKeyPair();
+        var priv = (ECPrivateKeyParameters)pair.Private;
+        return priv.D.ToByteArrayUnsigned().Length == 32
+            ? Convert.ToHexString(priv.D.ToByteArrayUnsigned()).ToLower()
+            : Convert.ToHexString(FixLength32(priv.D.ToByteArrayUnsigned())).ToLower();
+    }
+
+    /// <summary>从私钥生成 SM2 公钥（未压缩格式：04 + X + Y，hex 130 字符）</summary>
     public static string GeneratePublicKey(string privateKeyHex)
     {
-        using var ecdsa = ECDsa.Create();
-        var param = new ECParameters
-        {
-            Curve = ECCurve.NamedCurves.nistP256,
-            D = Convert.FromHexString(privateKeyHex)
-        };
-        ecdsa.ImportParameters(param);
-        var pub = ecdsa.ExportParameters(false);
-        var qx = pub.Q.X ?? throw new InvalidOperationException("公钥生成失败");
-        var qy = pub.Q.Y ?? throw new InvalidOperationException("公钥生成失败");
-        return "04" + Convert.ToHexString(qx).ToLower() + Convert.ToHexString(qy).ToLower();
+        var d = ByteArrayToBigInt(Convert.FromHexString(privateKeyHex));
+        var q = _sm2Domain.G.Multiply(d).Normalize();
+        var x = FixLength32(q.AffineXCoord.ToBigInteger().ToByteArrayUnsigned());
+        var y = FixLength32(q.AffineYCoord.ToBigInteger().ToByteArrayUnsigned());
+        return "04" + Convert.ToHexString(x).ToLower() + Convert.ToHexString(y).ToLower();
     }
 
     public static (string PrivateKey, string PublicKey) GenerateKeyPair()
     {
-        var privateKey = GeneratePrivateKey();
-        var publicKey = GeneratePublicKey(privateKey);
-        return (privateKey, publicKey);
+        var priv = GeneratePrivateKey();
+        var pub = GeneratePublicKey(priv);
+        return (priv, pub);
     }
 
+    /// <summary>SM2withSM3 签名（默认用户 ID = 1234567812345678）。返回 DER hex。</summary>
     public static string Sign(string privateKeyHex, string data)
     {
-        using var ecdsa = ECDsa.Create();
-        var param = new ECParameters
-        {
-            Curve = ECCurve.NamedCurves.nistP256,
-            D = Convert.FromHexString(privateKeyHex)
-        };
-        ecdsa.ImportParameters(param);
-
-        var dataBytes = Encoding.UTF8.GetBytes(data);
-        var signature = ecdsa.SignData(dataBytes, HashAlgorithmName.SHA256);
-        return Convert.ToHexString(signature).ToLower();
+        var privParams = CreatePrivateKeyParameters(privateKeyHex);
+        var signer = SignerUtilities.GetSigner("SM3withSM2");
+        signer.Init(true, new ParametersWithID(privParams, Encoding.ASCII.GetBytes("1234567812345678")));
+        signer.BlockUpdate(Encoding.UTF8.GetBytes(data));
+        var sig = signer.GenerateSignature();
+        return Convert.ToHexString(sig).ToLower();
     }
 
     public static bool Verify(string publicKeyHex, string data, string signatureHex)
     {
-        using var ecdsa = ECDsa.Create();
-        var pubKey = publicKeyHex.StartsWith("04") ? publicKeyHex[2..] : publicKeyHex;
-        var qx = Convert.FromHexString(pubKey[..(pubKey.Length / 2)]);
-        var qy = Convert.FromHexString(pubKey[(pubKey.Length / 2)..]);
-
-        var param = new ECParameters
-        {
-            Curve = ECCurve.NamedCurves.nistP256,
-            Q = { X = qx, Y = qy }
-        };
-        ecdsa.ImportParameters(param);
-
-        var dataBytes = Encoding.UTF8.GetBytes(data);
-        var sigBytes = Convert.FromHexString(signatureHex);
-
-        if (sigBytes.Length == 64)
-        {
-            var formatted = new byte[68];
-            formatted[0] = 0x30;
-            formatted[1] = 0x44;
-            formatted[2] = 0x02;
-            formatted[3] = 0x20;
-            Array.Copy(sigBytes, 0, formatted, 4, 32);
-            formatted[36] = 0x02;
-            formatted[37] = 0x20;
-            Array.Copy(sigBytes, 32, formatted, 38, 32);
-            return ecdsa.VerifyData(dataBytes, formatted, HashAlgorithmName.SHA256);
-        }
-
-        return ecdsa.VerifyData(dataBytes, sigBytes, HashAlgorithmName.SHA256);
+        var pubParams = CreatePublicKeyParameters(publicKeyHex);
+        var signer = SignerUtilities.GetSigner("SM3withSM2");
+        signer.Init(false, new ParametersWithID(pubParams, Encoding.ASCII.GetBytes("1234567812345678")));
+        signer.BlockUpdate(Encoding.UTF8.GetBytes(data));
+        return signer.VerifySignature(Convert.FromHexString(signatureHex));
     }
 
+    /// <summary>SM2 椭圆曲线加密（C1C2C3 ASN.1 DER）</summary>
     public static string Encrypt(string publicKeyHex, string plainText)
     {
-        return EncryptByPassword(publicKeyHex, plainText);
+        var pubParams = CreatePublicKeyParameters(publicKeyHex);
+        var engine = new SM2Engine();
+        engine.Init(true, new ParametersWithRandom(pubParams, _random));
+        var cipherBytes = engine.ProcessBlock(Encoding.UTF8.GetBytes(plainText));
+        return Convert.ToHexString(cipherBytes).ToLower();
     }
 
+    /// <summary>SM2 椭圆曲线解密</summary>
     public static string Decrypt(string privateKeyHex, string cipherText)
     {
-        return DecryptByPassword(privateKeyHex, cipherText);
-    }
-
-    private static string EncryptByPassword(string publicKeyHex, string plainText)
-    {
-        var password = Guid.NewGuid().ToString("N")[..16];
-        using var aes = Aes.Create();
-        aes.KeySize = 256;
-        var passwordBytes = System.Text.Encoding.UTF8.GetBytes(password);
-        var salt = RandomNumberGenerator.GetBytes(16);
-        var key = Rfc2898DeriveBytes.Pbkdf2(passwordBytes, salt, 10000, HashAlgorithmName.SHA256, 32);
-        var iv = RandomNumberGenerator.GetBytes(16);
-        aes.Key = key;
-        aes.IV = iv;
-
-        var plainBytes = Encoding.UTF8.GetBytes(plainText);
-        using var encryptor = aes.CreateEncryptor();
-        var cipherBytes = encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
-
-        var encryptedPassword = Convert.ToHexString(
-            Rfc2898DeriveBytes.Pbkdf2(
-                Encoding.UTF8.GetBytes(password),
-                salt, 1, HashAlgorithmName.SHA256, 32));
-
-        var result = new byte[salt.Length + iv.Length + cipherBytes.Length];
-        Array.Copy(salt, 0, result, 0, salt.Length);
-        Array.Copy(iv, 0, result, salt.Length, iv.Length);
-        Array.Copy(cipherBytes, 0, result, salt.Length + iv.Length, cipherBytes.Length);
-
-        return Convert.ToHexString(result).ToLower() + encryptedPassword;
-    }
-
-    private static string DecryptByPassword(string privateKeyHex, string cipherText)
-    {
-        var fullBytes = Convert.FromHexString(cipherText);
-        int saltLen = 16, ivLen = 16;
-        var salt = fullBytes[..saltLen];
-        var iv = fullBytes[saltLen..(saltLen + ivLen)];
-        var cipherBytes = fullBytes[(saltLen + ivLen)..^64];
-        var passwordHash = Encoding.UTF8.GetString(fullBytes[^64..]);
-
-        var password = new string(cipherText[^64..].Where(char.IsLetterOrDigit).Take(32).ToArray());
-
-        using var aes = Aes.Create();
-        var key = Rfc2898DeriveBytes.Pbkdf2(
-            Encoding.UTF8.GetBytes(password),
-            salt, 10000, HashAlgorithmName.SHA256, 32);
-        aes.Key = key;
-        aes.IV = iv;
-
-        using var decryptor = aes.CreateDecryptor();
-        var plainBytes = decryptor.TransformFinalBlock(cipherBytes, 0, cipherBytes.Length);
+        var privParams = CreatePrivateKeyParameters(privateKeyHex);
+        var engine = new SM2Engine();
+        engine.Init(false, privParams);
+        var plainBytes = engine.ProcessBlock(Convert.FromHexString(cipherText));
         return Encoding.UTF8.GetString(plainBytes);
+    }
+
+    private static byte[] FixLength32(byte[] bytes)
+    {
+        if (bytes.Length == 32) return bytes;
+        if (bytes.Length > 32) return bytes.TakeLast(32).ToArray();
+        var result = new byte[32];
+        Array.Copy(bytes, 0, result, 32 - bytes.Length, bytes.Length);
+        return result;
+    }
+
+    private static ECPrivateKeyParameters CreatePrivateKeyParameters(string privateKeyHex)
+    {
+        var d = ByteArrayToBigInt(Convert.FromHexString(privateKeyHex));
+        return new ECPrivateKeyParameters(d, _sm2Domain);
+    }
+
+    private static ECPublicKeyParameters CreatePublicKeyParameters(string publicKeyHex)
+    {
+        var hex = publicKeyHex.StartsWith("04") ? publicKeyHex[2..] : publicKeyHex;
+        var x = ByteArrayToBigInt(Convert.FromHexString(hex[..64]));
+        var y = ByteArrayToBigInt(Convert.FromHexString(hex[64..]));
+        var q = _sm2Domain.Curve.CreatePoint(x, y).Normalize();
+        return new ECPublicKeyParameters(q, _sm2Domain);
     }
 }
