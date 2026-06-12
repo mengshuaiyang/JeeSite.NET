@@ -1,9 +1,55 @@
-﻿<div align="right">
+<div align="right">
   <a href="Home">← 返回首页</a>
 </div>
 
 ---
-# Elasticsearch 全文搜索
+
+# Elasticsearch
+
+> 基于 Elasticsearch 的全文搜索方案，IK 中文分词、向量相似度、聚合分析、零停机索引重建。
+>
+> **适用角色**：全栈开发人员
+> **阅读时间**：约 10 分钟
+> **相关文档**：[20-AI智能问答](20-AI智能问答) · [23-FusionCache缓存](23-FusionCache缓存)
+> 最后更新: 2026-06-13
+
+---
+
+## 📋 目录
+
+- [一、概述](#一、概述)
+  - [为什么需要 Elasticsearch](#为什么需要-elasticsearch)
+  - [JeeSite.NET 中 ES 的使用场景](#jeesitenet-中-es-的使用场景)
+- [二、Elasticsearch 配置（appsettings.json）](#二、elasticsearch-配置（appsettingsjson）)
+- [三、索引结构示例](#三、索引结构示例)
+  - [索引 Mapping](#索引-mapping)
+  - [字段设计说明](#字段设计说明)
+- [四、核心服务：SearchService](#四、核心服务：searchservice)
+  - [SearchAsync 详细参数](#searchasync-详细参数)
+  - [返回结构](#返回结构)
+- [五、索引管理策略](#五、索引管理策略)
+  - [5.1 实时索引（主路径）](#51-实时索引（主路径）)
+  - [5.2 定时增量索引](#52-定时增量索引)
+  - [5.3 全量重建（管理员手动触发）](#53-全量重建（管理员手动触发）)
+  - [5.4 冷热分离](#54-冷热分离)
+- [六、IK 中文分词](#六、ik-中文分词)
+  - [两种分词器对比](#两种分词器对比)
+  - [自定义词库](#自定义词库)
+  - [同义词](#同义词)
+- [七、CMS 前端搜索集成](#七、cms-前端搜索集成)
+  - [页面：frontend/src/views/cms-front/Search.vue](#页面：frontend-src-views-cms-front-searchvue)
+  - [接口：GET /api/v1/cms/article/search](#接口：get-api-v1-cms-article-search)
+  - [热门搜索词（Redis ZSET）](#热门搜索词（redis-zset）)
+- [八、索引监控与优化](#八、索引监控与优化)
+  - [8.1 Kibana Dashboard](#81-kibana-dashboard)
+  - [8.2 索引模板](#82-索引模板)
+  - [8.3 Shards / Replicas 建议](#83-shards-replicas-建议)
+  - [8.4 常见问题排查](#84-常见问题排查)
+- [九、Elasticsearch 启动（Docker）](#九、elasticsearch-启动（docker）)
+  - [触发全量重建](#触发全量重建)
+
+---
+
 
 > 当 CMS 文章量超过 10 万篇时，数据库 `LIKE` 查询效率不足。JeeSite.NET 采用 **Elasticsearch 8.x** 作为全文搜索引擎，结合 **IK 中文分词**提供快速、相关的搜索能力。
 
@@ -413,4 +459,20 @@ curl http://localhost:9200/_cat/indices?v
 
 <div align="center">
   <small>本文档最后更新: 2026-06-12 · JeeSite.NET Wiki</small>
+</div>
+
+---
+
+## 💡 快速参考
+
+| 项目 | 关键信息 |
+|------|---------|
+| **文档** | Elasticsearch |
+| **最后更新** | 2026-06-13 |
+| **相关文档** | [20-AI智能问答](20-AI智能问答) · [23-FusionCache缓存](23-FusionCache缓存) |
+
+---
+
+<div align="center">
+  <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>
 </div>

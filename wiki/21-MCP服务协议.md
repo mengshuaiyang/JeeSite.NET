@@ -1,9 +1,57 @@
-﻿<div align="right">
+<div align="right">
   <a href="Home">← 返回首页</a>
 </div>
 
 ---
-# MCP 服务协议
+
+# MCP服务协议
+
+> JeeSite.NET 作为 MCP Server 暴露内部业务能力供 LLM 客户端调用，统一 JSON-RPC 2.0 协议。
+>
+> **适用角色**：架构师、AI 应用开发者
+> **阅读时间**：约 10 分钟
+> **相关文档**：[20-AI智能问答](20-AI智能问答) · [26-AI-Tools开发](26-AI-Tools开发)
+> 最后更新: 2026-06-13
+
+---
+
+## 📋 目录
+
+- [一、MCP 简介](#一、mcp-简介)
+- [二、协议约定](#二、协议约定)
+  - [端点与鉴权](#端点与鉴权)
+  - [JSON-RPC 2.0 请求格式](#json-rpc-20-请求格式)
+  - [JSON-RPC 2.0 响应格式（成功）](#json-rpc-20-响应格式（成功）)
+  - [JSON-RPC 2.0 响应格式（失败）](#json-rpc-20-响应格式（失败）)
+- [三、核心方法](#三、核心方法)
+  - [3.1 tools/list — 获取所有工具](#31-tools-list-—-获取所有工具)
+  - [3.2 tools/call — 调用指定工具](#32-tools-call-—-调用指定工具)
+  - [3.3 session/list / session/create](#33-session-list-session-create)
+  - [3.4 user/profile](#34-user-profile)
+  - [3.5 system/health](#35-system-health)
+- [四、MCP 工具映射表](#四、mcp-工具映射表)
+- [五、核心服务：McpService](#五、核心服务：mcpservice)
+  - [主要方法](#主要方法)
+  - [审计记录](#审计记录)
+- [六、控制器端点](#六、控制器端点)
+  - [McpController](#mcpcontroller)
+  - [典型调用流程](#典型调用流程)
+  - [调试点](#调试点)
+- [七、自定义工具扩展步骤](#七、自定义工具扩展步骤)
+  - [步骤 1：实现 IAiTool 接口并添加注解](#步骤-1：实现-iaitool-接口并添加注解)
+  - [步骤 2：注册到 DI](#步骤-2：注册到-di)
+  - [步骤 3：自动发现](#步骤-3：自动发现)
+  - [验证](#验证)
+- [八、安全注意事项](#八、安全注意事项)
+  - [8.1 权限校验](#81-权限校验)
+  - [8.2 参数校验](#82-参数校验)
+  - [8.3 速率限制](#83-速率限制)
+  - [8.4 敏感操作的二次确认](#84-敏感操作的二次确认)
+  - [8.5 审计日志](#85-审计日志)
+  - [8.6 网络隔离建议](#86-网络隔离建议)
+
+---
+
 
 > MCP = Model Context Protocol，由 Anthropic 提出。JeeSite.NET 作为 MCP Server，通过标准化 JSON-RPC 2.0 协议暴露业务 API 给 LLM 调用。
 
@@ -450,4 +498,20 @@ services.AddScoped<IAiTool, CmsMonthlyStatsTool>();
 
 <div align="center">
   <small>本文档最后更新: 2026-06-12 · JeeSite.NET Wiki</small>
+</div>
+
+---
+
+## 💡 快速参考
+
+| 项目 | 关键信息 |
+|------|---------|
+| **文档** | MCP服务协议 |
+| **最后更新** | 2026-06-13 |
+| **相关文档** | [20-AI智能问答](20-AI智能问答) · [26-AI-Tools开发](26-AI-Tools开发) |
+
+---
+
+<div align="center">
+  <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>
 </div>

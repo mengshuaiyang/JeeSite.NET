@@ -1,19 +1,58 @@
-﻿<div align="right">
+<div align="right">
   <a href="Home">← 返回首页</a>
 </div>
 
 ---
-# 工具类手册 · Excel 导入导出工具
+
+# Excel导入导出
+
+> NPOI 驱动的 Excel 导入导出服务，ExcelFieldAttribute 列注解，IExcelFieldType 自定义字段类型体系。
+>
+> **适用角色**：全栈开发人员
+> **阅读时间**：约 10 分钟
+> **相关文档**：[03-Sys系统管理](03-Sys系统管理)
+> 最后更新: 2026-06-13
+
+---
+
+## 📋 目录
+
+  - [一、ExcelService](#一、excelservice)
+    - [1.1 依赖](#11-依赖)
+    - [1.2 核心方法](#12-核心方法)
+    - [1.3 简单使用示例](#13-简单使用示例)
+  - [二、ExcelFieldAttribute（列注解）](#二、excelfieldattribute（列注解）)
+    - [2.1 定义](#21-定义)
+    - [2.2 示例 DTO](#22-示例-dto)
+  - [三、IExcelFieldType（自定义字段类型体系）](#三、iexcelfieldtype（自定义字段类型体系）)
+    - [3.1 接口定义](#31-接口定义)
+    - [3.2 内置字段类型一览](#32-内置字段类型一览)
+    - [3.3 内置类型实现示例：BoolFieldType](#33-内置类型实现示例：boolfieldtype)
+  - [四、自定义字段类型扩展步骤](#四、自定义字段类型扩展步骤)
+    - [步骤 1：实现 IExcelFieldType](#步骤-1：实现-iexcelfieldtype)
+    - [步骤 2：在 DTO 的 [ExcelField] 中指定](#步骤-2：在-dto-的-excelfield-中指定)
+    - [步骤 3：编译后即生效](#步骤-3：编译后即生效)
+  - [五、完整使用示例（导入 + 导出）](#五、完整使用示例（导入-导出）)
+    - [5.1 定义 DTO](#51-定义-dto)
+    - [5.2 导出](#52-导出)
+    - [5.3 导入](#53-导入)
+    - [5.4 下载模板](#54-下载模板)
+  - [六、控制器端点（ExcelController）](#六、控制器端点（excelcontroller）)
+  - [七、导入流程的防御性检查清单](#七、导入流程的防御性检查清单)
+  - [八、字段类型与 Excel 单元格数据类型对应表](#八、字段类型与-excel-单元格数据类型对应表)
+
+---
+
 
 本章介绍 `ExcelService`（基于 NPOI / EPPlus 的通用 Excel 导入导出）、`ExcelFieldAttribute`（列注解）以及自定义字段类型体系（`IExcelFieldType`）。
 
 ---
 
-## 一、ExcelService
+### 一、ExcelService
 
 `ExcelService`（`Utils/ExcelService.cs`）提供通用数据到 Excel 的双向转换。它使用反射 + Attribute 标注，让导入导出的定义集中在 DTO 本身，业务代码简洁。
 
-### 1.1 依赖
+#### 1.1 依赖
 
 ```xml
 <PackageReference Include="NPOI" Version="2.7.*" />        <!-- .xlsx / .xls 读写 -->
@@ -22,7 +61,7 @@
 
 > NPOI 支持 .xlsx（Office 2007+）和旧版 .xls，免费使用且在中文环境中稳定，这里以 NPOI 为默认实现。
 
-### 1.2 核心方法
+#### 1.2 核心方法
 
 **（1）导出为 Excel**
 ```csharp
@@ -62,7 +101,7 @@ public class ImportResult<T>
 }
 ```
 
-### 1.3 简单使用示例
+#### 1.3 简单使用示例
 
 **导出用户列表：**
 ```csharp
@@ -109,11 +148,11 @@ public IActionResult DownloadTemplate(string entityType)
 
 ---
 
-## 二、ExcelFieldAttribute（列注解）
+### 二、ExcelFieldAttribute（列注解）
 
 通过在 DTO 的属性上标注 `[ExcelField]`，一次定义即完成"列名、列顺序、必填、字典翻译、字段类型"等全部配置。
 
-### 2.1 定义
+#### 2.1 定义
 
 ```csharp
 // Utils/ExcelFieldAttribute.cs
@@ -132,7 +171,7 @@ public class ExcelFieldAttribute : Attribute
 }
 ```
 
-### 2.2 示例 DTO
+#### 2.2 示例 DTO
 
 ```csharp
 // Modules/Sys/Application/DTOs/UserImportDto.cs
@@ -183,13 +222,13 @@ public class UserImportDto
 
 ---
 
-## 三、IExcelFieldType（自定义字段类型体系）
+### 三、IExcelFieldType（自定义字段类型体系）
 
 每个自定义字段类型实现**两个方向**的转换：
 - **导入方向**：Excel 单元格（字符串 / 数字 / 日期）→ C# 属性值
 - **导出方向**：C# 属性值 → Excel 单元格（字符串 / 数字 / 日期）
 
-### 3.1 接口定义
+#### 3.1 接口定义
 
 ```csharp
 // Utils/ExcelFieldTypes/IExcelFieldType.cs
@@ -203,7 +242,7 @@ public interface IExcelFieldType
 }
 ```
 
-### 3.2 内置字段类型一览
+#### 3.2 内置字段类型一览
 
 | 类型 | 导入方向（Excel Cell → C#） | 导出方向（C# → Excel Cell） |
 |------|-----------------------------|----------------------------|
@@ -219,7 +258,7 @@ public interface IExcelFieldType
 | `CompanyFieldType` | 公司名称 → `companyId` | `companyId` → 公司名称 |
 | `ImageFieldType` | 图片路径 / Base64 → 字节数组 或下载 URL | 字节数组 / URL → 在 Excel 中插入图片 |
 
-### 3.3 内置类型实现示例：BoolFieldType
+#### 3.3 内置类型实现示例：BoolFieldType
 
 ```csharp
 public class BoolFieldType : IExcelFieldType
@@ -256,11 +295,11 @@ public class BoolFieldType : IExcelFieldType
 
 ---
 
-## 四、自定义字段类型扩展步骤
+### 四、自定义字段类型扩展步骤
 
 当需要对接新的业务数据（如 "项目编号 → 项目名称"、"仓库编码 → 仓库名称"）时，按以下三步完成扩展。
 
-### 步骤 1：实现 `IExcelFieldType`
+#### 步骤 1：实现 `IExcelFieldType`
 
 ```csharp
 public class ProjectFieldType : IExcelFieldType
@@ -286,22 +325,22 @@ public class ProjectFieldType : IExcelFieldType
 }
 ```
 
-### 步骤 2：在 DTO 的 `[ExcelField]` 中指定
+#### 步骤 2：在 DTO 的 `[ExcelField]` 中指定
 
 ```csharp
 [ExcelField("项目", FieldType = typeof(ProjectFieldType), ColumnIndex = 10)]
 public string ProjectId { get; set; }
 ```
 
-### 步骤 3：编译后即生效
+#### 步骤 3：编译后即生效
 
 `ExcelService` 通过 `Activator.CreateInstance(fieldType)` 动态构造类型实例，反射调用 `Import` / `Export`。
 
 ---
 
-## 五、完整使用示例（导入 + 导出）
+### 五、完整使用示例（导入 + 导出）
 
-### 5.1 定义 DTO
+#### 5.1 定义 DTO
 
 ```csharp
 public class ProductImportDto
@@ -326,7 +365,7 @@ public class ProductImportDto
 }
 ```
 
-### 5.2 导出
+#### 5.2 导出
 
 ```csharp
 List<ProductImportDto> list = await _productService.GetListAsync();
@@ -334,7 +373,7 @@ byte[] bytes = await _excelService.ExportAsync(list, "商品列表");
 return File(bytes, MimeTypeExcel, "products.xlsx");
 ```
 
-### 5.3 导入
+#### 5.3 导入
 
 ```csharp
 using var stream = Request.Form.Files[0].OpenReadStream();
@@ -349,7 +388,7 @@ await _productService.BatchInsertAsync(result.Data);
 return Ok(new { imported = result.SuccessRows });
 ```
 
-### 5.4 下载模板
+#### 5.4 下载模板
 
 ```csharp
 byte[] template = _excelService.GetTemplate<ProductImportDto>();
@@ -358,7 +397,7 @@ return File(template, MimeTypeExcel, "商品导入模板.xlsx");
 
 ---
 
-## 六、控制器端点（ExcelController）
+### 六、控制器端点（ExcelController）
 
 典型路由结构：
 
@@ -418,7 +457,7 @@ public class ExcelController : ControllerBase
         var dtoType = _entityRegistry.Resolve(entityType);
         var method = typeof(ExcelService).GetMethod("GetTemplate")
             .MakeGenericMethod(dtoType);
-        var bytes = (byte[])method.Invoke(_excelService, null);
+        var bytes = (byte[])method.Invoke(null, null);
         return File(bytes, MimeTypeExcel, $"{entityType}导入模板.xlsx");
     }
 }
@@ -426,7 +465,7 @@ public class ExcelController : ControllerBase
 
 ---
 
-## 七、导入流程的防御性检查清单
+### 七、导入流程的防御性检查清单
 
 使用 ExcelService 时，不要依赖 Excel 的格式"看起来正确"，建议在导入流程中追加以下验证：
 
@@ -443,7 +482,7 @@ public class ExcelController : ControllerBase
 
 ---
 
-## 八、字段类型与 Excel 单元格数据类型对应表
+### 八、字段类型与 Excel 单元格数据类型对应表
 
 | C# 类型 | Excel 单元格类型（导出） | 导入时解析方式 |
 |--------|-------------------------|----------------|
@@ -474,8 +513,25 @@ public class ExcelController : ControllerBase
 > - `src/JeeSiteNET.Core/Utils/ExcelFieldTypes/CompanyFieldType.cs`
 > - `src/JeeSiteNET.Core/Utils/ExcelFieldTypes/ImageFieldType.cs`
 > - `src/JeeSiteNET.Modules.Sys/Controllers/ExcelController.cs`
+
+---
+
+
+---
+
+## 💡 快速参考
+
+| 项目 | 关键信息 |
+|------|---------|
+| **核心服务** | ExcelService → 基于 NPOI 的导入/导出/模板下载 |
+| **列注解** | ExcelFieldAttribute → 指定列名、顺序、格式、类型 |
+| **自定义类型** | IExcelFieldType 接口 → 可扩展任意字段类型 |
+| **导入流程** | 表头校验 → 类型转换 → 行级错误收集 → 批量写入 |
+| **导出格式** | xlsx / xls 双格式，支持合并单元格、列宽自动 |
+| **安全防护** | 文件大小限制、行数量限制、单元格最大长度、禁止公式 |
+
 ---
 
 <div align="center">
-  <small>本文档最后更新: 2026-06-12 · JeeSite.NET Wiki</small>
+  <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>
 </div>

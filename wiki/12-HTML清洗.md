@@ -1,21 +1,59 @@
-﻿<div align="right">
+<div align="right">
   <a href="Home">← 返回首页</a>
 </div>
 
 ---
-# 工具类手册 · 富文本与 HTML 清洗工具
+
+# HTML清洗
+
+> 富文本内容的白名单清洗策略，防 XSS 攻击，含默认白名单配置、扩展方式及四层防御体系。
+>
+> **适用角色**：全栈开发人员、安全工程师
+> **阅读时间**：约 10 分钟
+> **相关文档**：[09-加密与国密](09-加密与国密) · [19-数据与字段权限](19-数据与字段权限)
+> 最后更新: 2026-06-13
+
+---
+
+## 📋 目录
+
+  - [一、HtmlSanitizerUtil](#一、htmlsanitizerutil)
+    - [1.1 三种清洗强度](#11-三种清洗强度)
+    - [1.2 HtmlSanitizerOptions](#12-htmlsanitizeroptions)
+    - [1.3 默认 Options 快速构造](#13-默认-options-快速构造)
+  - [二、默认白名单配置](#二、默认白名单配置)
+    - [2.1 允许的 HTML 标签](#21-允许的-html-标签)
+    - [2.2 允许的 HTML 属性](#22-允许的-html-属性)
+    - [2.3 允许的 CSS 属性](#23-允许的-css-属性)
+    - [2.4 允许的 URL 协议](#24-允许的-url-协议)
+    - [2.5 强制过滤的危险内容](#25-强制过滤的危险内容)
+  - [三、扩展白名单（按场景）](#三、扩展白名单（按场景）)
+    - [3.1 示例：只允许纯文本 + 图片](#31-示例：只允许纯文本-图片)
+    - [3.2 示例：完全去除 HTML（纯文本摘要）](#32-示例：完全去除-html（纯文本摘要）)
+    - [3.3 示例：评论区（允许少量格式）](#33-示例：评论区（允许少量格式）)
+  - [四、在 ArticleService 中的调用链](#四、在-articleservice-中的调用链)
+  - [五、在前端的再次清洗（深度防御）](#五、在前端的再次清洗（深度防御）)
+    - [5.1 富文本编辑器（Vditor）](#51-富文本编辑器（vditor）)
+    - [5.2 前端输出过滤（DOMPurify）](#52-前端输出过滤（dompurify）)
+    - [5.3 内容安全策略（CSP）](#53-内容安全策略（csp）)
+    - [5.4 四层防御总结](#54-四层防御总结)
+  - [六、常见 XSS 攻击向量与防御示例](#六、常见-xss-攻击向量与防御示例)
+  - [七、防御清单（开发自检）](#七、防御清单（开发自检）)
+
+---
+
 
 富文本（Rich Text）天然包含 HTML 内容，如果不加限制直接写入数据库并回显给用户，将导致**持久型 XSS**（Cross-Site Scripting）漏洞。本章介绍 `HtmlSanitizerUtil` 的用法、默认白名单策略以及常见攻击向量的防御方式。
 
 ---
 
-## 一、HtmlSanitizerUtil
+### 一、HtmlSanitizerUtil
 
 `HtmlSanitizerUtil`（`Utils/HtmlSanitizerUtil.cs`）是一个基于白名单的 HTML 清洗工具，核心策略是：
 
 > 只保留显式声明"允许"的标签 / 属性 / CSS 属性 / URL 协议，其余一律移除或转义。
 
-### 1.1 三种清洗强度
+#### 1.1 三种清洗强度
 
 **（1）富文本内容清洗**
 ```csharp
@@ -39,7 +77,7 @@ public static string SanitizeForPreview(string html)
 保留样式但移除脚本 / 外部资源（外部图片被替换为占位、iframe 被移除）。
 适用场景：管理后台预览第三方内容。
 
-### 1.2 HtmlSanitizerOptions
+#### 1.2 HtmlSanitizerOptions
 
 ```csharp
 public class HtmlSanitizerOptions
@@ -71,7 +109,7 @@ public class HtmlSanitizerOptions
 }
 ```
 
-### 1.3 默认 Options 快速构造
+#### 1.3 默认 Options 快速构造
 
 ```csharp
 // 富文本（允许图片、表格、基本样式）
@@ -86,9 +124,9 @@ var previewOptions = HtmlSanitizerOptions.DefaultPreview();
 
 ---
 
-## 二、默认白名单配置
+### 二、默认白名单配置
 
-### 2.1 允许的 HTML 标签
+#### 2.1 允许的 HTML 标签
 
 | 类别 | 标签 |
 |------|------|
@@ -103,7 +141,7 @@ var previewOptions = HtmlSanitizerOptions.DefaultPreview();
 
 > 不在白名单内的标签：要么被移除其标签名但保留内容（unwrapped），要么整个块被剥离——取决于配置。`script` / `iframe` / `object` / `embed` / `form` / `style` 默认采用"完全移除"策略。
 
-### 2.2 允许的 HTML 属性
+#### 2.2 允许的 HTML 属性
 
 ```text
 通用属性  : title, class, style
@@ -112,7 +150,7 @@ var previewOptions = HtmlSanitizerOptions.DefaultPreview();
 表格属性  : colspan, rowspan, width, border, cellpadding, cellspacing
 ```
 
-### 2.3 允许的 CSS 属性
+#### 2.3 允许的 CSS 属性
 
 ```text
 color, background-color, background, font-size, font-weight,
@@ -126,7 +164,7 @@ display, float, clear, list-style, list-style-type
 
 > 不在白名单内的 CSS 属性（如 `expression`、`behavior`、`url()`）一律移除。
 
-### 2.4 允许的 URL 协议
+#### 2.4 允许的 URL 协议
 
 ```text
 http, https, mailto
@@ -134,7 +172,7 @@ http, https, mailto
 
 > `javascript:`、`vbscript:`、`livescript:`、`data:`（图片除外）、`file:` 均被拒绝。
 
-### 2.5 强制过滤的危险内容
+#### 2.5 强制过滤的危险内容
 
 | 危险内容 | 处置 |
 |---------|------|
@@ -150,11 +188,11 @@ http, https, mailto
 
 ---
 
-## 三、扩展白名单（按场景）
+### 三、扩展白名单（按场景）
 
 不同业务场景可以使用不同的 `HtmlSanitizerOptions` 实例。
 
-### 3.1 示例：只允许纯文本 + 图片
+#### 3.1 示例：只允许纯文本 + 图片
 
 ```csharp
 var options = new HtmlSanitizerOptions
@@ -170,7 +208,7 @@ var options = new HtmlSanitizerOptions
 string clean = HtmlSanitizerUtil.SanitizeRich(userInputHtml, options);
 ```
 
-### 3.2 示例：完全去除 HTML（纯文本摘要）
+#### 3.2 示例：完全去除 HTML（纯文本摘要）
 
 ```csharp
 string plain = HtmlSanitizerUtil.SanitizeStrict(richHtml);
@@ -178,7 +216,7 @@ string plain = HtmlSanitizerUtil.SanitizeStrict(richHtml);
 string plain2 = richHtml.StripHtml();
 ```
 
-### 3.3 示例：评论区（允许少量格式）
+#### 3.3 示例：评论区（允许少量格式）
 
 ```csharp
 var options = new HtmlSanitizerOptions
@@ -191,7 +229,7 @@ string safe = HtmlSanitizerUtil.SanitizeRich(comment, options);
 
 ---
 
-## 四、在 ArticleService 中的调用链
+### 四、在 ArticleService 中的调用链
 
 `ArticleService`（`Modules/Cms/Application/Services/ArticleService.cs`）在保存文章前，会对相关字段执行统一清洗：
 
@@ -220,16 +258,16 @@ public async Task<ArticleDto> SaveAsync(ArticleDto dto)
 
 ---
 
-## 五、在前端的再次清洗（深度防御）
+### 五、在前端的再次清洗（深度防御）
 
 XSS 防御是一个**多层防御**的过程：后端清洗是最后一道防线，但前端也应有输入过滤与输出过滤。
 
-### 5.1 富文本编辑器（Vditor）
+#### 5.1 富文本编辑器（Vditor）
 
 - Vditor 自带 `irateScript` 模式（类似 Markdown 即时渲染），在粘贴 HTML 时会执行内置过滤。
 - 可进一步配置 `options.toolbarConfig.hintConfig` 中禁用的标签。
 
-### 5.2 前端输出过滤（DOMPurify）
+#### 5.2 前端输出过滤（DOMPurify）
 
 当使用 `v-html`、`innerHTML`、`dangerouslySetInnerHTML` 渲染用户提交的 HTML 时：
 
@@ -243,7 +281,7 @@ const safeHtml = DOMPurify.sanitize(article.content, {
 });
 ```
 
-### 5.3 内容安全策略（CSP）
+#### 5.3 内容安全策略（CSP）
 
 在 HTTP 响应头中设置 CSP 进一步限制：
 
@@ -260,7 +298,7 @@ Content-Security-Policy:
 
 > `'unsafe-inline'` 对 style 的放宽是富文本场景的常见妥协；但对 script 必须拒绝 inline。
 
-### 5.4 四层防御总结
+#### 5.4 四层防御总结
 
 | 层级 | 措施 | 负责方 |
 |------|------|--------|
@@ -271,7 +309,7 @@ Content-Security-Policy:
 
 ---
 
-## 六、常见 XSS 攻击向量与防御示例
+### 六、常见 XSS 攻击向量与防御示例
 
 | 攻击向量 | 原文 | 被清理后 | 说明 |
 |---------|------|---------|------|
@@ -290,7 +328,7 @@ Content-Security-Policy:
 
 ---
 
-## 七、防御清单（开发自检）
+### 七、防御清单（开发自检）
 
 1. [ ] 所有来自用户的 HTML 输入在保存前经过 `HtmlSanitizerUtil.SanitizeRich` / `SanitizeStrict`。
 2. [ ] 标题、摘要、作者等非富文本字段使用 `SanitizeStrict`。
@@ -308,8 +346,24 @@ Content-Security-Policy:
 > **相关文件**
 > - `src/JeeSiteNET.Core/Utils/HtmlSanitizerUtil.cs`
 > - `src/JeeSiteNET.Modules.Cms/Application/Services/ArticleService.cs`
+
+---
+
+
+---
+
+## 💡 快速参考
+
+| 项目 | 关键信息 |
+|------|---------|
+| **核心类** | HtmlSanitizerUtil → 基于白名单的 HTML 清洗 |
+| **清洗强度** | SanitizeRich (富文本) / SanitizeStrict (严格) / SanitizeForPreview (预览) |
+| **白名单策略** | 标签/属性/CSS/URL协议 四层白名单，其余一律移除 |
+| **XSS 防护** | script/iframe/onerror/javascript: 等危险向量全部过滤 |
+| **深度防御** | 后端清洗 + 前端 DOMPurify + CSP 响应头 |
+
 ---
 
 <div align="center">
-  <small>本文档最后更新: 2026-06-12 · JeeSite.NET Wiki</small>
+  <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>
 </div>

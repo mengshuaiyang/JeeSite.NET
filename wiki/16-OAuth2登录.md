@@ -1,16 +1,53 @@
-﻿<div align="right">
+<div align="right">
   <a href="Home">← 返回首页</a>
 </div>
 
 ---
-# OAuth 2.0 第三方登录
+
+# OAuth2登录
+
+> 通过 GitHub / 微信 / 钉钉 OAuth 2.0 协议实现第三方账号登录，含本地账号关联与自定义 Provider 扩展。
+>
+> **适用角色**：全栈开发人员
+> **阅读时间**：约 10 分钟
+> **相关文档**：[15-JWT认证](15-JWT认证) · [17-CAS单点登录](17-CAS单点登录)
+> 最后更新: 2026-06-13
+
+---
+
+## 📋 目录
+
+  - [一、支持的平台](#一、支持的平台)
+  - [二、通用 OAuth 2.0 流程](#二、通用-oauth-20-流程)
+    - [2.1 CSRF 防护（state 参数）](#21-csrf-防护（state-参数）)
+    - [2.2 本地账号关联策略](#22-本地账号关联策略)
+  - [三、配置项 (appsettings.json)](#三、配置项-appsettingsjson)
+    - [3.1 通用字段说明](#31-通用字段说明)
+  - [四、核心服务：OAuth2Service](#四、核心服务：oauth2service)
+    - [4.1 ChallengeAsync(provider, returnUrl)](#41-challengeasyncprovider-returnurl)
+    - [4.2 CallbackAsync(provider, code, state, returnUrl)](#42-callbackasyncprovider-code-state-returnurl)
+  - [五、核心服务：各 Provider 实现](#五、核心服务：各-provider-实现)
+    - [5.1 GitHubOAuth2Provider](#51-githuboauth2provider)
+    - [5.2 WeChatOAuth2Provider（微信开放平台）](#52-wechatoauth2provider（微信开放平台）)
+    - [5.3 DingTalkOAuth2Provider（钉钉开放平台）](#53-dingtalkoauth2provider（钉钉开放平台）)
+  - [六、用户关联表](#六、用户关联表)
+    - [6.1 sysoauth2user](#61-sysoauth2user)
+    - [6.2 绑定与解绑](#62-绑定与解绑)
+  - [七、控制器端点](#七、控制器端点)
+    - [OAuth2Controller](#oauth2controller)
+    - [典型请求链路示例（GitHub）](#典型请求链路示例（github）)
+  - [八、安全注意事项](#八、安全注意事项)
+  - [九、前端集成（views/Login.vue / OAuth2Callback.vue）](#九、前端集成（views-loginvue-oauth2callbackvue）)
+
+---
+
 
 本文档描述 JeeSite.NET 如何通过 OAuth 2.0 / OpenID Connect 协议集成
 **GitHub / 微信 / 钉钉** 第三方账号登录，以及各平台的 Provider 实现与本地账号关联策略。
 
 ---
 
-## 一、支持的平台
+### 一、支持的平台
 
 | 平台 | 协议 | 用途 | 核心特性 |
 |-----|------|------|---------|
@@ -22,7 +59,7 @@
 
 ---
 
-## 二、通用 OAuth 2.0 流程
+### 二、通用 OAuth 2.0 流程
 
 ```
 用户点击"GitHub 登录" →
@@ -37,14 +74,14 @@
                        重定向到前端首页（带 token 参数）
 ```
 
-### 2.1 CSRF 防护（state 参数）
+#### 2.1 CSRF 防护（state 参数）
 
 - `challenge` 阶段：生成随机 `state`（32 字节），写入 Redis：
   `oauth2:state:{state} = provider + returnUrl`，TTL = 5 分钟；
 - `callback` 阶段：必须校验 `state` 是否已颁发，未通过则拒绝；
 - 若启用 PKCE（对移动端/公开客户端推荐），`code_verifier` 同样保存在 Redis。
 
-### 2.2 本地账号关联策略
+#### 2.2 本地账号关联策略
 
 1. 通过 `provider + provider_user_id` 在 `sys_oauth2_user` 表查询是否存在关联；
 2. **若已关联**：直接更新该用户的最近登录信息，返回 JWT；
@@ -55,7 +92,7 @@
 
 ---
 
-## 三、配置项 (appsettings.json)
+### 三、配置项 (appsettings.json)
 
 ```json
 {
@@ -80,7 +117,7 @@
 }
 ```
 
-### 3.1 通用字段说明
+#### 3.1 通用字段说明
 
 | 字段 | 说明 |
 |-----|------|
@@ -91,11 +128,11 @@
 
 ---
 
-## 四、核心服务：OAuth2Service
+### 四、核心服务：OAuth2Service
 
 位于：`JeeSiteNET.Modules.Sys/Application/Services/OAuth2/OAuth2Service.cs`
 
-### 4.1 ChallengeAsync(provider, returnUrl)
+#### 4.1 ChallengeAsync(provider, returnUrl)
 
 ```csharp
 public async Task<string> ChallengeAsync(string provider, string returnUrl)
@@ -115,7 +152,7 @@ public async Task<string> ChallengeAsync(string provider, string returnUrl)
 
 控制器返回 `302 Redirect` 到上述 URL，将用户导向第三方授权页面。
 
-### 4.2 CallbackAsync(provider, code, state, returnUrl)
+#### 4.2 CallbackAsync(provider, code, state, returnUrl)
 
 ```
 1. 校验 state（Redis 中存在则一次性消费）
@@ -136,7 +173,7 @@ public async Task<string> ChallengeAsync(string provider, string returnUrl)
 
 ---
 
-## 五、核心服务：各 Provider 实现
+### 五、核心服务：各 Provider 实现
 
 所有 Provider 均实现 `IOAuth2Provider` 接口：
 
@@ -158,7 +195,7 @@ public class OAuth2UserInfo
 }
 ```
 
-### 5.1 GitHubOAuth2Provider
+#### 5.1 GitHubOAuth2Provider
 
 **授权 URL**：
 ```
@@ -177,7 +214,7 @@ https://github.com/login/oauth/authorize
 
 `ProviderUserId` = GitHub `node_id`（跨应用稳定）或 `id`。
 
-### 5.2 WeChatOAuth2Provider（微信开放平台）
+#### 5.2 WeChatOAuth2Provider（微信开放平台）
 
 **授权 URL**：
 ```
@@ -208,7 +245,7 @@ GET https://api.weixin.qq.com/sns/userinfo
 
 `ProviderUserId` = `unionid`（企业跨应用统一标识）。
 
-### 5.3 DingTalkOAuth2Provider（钉钉开放平台）
+#### 5.3 DingTalkOAuth2Provider（钉钉开放平台）
 
 **授权 URL**：
 ```
@@ -239,9 +276,9 @@ Header: x-acs-dingtalk-access-token: {accessToken}
 
 ---
 
-## 六、用户关联表
+### 六、用户关联表
 
-### 6.1 sys_oauth2_user
+#### 6.1 sys_oauth2_user
 
 | 列 | 类型 | 说明 |
 |----|------|------|
@@ -256,7 +293,7 @@ Header: x-acs-dingtalk-access-token: {accessToken}
 
 **唯一约束**：`(provider, provider_user_id)` 唯一，确保同一第三方账号不会重复关联。
 
-### 6.2 绑定与解绑
+#### 6.2 绑定与解绑
 
 - **绑定**（`POST /api/v1/sys/oauth2/bind`）：已登录用户通过 challenge → callback
   流程获取第三方账号后，将 `provider_user_id ↔ user_code` 写入关联表；
@@ -266,9 +303,9 @@ Header: x-acs-dingtalk-access-token: {accessToken}
 
 ---
 
-## 七、控制器端点
+### 七、控制器端点
 
-### OAuth2Controller
+#### OAuth2Controller
 
 位于：`JeeSiteNET.Modules.Sys/Controllers/OAuth2Controller.cs`
 
@@ -280,7 +317,7 @@ Header: x-acs-dingtalk-access-token: {accessToken}
 | `POST` | `/api/v1/sys/oauth2/bind` | 已登录用户绑定第三方账号（需要走 challenge/callback 流程）。 |
 | `POST` | `/api/v1/sys/oauth2/unbind` | 已登录用户解绑指定 provider 的账号。 |
 
-### 典型请求链路示例（GitHub）
+#### 典型请求链路示例（GitHub）
 
 ```
 GET /api/v1/sys/oauth2/challenge?provider=github
@@ -299,7 +336,7 @@ GitHub 302 → https://your-app.com/api/v1/sys/oauth2/callback?code=xyz&state=ab
 
 ---
 
-## 八、安全注意事项
+### 八、安全注意事项
 
 1. **`ClientSecret/AppSecret` 严禁入库或写入源码**，推荐通过环境变量或 KMS 注入。
 2. **CallbackUrl 必须显式注册**，禁止使用 `redirect_uri` 通配符或动态拼接。
@@ -311,7 +348,7 @@ GitHub 302 → https://your-app.com/api/v1/sys/oauth2/callback?code=xyz&state=ab
 
 ---
 
-## 九、前端集成（views/Login.vue / OAuth2Callback.vue）
+### 九、前端集成（views/Login.vue / OAuth2Callback.vue）
 
 ```ts
 // 1. 登录页根据 /oauth2/providers 动态渲染按钮
@@ -329,12 +366,29 @@ function loginWithGitHub() {
 
 ---
 
-**小结**：JeeSite.NET 通过统一的 `IOAuth2Provider` 抽象屏蔽了各平台协议差异，
+**第二部分小结**：JeeSite.NET 通过统一的 `IOAuth2Provider` 抽象屏蔽了各平台协议差异，
 管理员只需在 `appsettings.json` 填入对应 AppKey/Secret 即可一键启用。
 关联表 `sys_oauth2_user` 保证同一第三方账号在本地始终映射到唯一 `sys_user`，
 并支持用户在登录后自主绑定/解绑。
+
+---
+
+
+---
+
+## 💡 快速参考
+
+| 项目 | 关键信息 |
+|------|---------|
+| **支持平台** | GitHub / 微信开放平台 / 钉钉开放平台 |
+| **协议** | OAuth 2.0 Authorization Code Flow |
+| **核心服务** | OAuth2Service + IOAuth2Provider 接口 |
+| **关联策略** | provider + provider_user_id → 本地账号，邮箱匹配自动关联 |
+| **关联表** | sys_oauth2_user (provider, provider_user_id, user_code) |
+| **安全** | state 参数防 CSRF、HTTPS 强制、Token 服务端交换 |
+
 ---
 
 <div align="center">
-  <small>本文档最后更新: 2026-06-12 · JeeSite.NET Wiki</small>
+  <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>
 </div>

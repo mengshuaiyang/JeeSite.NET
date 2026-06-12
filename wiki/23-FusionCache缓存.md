@@ -1,9 +1,50 @@
-﻿<div align="right">
+<div align="right">
   <a href="Home">← 返回首页</a>
 </div>
 
 ---
-# FusionCache 缓存架构
+
+# FusionCache缓存
+
+> 基于 FusionCache 的双层缓存架构：L1 内存 + L2 Redis + Pub/Sub 失效广播，雪崩防护。
+>
+> **适用角色**：架构师、后端开发
+> **阅读时间**：约 10 分钟
+> **相关文档**：[22-Elasticsearch](22-Elasticsearch) · [33-深入架构剖析](33-深入架构剖析)
+> 最后更新: 2026-06-13
+
+---
+
+## 📋 目录
+
+- [一、缓存架构](#一、缓存架构)
+  - [分层示意](#分层示意)
+  - [读写路径](#读写路径)
+  - [失效广播（多节点同步](#失效广播（多节点同步)
+- [二、缓存类型与 Key 规范](#二、缓存类型与-key-规范)
+  - [Key 命名约定](#key-命名约定)
+- [三、核心服务：CacheService](#三、核心服务：cacheservice)
+  - [CacheStats 示例返回](#cachestats-示例返回)
+- [四、缓存失效策略](#四、缓存失效策略)
+  - [4.1 主动失效（最高优先级）](#41-主动失效（最高优先级）)
+  - [4.2 TTL 自动过期（兜底）](#42-ttl-自动过期（兜底）)
+  - [4.3 滑动过期](#43-滑动过期)
+  - [4.4 事件广播（Pub/Sub）](#44-事件广播（pub-sub）)
+- [五、缓存穿透 / 击穿 / 雪崩防护](#五、缓存穿透-击穿-雪崩防护)
+  - [5.1 穿透：null 值占位](#51-穿透：null-值占位)
+  - [5.2 击穿：FusionCache 的锁机制](#52-击穿：fusioncache-的锁机制)
+  - [5.3 雪崩：抖动 + 预热 + 断路器](#53-雪崩：抖动-预热-断路器)
+- [六、缓存预热](#六、缓存预热)
+  - [启动时预加载](#启动时预加载)
+  - [每日 04:00 定时刷新](#每日-0400-定时刷新)
+- [七、监控与管理](#七、监控与管理)
+  - [缓存管理页面](#缓存管理页面)
+  - [管理接口](#管理接口)
+  - [告警规则](#告警规则)
+- [八、Redis 配置（appsettings.json）](#八、redis-配置（appsettingsjson）)
+
+---
+
 
 > FusionCache 采用 **双层缓存（Memory + Redis）+ 失效广播机制，提供 fail-safe、击穿防护、滑动过期等高级特性。
 
@@ -299,4 +340,20 @@ await cacheService.GetOrCreateAsync("dict:sys_common", async () => {
 
 <div align="center">
   <small>本文档最后更新: 2026-06-12 · JeeSite.NET Wiki</small>
+</div>
+
+---
+
+## 💡 快速参考
+
+| 项目 | 关键信息 |
+|------|---------|
+| **文档** | FusionCache缓存 |
+| **最后更新** | 2026-06-13 |
+| **相关文档** | [22-Elasticsearch](22-Elasticsearch) · [33-深入架构剖析](33-深入架构剖析) |
+
+---
+
+<div align="center">
+  <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>
 </div>

@@ -1,18 +1,68 @@
-﻿<div align="right">
+<div align="right">
   <a href="Home">← 返回首页</a>
 </div>
 
 ---
-# JWT 认证机制
+
+# JWT认证
+
+> 基于 JWT 的无状态认证体系：Token 生成/刷新/吊销、权限标识、在线用户管理、前端集成。
+>
+> **适用角色**：全栈开发人员、安全工程师
+> **阅读时间**：约 12 分钟
+> **相关文档**：[16-OAuth2登录](16-OAuth2登录) · [19-数据与字段权限](19-数据与字段权限)
+> 最后更新: 2026-06-13
+
+---
+
+## 📋 目录
+
+  - [一、认证流程总览](#一、认证流程总览)
+    - [1.1 完整的 JWT 认证流程](#11-完整的-jwt-认证流程)
+    - [1.2 流程设计要点](#12-流程设计要点)
+  - [二、关键配置 (appsettings.json)](#二、关键配置-appsettingsjson)
+    - [2.1 Jwt 配置节点](#21-jwt-配置节点)
+    - [2.2 字段说明](#22-字段说明)
+  - [三、服务端实现](#三、服务端实现)
+    - [3.1 AuthService（认证主服务）](#31-authservice（认证主服务）)
+    - [3.2 ValidCodeService（验证码服务）](#32-validcodeservice（验证码服务）)
+    - [3.3 Token 生成核心伪代码](#33-token-生成核心伪代码)
+  - [四、权限标识系统](#四、权限标识系统)
+    - [4.1 权限标识格式](#41-权限标识格式)
+    - [4.2 服务端鉴权](#42-服务端鉴权)
+    - [4.3 前端鉴权](#43-前端鉴权)
+  - [五、Token 吊销与在线用户](#五、token-吊销与在线用户)
+    - [5.1 机制概述](#51-机制概述)
+    - [5.2 在线用户管理 API](#52-在线用户管理-api)
+    - [5.3 JWT 验证中间件关键步骤](#53-jwt-验证中间件关键步骤)
+  - [六、API 端点清单](#六、api-端点清单)
+    - [6.1 AuthController](#61-authcontroller)
+    - [6.2 AccountController](#62-accountcontroller)
+    - [6.3 ValidCodeController](#63-validcodecontroller)
+  - [七、前端集成](#七、前端集成)
+    - [7.1 用户状态管理（stores/user.ts）](#71-用户状态管理（stores-userts）)
+    - [7.2 路由守卫（router/index.ts）](#72-路由守卫（router-indexts）)
+    - [7.3 composables/usePermission.ts](#73-composables-usepermissionts)
+    - [7.4 directives/permission.ts](#74-directives-permissionts)
+    - [7.5 api/auth.ts](#75-api-authts)
+  - [八、密码安全](#八、密码安全)
+    - [8.1 存储格式](#81-存储格式)
+    - [8.2 密码强度校验](#82-密码强度校验)
+    - [8.3 密码历史](#83-密码历史)
+    - [8.4 密码过期策略](#84-密码过期策略)
+    - [8.5 登录失败锁定](#85-登录失败锁定)
+
+---
+
 
 本文档详细描述 JeeSite.NET 系统中基于 JWT（JSON Web Token）的无状态认证体系，
 涵盖认证流程、服务端实现、权限标识、Token 吊销与前端集成等完整链路。
 
 ---
 
-## 一、认证流程总览
+### 一、认证流程总览
 
-### 1.1 完整的 JWT 认证流程
+#### 1.1 完整的 JWT 认证流程
 
 ```
 客户端 POST /api/v1/sys/auth/login (loginCode + password)
@@ -57,7 +107,7 @@
   └── 构造 ClaimsPrincipal → HttpContext.User
 ```
 
-### 1.2 流程设计要点
+#### 1.2 流程设计要点
 
 - **无状态设计**：服务端不维护会话状态，所有信息由 JWT 自包含。
 - **Claim 齐全但精简**：将核心用户信息（用户编码、用户名、公司、角色、权限）一次性写入
@@ -67,9 +117,9 @@
 
 ---
 
-## 二、关键配置 (appsettings.json)
+### 二、关键配置 (appsettings.json)
 
-### 2.1 Jwt 配置节点
+#### 2.1 Jwt 配置节点
 
 ```json
 {
@@ -87,7 +137,7 @@
 }
 ```
 
-### 2.2 字段说明
+#### 2.2 字段说明
 
 | 字段 | 类型 | 默认值 | 说明 |
 |-----|------|-------|------|
@@ -106,9 +156,9 @@
 
 ---
 
-## 三、服务端实现
+### 三、服务端实现
 
-### 3.1 AuthService（认证主服务）
+#### 3.1 AuthService（认证主服务）
 
 位于：`JeeSiteNET.Modules.Sys/Application/Services/AuthService.cs`
 
@@ -121,7 +171,7 @@
 | `GetAuthInfoAsync` | `() → AuthInfoDto` | 获取当前登录用户的完整信息（含角色、公司、机构等）。 |
 | `GetMenuRouteAsync` | `(sysCode) → List<MenuRouteDto>` | 获取当前用户可见的菜单树，用于前端动态路由。 |
 
-### 3.2 ValidCodeService（验证码服务）
+#### 3.2 ValidCodeService（验证码服务）
 
 | 方法 | 签名 | 说明 |
 |-----|------|------|
@@ -136,7 +186,7 @@
 - 错误次数：累计错误 5 次则锁定 15 分钟；
 - 存储：Redis（`validcode:{scene}:{target}`），确保分布式部署下一致。
 
-### 3.3 Token 生成核心伪代码
+#### 3.3 Token 生成核心伪代码
 
 ```csharp
 public async Task<LoginResultDto> CreateTokenAsync(User user)
@@ -176,9 +226,9 @@ public async Task<LoginResultDto> CreateTokenAsync(User user)
 
 ---
 
-## 四、权限标识系统
+### 四、权限标识系统
 
-### 4.1 权限标识格式
+#### 4.1 权限标识格式
 
 ```
 {模块}:{实体}:{操作}
@@ -198,7 +248,7 @@ public async Task<LoginResultDto> CreateTokenAsync(User user)
 - 模块前缀（如 `sys`、`cms`、`codegen`）与模块目录对应，便于归类检索；
 - 操作粒度由业务决定，默认包含 `view/add/edit/delete` 四类，特殊场景按需扩展。
 
-### 4.2 服务端鉴权
+#### 4.2 服务端鉴权
 
 ```csharp
 // 使用 PermissionAttribute 声明权限
@@ -214,7 +264,7 @@ public async Task<IActionResult> Create([FromBody] UserDto dto) { ... }
 
 > 对超级管理员（`role_code = "admin"` 或 `is_super_admin = true`），系统默认放行所有权限。
 
-### 4.3 前端鉴权
+#### 4.3 前端鉴权
 
 ```ts
 // composables/usePermission.ts
@@ -239,9 +289,9 @@ export function usePermission() {
 
 ---
 
-## 五、Token 吊销与在线用户
+### 五、Token 吊销与在线用户
 
-### 5.1 机制概述
+#### 5.1 机制概述
 
 由于 JWT 无状态，无法"撤回"已签发的 token。系统引入 **Redis 短期黑名单**：
 
@@ -249,7 +299,7 @@ export function usePermission() {
 - Token 验证中间件在每次请求时检查该 `jti` 是否在黑名单中；
 - 黑名单 TTL 等于 token 剩余有效期，到期后自动失效，无需人工清理。
 
-### 5.2 在线用户管理 API
+#### 5.2 在线用户管理 API
 
 | 方法 | 路径 | 说明 |
 |-----|------|------|
@@ -263,7 +313,7 @@ Redis Key 约定：
 | `jwt:revoked:{jti}` | `string` | token 剩余有效期 |
 | `jwt:online:{userCode}` | `SET<jti>` | 同最长 token 有效期 |
 
-### 5.3 JWT 验证中间件关键步骤
+#### 5.3 JWT 验证中间件关键步骤
 
 ```
 1. 解析 Authorization 头 → 提取 JWT
@@ -281,9 +331,9 @@ Redis Key 约定：
 
 ---
 
-## 六、API 端点清单
+### 六、API 端点清单
 
-### 6.1 AuthController
+#### 6.1 AuthController
 
 | 方法 | 路径 | 说明 |
 |-----|------|------|
@@ -294,7 +344,7 @@ Redis Key 约定：
 | `GET` | `/api/v1/sys/auth/info` | 获取当前登录用户完整信息。 |
 | `GET` | `/api/v1/sys/auth/menu-route` | 获取当前用户可访问菜单树，用于前端动态路由。 |
 
-### 6.2 AccountController
+#### 6.2 AccountController
 
 | 方法 | 路径 | 说明 |
 |-----|------|------|
@@ -303,7 +353,7 @@ Redis Key 约定：
 | `POST` | `/api/v1/sys/account/login-by-valid-code` | 使用验证码登录（独立于 auth/login）。 |
 | `POST` | `/api/v1/sys/account/reset-password-by-code` | 通过验证码重置密码。 |
 
-### 6.3 ValidCodeController
+#### 6.3 ValidCodeController
 
 | 方法 | 路径 | 说明 |
 |-----|------|------|
@@ -311,9 +361,9 @@ Redis Key 约定：
 
 ---
 
-## 七、前端集成
+### 七、前端集成
 
-### 7.1 用户状态管理（stores/user.ts）
+#### 7.1 用户状态管理（stores/user.ts）
 
 | 方法 | 说明 |
 |-----|------|
@@ -322,7 +372,7 @@ Redis Key 约定：
 | `restoreSession()` | 启动时从 localStorage 读取 token，若有效则调用 `/auth/info` 恢复用户信息。 |
 | `refreshToken()` | token 即将过期前自动调用 `/auth/refresh`，实现无感续期。 |
 
-### 7.2 路由守卫（router/index.ts）
+#### 7.2 路由守卫（router/index.ts）
 
 ```ts
 router.beforeEach((to, from, next) => {
@@ -338,19 +388,19 @@ router.beforeEach((to, from, next) => {
 });
 ```
 
-### 7.3 composables/usePermission.ts
+#### 7.3 composables/usePermission.ts
 
 - 对外暴露 `Has(permissionString)` / `All([...])` 等方法；
 - 内部从 Pinia store 中读取权限集合；
 - 对超级管理员做短路放行。
 
-### 7.4 directives/permission.ts
+#### 7.4 directives/permission.ts
 
 - 注册全局 `v-permission="'sys:user:add'"` 指令；
 - 无权限时从 DOM 中移除元素（而非隐藏），避免信息泄漏；
 - 对 `<el-button>`、`<el-table-column>`、`<el-form-item>` 等常用组件均已测试。
 
-### 7.5 api/auth.ts
+#### 7.5 api/auth.ts
 
 封装所有与认证相关的 HTTP 调用：
 
@@ -364,9 +414,9 @@ export function getMenuRoute(sysCode?: string) { return request.get<MenuRouteDto
 
 ---
 
-## 八、密码安全
+### 八、密码安全
 
-### 8.1 存储格式
+#### 8.1 存储格式
 
 ```
 password = MD5(MD5(明文密码) + salt)
@@ -383,7 +433,7 @@ salt = 每用户独立随机 16 字节（Base64 存储）
 > 推荐：新部署可在 `appsettings.json` 中开启 `UseStrongHash = true`，
 > 使用 PBKDF2 / Argon2id 算法替代 MD5，以获得更强抗暴力破解能力。
 
-### 8.2 密码强度校验
+#### 8.2 密码强度校验
 
 新密码需同时满足以下条件（`PasswordValidator` 中实现）：
 
@@ -394,13 +444,13 @@ salt = 每用户独立随机 16 字节（Base64 存储）
 - 至少包含 1 个特殊字符（`!@#$%^&*()_+-=` 等）；
 - 不得包含用户账号、姓名、手机号、邮箱等易猜测片段。
 
-### 8.3 密码历史
+#### 8.3 密码历史
 
 - 用户修改密码时，系统保存最近 N 次密码的哈希（默认 N = 5，可在 `sys_config` 中配置）；
 - 若新密码与历史记录重复，拒绝修改；
 - 历史记录仅保存哈希值，不保存明文。
 
-### 8.4 密码过期策略
+#### 8.4 密码过期策略
 
 | 策略 | 默认值 | 说明 |
 |-----|-------|------|
@@ -410,7 +460,7 @@ salt = 每用户独立随机 16 字节（Base64 存储）
 
 > 以上阈值均可在 `sys_config`（`sys:password:policy`）中按租户/公司级别覆盖。
 
-### 8.5 登录失败锁定
+#### 8.5 登录失败锁定
 
 - 同一账号连续失败 5 次 → 锁定 30 分钟；
 - 失败计数保存在 Redis（`login:fail:{loginCode}`）；
@@ -418,11 +468,28 @@ salt = 每用户独立随机 16 字节（Base64 存储）
 
 ---
 
-**小结**：JeeSite.NET 的 JWT 认证体系采用"**自包含 Claim + Redis 黑名单 + Claim-Base 权限**"三层
+**第一部分小结**：JeeSite.NET 的 JWT 认证体系采用"**自包含 Claim + Redis 黑名单 + Claim-Base 权限**"三层
 结构，兼顾了无状态可扩展性与管理员主动干预的能力。在实施中，务必关注 `Secret` 管理、TLS 传输、
 密码强度与登录锁定四项基础安全措施。
+
+---
+
+
+---
+
+## 💡 快速参考
+
+| 项目 | 关键信息 |
+|------|---------|
+| **核心服务** | AuthService → 登录/刷新/注销/获取用户信息 |
+| **Token 结构** | Header + Payload (sub/name/corp_code/roles/permissions) + HMAC-SHA256 签名 |
+| **有效期** | Access Token 默认 12 小时，Refresh Token 30 天（可配置） |
+| **权限标识** | sys:user:add / sys:user:edit 等模块:实体:操作三级体系 |
+| **吊销机制** | jwt:revoked:{jti} Redis 黑名单 → 中间件校验 |
+| **安全建议** | HTTPS 传输、Secret 环境变量注入、失败锁定、密码强度校验 |
+
 ---
 
 <div align="center">
-  <small>本文档最后更新: 2026-06-12 · JeeSite.NET Wiki</small>
+  <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>
 </div>
