@@ -41,4 +41,12 @@ public class UserRepository : IUserRepository
     public async Task<User?> GetByLoginCodeAsync(string loginCode)
         => await _db.Set<User>().AsNoTracking()
             .FirstOrDefaultAsync(u => u.LoginCode == loginCode);
+
+    public async Task<User?> GetByPhoneAsync(string phone)
+        => await _db.Set<User>().AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Phone != null && u.Phone == phone);
+
+    public async Task<User?> GetByEmailAsync(string email)
+        => await _db.Set<User>().AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Email != null && u.Email == email);
 }

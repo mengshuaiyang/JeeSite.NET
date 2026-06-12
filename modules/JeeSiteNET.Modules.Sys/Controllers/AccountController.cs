@@ -1,6 +1,8 @@
 using JeeSiteNET.Core;
 using JeeSiteNET.Core.Security;
 using JeeSiteNET.Core.Utils;
+using JeeSiteNET.Modules.Sys.Application.DTOs;
+using JeeSiteNET.Modules.Sys.Application.Services;
 using JeeSiteNET.Modules.Sys.Domain.Entities;
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -14,11 +16,15 @@ public class AccountController : ControllerBase
 {
     private readonly IUserRepository _userRepo;
     private readonly ICurrentUser _currentUser;
+    private readonly ValidCodeService _validCode;
+    private readonly AuthService _authService;
 
-    public AccountController(IUserRepository userRepo, ICurrentUser currentUser)
+    public AccountController(IUserRepository userRepo, ICurrentUser currentUser, ValidCodeService validCode, AuthService authService)
     {
         _userRepo = userRepo;
         _currentUser = currentUser;
+        _validCode = validCode;
+        _authService = authService;
     }
 
     [Permission("sys:account:view")]
@@ -84,11 +90,42 @@ public class AccountController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpPost("send-valid-code")]
+    public async Task<ApiResult> SendValidCode([FromBody] SendValidCodeDto dto)
+        => await _validCode.GenerateAndSendAsync(dto.Target, dto.Scene);
+
+    [AllowAnonymous]
+    [HttpPost("verify-valid-code")]
+    public async Task<ApiResult> VerifyValidCode([FromBody] VerifyValidCodeDto dto)
+        => await _validCode.VerifyAsync(dto.Target, dto.Scene, dto.Code);
+
+    [AllowAnonymous]
     [HttpPost("login-by-valid-code")]
-    public async Task<ApiResult> LoginByValidCode([FromBody] LoginByCodeDto dto)
+    public async Task<ApiResult<LoginResultDto>> LoginByValidCode([FromBody] LoginByCodeDto dto)
+        => await _authService.LoginByCodeAsync(dto.Target, dto.Code);
+
+    [AllowAnonymous]
+    [HttpPost("reset-password-by-code")]
+    public async Task<ApiResult> ResetPasswordByCode([FromBody] ResetPwdByCodeDto dto)
     {
-        // Validate the verification code and login
-        return ApiResult.Ok("功能实现中");
+        var valid = await _validCode.VerifySilentAsync(dto.Target, "reset", dto.Code);
+        if (!valid) return ApiResult.Fail(400, "验证码错误或已过期");
+
+        Domain.Entities.User? user;
+        if (dto.Target.Contains('@'))
+            user = await _userRepo.GetByEmailAsync(dto.Target);
+        else
+            user = await _userRepo.GetByPhoneAsync(dto.Target);
+
+        if (user == null) return ApiResult.NotFound("该手机号/邮箱未注册账号");
+
+        var now = DateTime.Now;
+        user.Password = EncryptUtil.Md5(dto.NewPassword);
+        user.PwdSecurityLevel = PasswordStrengthUtil.Evaluate(dto.NewPassword);
+        user.PwdUpdateDate = now;
+        user.PwdUpdateRecord = EncryptUtil.Md5(dto.NewPassword);
+        await _userRepo.UpdateAsync(user);
+        return ApiResult.Ok("密码重置成功");
     }
 
     [Permission("sys:account:edit")]
@@ -110,10 +147,30 @@ public class SetPwdQuestionDto
     public string? Answer { get; set; }
 }
 
+public class SendValidCodeDto
+{
+    public string Target { get; set; } = string.Empty;
+    public string Scene { get; set; } = "login";
+}
+
+public class VerifyValidCodeDto
+{
+    public string Target { get; set; } = string.Empty;
+    public string Scene { get; set; } = "login";
+    public string Code { get; set; } = string.Empty;
+}
+
 public class LoginByCodeDto
 {
-    public string LoginCode { get; set; } = string.Empty;
-    public string ValidCode { get; set; } = string.Empty;
+    public string Target { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+}
+
+public class ResetPwdByCodeDto
+{
+    public string Target { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string NewPassword { get; set; } = string.Empty;
 }
 
 public class GetPwdQuestionByLoginDto
