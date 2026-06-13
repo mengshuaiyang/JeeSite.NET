@@ -4,7 +4,7 @@
 
 ---
 
-# FusionCache缓存
+# 23 FusionCache缓存
 
 > 基于 FusionCache 的双层缓存架构：L1 内存 + L2 Redis + Pub/Sub 失效广播，雪崩防护。
 >
@@ -344,15 +344,195 @@ await cacheService.GetOrCreateAsync("dict:sys_common", async () => {
 
 ---
 
-## 💡 快速参考
+## 🏗️ 架构与数据流
 
-| 项目 | 关键信息 |
-|------|---------|
-| **文档** | FusionCache缓存 |
-| **最后更新** | 2026-06-13 |
-| **相关文档** | [22-Elasticsearch](22-Elasticsearch) · [33-深入架构剖析](33-深入架构剖析) |
+### 双层缓存读取流程图
+
+```mermaid
+flowchart TD
+    A[请求数据 cache.GetOrSetAsync(key)] --> B{L1 内存缓存<br/>命中?}
+    B -->|是| C[直接返回内存中的值<br/>(~0.1ms)]
+    B -->|否| D{L2 Redis 缓存<br/>命中?}
+    D -->|是| E[从 Redis 获取<br/>写入 L1 内存缓存]
+    E --> C
+    D -->|否| F[执行工厂方法<br/>(实际查询数据库)]
+    F --> G[DB 查询并获取结果]
+    G --> H[写入 L2 Redis 缓存]
+    H --> I[写入 L1 内存缓存]
+    I --> C
+
+    J[其他实例发布失效通知<br/>Redis Pub/Sub] --> K[本实例订阅失效消息]
+    K --> L[清除 L1 内存缓存]
+    L --> B
+
+    style B fill:#9f9,stroke:#333
+    style D fill:#ff9,stroke:#333
+    style F fill:#f99,stroke:#333
+```
+
+### Fail-safe 降级机制图
+
+```mermaid
+flowchart LR
+    A[正常模式<br/>返回最新数据] --> B{数据源异常?}
+    B -->|否| C[写入缓存正常过期]
+    B -->|是| D[Fail-safe 模式启动]
+    D --> E[返回缓存中旧值<br/>即使已过期]
+    E --> F[后台异步尝试刷新数据]
+    F --> G{刷新成功?}
+    G -->|是| A
+    G -->|否| H[保持 Fail-safe 状态<br/>继续返回旧值]
+    H --> I[记录告警到监控系统]
+```
 
 ---
+
+## 💡 快速参考
+
+### 核心类与接口
+
+| 类型 | 名称 | 命名空间 | 说明 |
+|------|------|---------|------|
+| Service | `FusionCache` (IFusionCache) | ZiggyCreatures.FusionCache | 双层缓存（内存 + Redis + Pub/Sub 失效广播 |
+| Service | `CacheService` | `JeeSiteNET.Core.Services` | 业务统一缓存封装（Get/Set/RemoveByPrefix/GetOrCreate/Stats） |
+| Options | `FusionCacheOptions` | ZiggyCreatures.FusionCache | 全局缓存配置 |
+
+### 常用 API 速查
+
+| API | 说明 |
+|-----|------|
+| `cache.GetOrSetAsync<T>(key, factory, options)` | 获取或设置缓存，自动防穿透、击穿 |
+| `cache.GetAsync<T>(key)` | 读取缓存值（L1 → L2） |
+| `cache.SetAsync<T>(key, value, options)` | 写入缓存（同时写 L1 + L2） |
+| `cache.RemoveAsync(key)` | 移除缓存，并广播失效 |
+| `cache.RemoveByPrefixAsync(prefix)` | 按前缀批量移除（依赖 Redis SCAN） |
+| `cache.ExpireAsync(key, duration)` | 设置过期时间 |
+| `cache.GetStatsAsync()` | 统计命中率 / L1 内存 / key 数量 |
+
+### 最小工作示例
+
+```csharp
+// ===== Program.cs：注册 FusionCache =====
+builder.Services.AddFusionCache()
+    .WithSerializer(new FusionCacheSystemTextJsonSerializer())
+    .WithDistributedCache(new RedisCache(new RedisCacheOptions
+    {
+        Configuration = builder.Configuration.GetConnectionString("Redis")
+    }))
+    .WithBackplane(new RedisBackplane(new RedisBackplaneOptions
+    {
+        Configuration = builder.Configuration.GetConnectionString("Redis")
+    }));
+
+// 同时注册业务封装
+builder.Services.AddScoped<CacheService>();
+
+// ===== 业务服务中使用（推荐方式）=====
+private readonly CacheService _cache;
+
+public async Task<User?> GetUserAsync(string userId, CancellationToken ct)
+{
+    return await _cache.GetOrCreateAsync(
+        key: $"auth:user:{userId}",
+        factory: async (token) => await _userRepository.GetByIdAsync(userId, token),
+        duration: TimeSpan.FromMinutes(30)  // TTL
+    );
+}
+
+// ===== 主动失效（数据变更时）=====
+public async Task UpdateUserAsync(User user, CancellationToken ct)
+{
+    await _userRepository.UpdateAsync(user, ct);
+    await _cache.RemoveAsync($"auth:user:{user.UserCode}", ct);  // L1/L2 同时失效，广播到所有节点
+}
+
+// ===== 批量失效（栏目下所有文章）=====
+await _cache.RemoveByPrefixAsync("cms:article:");
+// 底层：Redis SCAN 遍历匹配 key 后批量 DEL
+
+// ===== Fail-safe 兜底（Redis 挂了？自动降级纯内存）=====
+// 当 L2 Redis 不可用时，FusionCache 自动降级到 L1 纯内存模式，
+// 同时 fail-safe 模式下即使 factory 失败也返回最近一次成功值。
+// 这是与传统 IDistributedCache 最大的区别。
+```
+
+### Key 命名规范
+
+| 业务场景 | Key 格式 | 建议 TTL |
+|----------|---------|---------|
+| 用户权限 | `auth:perm:{userCode}` | 2 小时 / 登出主动失效 |
+| 用户信息 | `auth:user:{userCode}` | 2 小时 |
+| 菜单树 | `menu:tree:{userCode}:{sysCode}` | 2 小时 |
+| 字典数据 | `dict:{dictType}` | 1 天 |
+| 配置项 | `config:{configKey}` | 1 小时 |
+| CMS 文章详情 | `cms:article:{articleId}` | 1 小时 |
+| CMS 文章列表 | `cms:list:{category}:{page}` | 15 分钟 |
+| Token 黑名单 | `jwt:revoked:{jti}` | Token 剩余有效期 |
+
+### 配置项清单
+
+| 配置键 | 默认值 | 数据类型 | 说明 | 必填 |
+|--------|--------|---------|------|------|
+| `ConnectionStrings:Redis` | (空) | string | Redis 连接字符串（L2 + Backplane 共用） | ✅ |
+| `FusionCache:DistributedCacheKeyPrefix` | `jeesite:` | string | L2 key 前缀，避免与其他项目冲突 | ⬜ |
+| `FusionCache:BackplaneChannelName` | `jeesite-fc` | string | Pub/Sub 通道名 | ⬜ |
+| `FusionCache:DefaultEntryDurationMinutes` | `60` | int | 默认缓存有效期（分钟） | ⬜ |
+| `FusionCache:EnableFailSafe` | `true` | bool | 启用故障安全（不可用时返回旧值） | ⬜ |
+| `FusionCache:JitterMaxDurationMinutes` | `5` | int | 过期时间抖动范围（±此值随机，防雪崩） | ⬜ |
+| `FusionCache:MemoryCacheSizeLimitMb` | `2048` | int | L1 内存容量上限（MB） | ⬜ |
+| `FusionCache:FactorySoftTimeoutMs` | `100` | int | factory 软超时（超过后并行执行但继续等待） | ⬜ |
+| `FusionCache:FactoryHardTimeoutMs` | `3000` | int | factory 硬超时（超过后强制 fail-safe） | ⬜ |
+| `Cache:FailSafeMaxDurationHours` | `24` | int | 故障安全最大保留时长（超出不再使用） | ⬜ |
+
+---
+
+## ❓ 常见问题
+
+**Q1：Redis 挂了服务会不会崩？**
+- 不会。FusionCache 自动降级到纯内存模式：已有 L1 缓存继续服务，新请求走数据库。
+- `EnableFailSafe=true` 时，即使数据库也不可用，仍会返回最近一次成功值（如字典数据、用户菜单树）。
+
+**Q2：缓存穿透（恶意请求不存在的 key）如何处理？**
+- 使用 `GetOrCreateAsync` 自动处理：空值（null / default）也会被短暂缓存（默认 5 分钟）。
+- 布隆过滤器可作为补充层。
+
+**Q3：分布式多节点部署如何保持一致性？**
+- 通过 Redis Backplane（`jeesite-fc` 通道）广播 `Invalidate(key)`，各节点自动同步清除本地 L1。
+- 任一节点执行 `RemoveAsync` 时，所有节点的 L1 都会同步失效。
+
+**Q4：缓存击穿（热点 key 过期瞬间大流量涌入数据库）？**
+- FusionCache 内置锁机制：同一 key 并发请求时，仅一个线程执行 factory，其余等待结果或使用 fail-safe 值。
+- 可通过 `JitterMaxDurationMinutes` 加随机抖动避免批量过期。
+
+**Q5：如何监控缓存命中率？**
+- 调用 `_cache.GetStatsAsync()` 获取 `TotalKeys` / `HitRate` / `L1HitCount` / `L2HitCount`。
+- 建议在管理后台「缓存管理页面实时查看。
+- 命中率低于 70% 时告警，检查 key 设计或 TTL 配置。
+
+**Q6：更新数据后如何确保缓存失效？**
+- **主动失效：`RemoveAsync(key)` 或 `RemoveByPrefixAsync(prefix)`。
+- **事件驱动**：领域事件（如 `UserUpdatedEvent`）触发失效（推荐，可跨模块解耦）。
+- **TTL兜底**：即使忘记主动失效，TTL 也会在指定时间内自然过期。
+
+---
+
+## 📚 相关文档
+
+- [22-Elasticsearch](22-Elasticsearch) — 搜索结果高频缓存
+- [15-JWT认证](15-JWT认证) — Token 黑名单缓存
+- [19-数据与字段权限](19-数据与字段权限) — 用户权限缓存
+- [20-AI智能问答](20-AI智能问答) — 会话历史与消息缓存
+- Home: [Wiki 首页](Home)
+
+---
+
+## 🚀 下一步
+
+1. **预热关键数据**：在 `Program.cs` 中 `HostedService` 启动时预加载字典、配置、机构树，避免首次请求直接查询延迟。
+2. **配置告警规则**：命中率 < 70%、L1 占用 > 1.5GB、Redis 连接失败配置告警通知。
+3. **优化热点 key 抖动**：对热点数据设置 `JitterMaxDurationMinutes`，避免批量同时过期导致的缓存雪崩。
+4. **业务层统一使用 `CacheService`**：新业务请使用 `GetOrCreateAsync`，避免手写 `if/else` 缓存逻辑。
+5. **Review 所有数据变更场景**：确保每个写操作都对应正确的缓存失效 key（可通过单元测试覆盖）。
 
 <div align="center">
   <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>

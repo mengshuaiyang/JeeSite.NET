@@ -4,7 +4,7 @@
 
 ---
 
-# Sys系统管理
+# 03 Sys系统管理
 
 > 用户、角色、菜单、机构、公司、岗位、字典、配置、消息、审计、日志、在线用户等系统管理模块。
 >
@@ -474,16 +474,206 @@ public class YourController : ControllerBase
 
 ---
 
-## 💡 快速参考
+## 🏗️ 架构与数据流
 
-| 项目 | 关键信息 |
-|------|---------|
-| **模块名称** | Sys系统管理 |
-| **最后更新** | 2026-06-13 |
-| **相关文档** | [15-JWT认证](15-JWT认证) · [19-数据与字段权限](19-数据与字段权限) |
+### 权限体系 ER 关系图
+
+```mermaid
+graph TD
+    User[用户<br/>User] -->|1:1| Emp[员工<br/>Employee]
+    User -->|N:N| Role[角色<br/>Role]
+    Role -->|N:N| Menu[菜单/权限<br/>Menu]
+    Role -->|N:N| DataScope[数据权限<br/>RoleDataScope]
+    Role -->|N:N| FieldScope[字段权限<br/>RoleFieldScope]
+    Role -->|N:N| Org[机构/部门<br/>Organization]
+    Role -->|N:N| Post2[岗位<br/>Post]
+    Role -->|N:N| Company2[公司<br/>Company]
+    User -->|N:N| Company3[公司归属<br/>Company]
+    User -->|N:N| Org2[机构归属<br/>Organization]
+    User -->|N:N| Post3[岗位归属<br/>Post]
+
+    style User fill:#f9f,stroke:#333,stroke-width:2px
+    style Role fill:#9ff,stroke:#333,stroke-width:2px
+    style Menu fill:#ff9,stroke:#333,stroke-width:2px
+```
+
+### 权限体系数据流图
+
+```mermaid
+sequenceDiagram
+    participant User as 当前用户
+    participant Auth as AuthService
+    participant PermDB as 权限数据库
+
+    User->>Auth: 登录 (loginCode, password)
+    Auth->>PermDB: 查询用户信息
+    PermDB-->>Auth: User + 关联角色
+    Auth->>Auth: 密码哈希验证
+    Auth->>PermDB: 查询角色的菜单权限
+    PermDB-->>Auth: Menu 列表
+    Auth->>PermDB: 查询角色数据权限
+    PermDB-->>Auth: RoleDataScope 列表
+    Auth->>PermDB: 查询角色字段权限
+    PermDB-->>Auth: RoleFieldScope 列表
+    Auth->>Auth: 生成 JWT Token (含 permissions)
+    Auth-->>User: 返回 Token + 用户信息 + 权限标识
+```
 
 ---
 
-<div align="center">
-  <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>
-</div>
+## 💡 快速参考
+### 核心类与接口表
+
+| 类型 | 名称 | 命名空间 | 说明 |
+|------|------|---------|------|
+| Service | `UserService` | `JeeSiteNET.Modules.Sys.Application.Services` | 用户管理服务 |
+| Service | `RoleService` | `JeeSiteNET.Modules.Sys.Application.Services` | 角色管理服务 |
+| Service | `MenuService` | `JeeSiteNET.Modules.Sys.Application.Services` | 菜单管理服务 |
+| Service | `CompanyService` | `JeeSiteNET.Modules.Sys.Application.Services` | 公司/机构管理服务 |
+| Service | `EmployeeService` | `JeeSiteNET.Modules.Sys.Application.Services` | 员工管理服务 |
+| Service | `DictTypeService` | `JeeSiteNET.Modules.Sys.Application.Services` | 字典类型服务 |
+| Service | `DictDataService` | `JeeSiteNET.Modules.Sys.Application.Services` | 字典数据服务 |
+| Service | `ConfigService` | `JeeSiteNET.Modules.Sys.Application.Services` | 参数配置服务 |
+| Service | `PostService` | `JeeSiteNET.Modules.Sys.Application.Services` | 岗位管理服务 |
+| Service | `AreaService` | `JeeSiteNET.Modules.Sys.Application.Services` | 区域管理服务 |
+| Service | `LogService` | `JeeSiteNET.Modules.Sys.Application.Services` | 日志管理服务 |
+| Service | `MsgService` | `JeeSiteNET.Modules.Sys.Application.Services` | 消息服务 |
+| Service | `AuditService` | `JeeSiteNET.Modules.Sys.Application.Services` | 审计服务 |
+| Service | `DashboardService` | `JeeSiteNET.Modules.Sys.Application.Services` | 仪表盘服务 |
+| Service | `ModuleService` | `JeeSiteNET.Modules.Sys.Application.Services` | 模块管理服务 |
+| Controller | `UserController` | `JeeSiteNET.Modules.Sys.Controllers` | 用户 API |
+| Controller | `RoleController` | `JeeSiteNET.Modules.Sys.Controllers` | 角色 API |
+| Controller | `MenuController` | `JeeSiteNET.Modules.Sys.Controllers` | 菜单 API |
+| Controller | `CompanyController` | `JeeSiteNET.Modules.Sys.Controllers` | 公司 API |
+| Controller | `EmployeeController` | `JeeSiteNET.Modules.Sys.Controllers` | 员工 API |
+| Entity | `User` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 用户实体 |
+| Entity | `Role` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 角色实体 |
+| Entity | `Menu` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 菜单实体 |
+| Entity | `Company` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 公司实体 |
+| Entity | `Employee` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 员工实体 |
+| Entity | `DictType` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 字典类型实体 |
+| Entity | `DictData` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 字典数据实体 |
+| Entity | `Config` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 参数配置实体 |
+| Entity | `Post` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 岗位实体 |
+| Entity | `Area` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 区域实体 |
+| Entity | `Log` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 日志实体 |
+| Entity | `Audit` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 审计实体 |
+| Entity | `MsgInner` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 内部消息实体 |
+| Entity | `MsgPush` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 推送消息实体 |
+| Entity | `MsgTemplate` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 消息模板实体 |
+| Entity | `RoleDataScope` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 角色数据权限 |
+| Entity | `RoleFieldScope` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 角色字段权限 |
+| Entity | `UserDataScope` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 用户数据权限 |
+| Entity | `UserRole` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 用户角色关联 |
+
+### 常用 API 速查表
+
+| API | 方法 | 说明 |
+|-----|------|------|
+| `GET /api/v1/sys/user/{id}` | `UserService.GetByIdAsync()` | 获取单个用户 |
+| `POST /api/v1/sys/user` | `UserService.CreateAsync()` | 创建用户 |
+| `PUT /api/v1/sys/user/{id}` | `UserService.UpdateAsync()` | 更新用户 |
+| `DELETE /api/v1/sys/user/{id}` | `UserService.DeleteAsync()` | 删除用户 |
+| `GET /api/v1/sys/user/list` | `UserService.GetListAsync()` | 用户分页列表 |
+| `GET /api/v1/sys/role/{id}` | `RoleService.GetByIdAsync()` | 获取单个角色 |
+| `POST /api/v1/sys/role` | `RoleService.CreateAsync()` | 创建角色 |
+| `PUT /api/v1/sys/role/{id}` | `RoleService.UpdateAsync()` | 更新角色 |
+| `DELETE /api/v1/sys/role/{id}` | `RoleService.DeleteAsync()` | 删除角色 |
+| `GET /api/v1/sys/role/list` | `RoleService.GetListAsync()` | 角色分页列表 |
+| `GET /api/v1/sys/menu/tree` | `MenuService.GetTreeAsync()` | 菜单树 |
+| `POST /api/v1/sys/menu` | `MenuService.CreateAsync()` | 创建菜单 |
+| `PUT /api/v1/sys/menu/{id}` | `MenuService.UpdateAsync()` | 更新菜单 |
+| `DELETE /api/v1/sys/menu/{id}` | `MenuService.DeleteAsync()` | 删除菜单 |
+| `GET /api/v1/sys/company/tree` | `CompanyService.GetTreeAsync()` | 公司树 |
+| `GET /api/v1/sys/employee/list` | `EmployeeService.GetListAsync()` | 员工分页列表 |
+| `GET /api/v1/sys/dict/type` | `DictTypeService.GetListAsync()` | 字典类型列表 |
+| `GET /api/v1/sys/dict/data` | `DictDataService.GetListAsync()` | 字典数据列表 |
+| `GET /api/v1/sys/config` | `ConfigService.GetListAsync()` | 参数配置列表 |
+| `GET /api/v1/sys/log/list` | `LogService.GetListAsync()` | 日志分页列表 |
+| `GET /api/v1/sys/msg/inbox` | `MsgService.GetInboxAsync()` | 收件箱 |
+| `GET /api/v1/sys/msg/sent` | `MsgService.GetSentAsync()` | 发件箱 |
+| `GET /api/v1/sys/audit/list` | `AuditService.GetListAsync()` | 审计日志列表 |
+| `GET /api/v1/sys/dashboard/overview` | `DashboardService.GetOverviewAsync()` | 仪表盘汇总 |
+
+### 最小工作示例
+
+```csharp
+// ===== 用户创建（Controller 层）=====
+[HttpPost]
+public async Task<IActionResult> Create([FromBody] UserCreateDto dto)
+{
+    var user = _mapper.Map<User>(dto);
+    user.Password = _passwordHasher.HashPassword(dto.Password);
+    var result = await _userService.CreateAsync(user);
+    return Ok(result);
+}
+
+// ===== 角色权限配置（Service 层）=====
+public async Task AssignMenusAsync(string roleId, IEnumerable<string> menuIds)
+{
+    // 1. 删除旧的角色-菜单关联
+    await _userRoleRepository.DeleteByRoleIdAsync(roleId);
+    // 2. 批量插入新的角色-菜单关联
+    foreach (var menuId in menuIds)
+    {
+        await _roleMenuRepository.CreateAsync(new RoleMenu
+        {
+            RoleId = roleId,
+            MenuId = menuId
+        });
+    }
+}
+
+// ===== 字典数据缓存读取 =====
+// 系统启动时加载所有 DictData 到内存缓存
+// 通过类型编码快速读取字典值
+var statusOptions = await _dictDataService.GetByTypeCodeAsync("sys_status");
+foreach (var item in statusOptions)
+{
+    // 0=正常,1=停用
+    Console.WriteLine($"{item.Code} - {item.Label}");
+}
+
+// ===== 组织架构树查询 =====
+var companyTree = await _companyService.GetTreeAsync();
+// 返回层级结构：总公司 -> 子公司 -> 部门 -> 子部门
+```
+
+### 配置项清单
+
+| 配置键 | 默认值 | 数据类型 | 说明 | 必填 |
+|--------|--------|---------|------|------|
+| `Sys:DefaultTenantId` | `default` | string | 默认租户 ID | ⬜ |
+| `Sys:DefaultRoleForNewUser` | (空) | string | 新用户默认角色 | ⬜ |
+| `Sys:PasswordMinLength` | `6` | int | 密码最小长度 | ⬜ |
+| `Sys:PasswordRequireDigit` | `true` | bool | 密码必须含数字 | ⬜ |
+| `Sys:PasswordRequireLower` | `true` | bool | 密码必须含小写字母 | ⬜ |
+| `Sys:PasswordRequireUpper` | `false` | bool | 密码必须含大写字母 | ⬜ |
+| `Sys:PasswordRequireNonAlphanumeric` | `false` | bool | 必须含特殊字符 | ⬜ |
+| `Sys:LoginMaxFailedAttempts` | `5` | int | 登录失败最大次数 | ⬜ |
+| `Sys:LoginLockoutMinutes` | `30` | int | 锁定时长（分钟）| ⬜ |
+
+---
+## ❓ 常见问题
+
+1. **问：如何添加新的菜单项并控制访问权限？**
+答：先在 Menu 表新增一条记录，然后将该 MenuId 关联到需要访问它的角色。前端路由会自动根据权限过滤。
+2. **问：字典数据如何热更新？**
+答：修改 DictData 后，调用 `DictDataService.RefreshCacheAsync()` 手动刷新，或通过中间件自动处理。
+3. **问：如何将某个用户同时配置为多机构？**
+答：通过 EmpUser 表的多对多关系实现，一个员工可归属多个机构，通过主机构标记控制登录后的默认视图。
+4. **问：审计日志保存多久？**
+答：默认保留 180 天，可在配置中调整 `Sys:AuditRetentionDays`。超过保留期的数据由定时任务清理。
+
+---
+## 📚 相关文档
+
+- **上一篇**：[02-系统架构概览](02-系统架构概览)
+- **同系列**：[04-CMS内容管理](04-CMS内容管理) · [05-CodeGen代码生成](05-CodeGen代码生成) · [06-Tasks任务调度](06-Tasks任务调度) · [07-BPM工作流](07-BPM工作流)
+- **下一篇**：[04-CMS内容管理](04-CMS内容管理)
+
+---
+## 🚀 下一步
+
+- 学习 [19-数据与字段权限](19-数据与字段权限)，为业务模块精细配置行/字段权限。
+- 实践 [31-API接口规范](31-API接口规范)，按照统一规范扩展新的 Sys 接口。

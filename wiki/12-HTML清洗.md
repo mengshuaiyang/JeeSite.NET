@@ -4,7 +4,7 @@
 
 ---
 
-# HTML清洗
+# 12 HTML清洗
 
 > 富文本内容的白名单清洗策略，防 XSS 攻击，含默认白名单配置、扩展方式及四层防御体系。
 >
@@ -354,13 +354,120 @@ Content-Security-Policy:
 
 ## 💡 快速参考
 
-| 项目 | 关键信息 |
-|------|---------|
-| **核心类** | HtmlSanitizerUtil → 基于白名单的 HTML 清洗 |
-| **清洗强度** | SanitizeRich (富文本) / SanitizeStrict (严格) / SanitizeForPreview (预览) |
-| **白名单策略** | 标签/属性/CSS/URL协议 四层白名单，其余一律移除 |
-| **XSS 防护** | script/iframe/onerror/javascript: 等危险向量全部过滤 |
-| **深度防御** | 后端清洗 + 前端 DOMPurify + CSP 响应头 |
+### 核心类与接口
+
+| 类型 | 名称 | 命名空间 | 说明 |
+|------|------|---------|------|
+| Static Class | `HtmlSanitizerUtil` | `JeeSiteNET.Core.Utils` | HTML/XSS 白名单清洗工具 |
+| Class | `HtmlSanitizerOptions` | `JeeSiteNET.Core.Utils` | 白名单配置（标签/属性/CSS/协议/图片域名）|
+
+### 常用 API 速查
+
+| API | 说明 |
+|-----|------|
+| `HtmlSanitizerUtil.SanitizeStrict(html)` | 严格模式：仅保留最基础文本，移除所有 HTML 标签 |
+| `HtmlSanitizerUtil.SanitizeRich(html)` | 富文本模式：保留常用富文本标签、图片、基础样式 |
+| `HtmlSanitizerUtil.SanitizeRich(html, options)` | 自定义白名单的富文本清洗 |
+| `HtmlSanitizerUtil.SanitizeForPreview(html)` | 预览模式：保留样式但移除脚本/外部资源 |
+| `HtmlSanitizerOptions.DefaultRich()` / `DefaultStrict()` / `DefaultPreview()` | 快速构造默认 Options |
+
+### 最小工作示例
+
+```csharp
+// ===== 富文本编辑器内容清洗（保留常见格式）=====
+string userInputRichText =
+    @"<p>Hello <b onclick=""alert('xss')"">world</b></p>
+      <script>alert('hack')</script>
+      <iframe src=""evil.com""></iframe>";
+
+string safeHtml = HtmlSanitizerUtil.SanitizeRich(userInputRichText);
+// 结果: "<p>Hello <b>world</b></p>" （脚本/事件/iframe 全部被移除）
+
+// ===== 严格模式，仅保留纯文本 =====
+string plainText = HtmlSanitizerUtil.SanitizeStrict(userInputRichText);
+// 结果: "Hello world"
+
+// ===== 评论区安全清洗（仅移除脚本与事件属性）=====
+string commentSafe = HtmlSanitizerUtil.RemoveScripts(userInputRichText);
+
+// ===== 自定义白名单（例如：允许图片但限定域名）=====
+var options = new HtmlSanitizerOptions
+{
+    AllowedTags = new HashSet<string> { "p", "img", "br", "b", "i" },
+    AllowedAttributes = new HashSet<string> { "src", "alt", "width", "height" },
+    AllowedUriSchemes = new HashSet<string> { "http", "https" },
+    AllowedImageDomains = new HashSet<string> { "your-cdn.com" },
+    AllowDataUriImages = false
+};
+string safe = HtmlSanitizerUtil.SanitizeRich(userInputRichText, options);
+
+// ===== 在业务 Service 中统一清洗（推荐模式）=====
+public async Task<ArticleDto> SaveAsync(ArticleDto dto)
+{
+    dto.Content = HtmlSanitizerUtil.SanitizeRich(dto.Content);    // 正文富文本
+    dto.Summary = HtmlSanitizerUtil.SanitizeStrict(dto.Summary);  // 摘要纯文本
+    dto.Title   = HtmlSanitizerUtil.SanitizeStrict(dto.Title);    // 标题严格模式
+    var entity = await _repository.InsertOrUpdateAsync(dto);
+    return _mapper.Map<ArticleDto>(entity);
+}
+```
+
+### 配置项清单
+
+| 配置键 | 默认值 | 数据类型 | 说明 | 必填 |
+|--------|--------|---------|------|------|
+| `HtmlSanitizer:AllowedTags` | `p,b,i,u,ul,ol,li,a,img` | string | 允许的 HTML 标签（逗号分隔）| ⬜ |
+| `HtmlSanitizer:AllowedAttributes` | `href,src,alt,title` | string | 允许的 HTML 属性 | ⬜ |
+| `HtmlSanitizer:AllowedUriSchemes` | `http,https,mailto` | string | 允许的 URL 协议 | ⬜ |
+| `HtmlSanitizer:AllowedImageDomains` | (空) | string | 允许的图片域名白名单 | ⬜ |
+| `HtmlSanitizer:AllowDataUriImages` | `false` | bool | 是否允许 Base64 内联图片 | ⬜ |
+| `HtmlSanitizer:MaxDataUriImageSizeKb` | `256` | int | Base64 图片最大大小（KB）| ⬜ |
+| `Security:CspEnabled` | `true` | bool | 是否启用 CSP 响应头 | ⬜ |
+
+---
+
+## ❓ 常见问题
+
+**1. 问：SanitizeRich 和 SanitizeStrict 有什么区别？**
+答：SanitizeRich 保留富文本常用标签（p, b, i, a, img, table, ul, ol 等），适合 CMS 文章编辑；SanitizeStrict 仅保留纯文本内容，适合评论、摘要、搜索结果等严格场景。
+
+**2. 问：清洗会移除样式吗？**
+答：默认移除 `<style>` 标签和内联事件属性；`style=""` 属性在 SanitizeRich 模式下会保留 `color/font-size/text-align` 等白名单 CSS 属性，其他一律移除。
+
+**3. 问：onclick/onload/onerror 等事件属性如何处理？**
+答：所有模式都会自动移除所有 `on*` 事件属性，防止 XSS 攻击；同时 `<script>`、`<iframe>`、`<object>`、`<embed>` 标签会被完全移除（包括其内容）。
+
+**4. 问：Base64 内联图片如何限制？**
+答：通过 `AllowDataUriImages`（开关）+ `MaxDataUriImageSizeKb`（大小限制）组合控制，超过大小的内联图片会被清除。
+
+**5. 问：为什么需要前端 DOMPurify + 后端 HtmlSanitizer 双重清洗？**
+答：前端清洗提升用户体验（实时提示非法内容），但前端清洗可被绕过；后端清洗才是最终安全保证；CSP 响应头提供最后一道防线（即使攻击者注入脚本也无法执行）。
+
+**6. 问：`javascript:` 协议链接如何处置？**
+答：会被自动清空 href 属性，不会报错但用户点击后无效，保障安全。
+
+---
+
+## 📚 相关文档
+
+| 上一篇 | 同系列文档 | 下一篇 |
+|--------|-----------|--------|
+| [11-文本与差异](11-文本与差异) | [13-验证码与识别](13-验证码与识别) · [14-Excel导入导出](14-Excel导入导出) · [09-加密与国密](09-加密与国密) | [13-验证码与识别](13-验证码与识别) |
+
+### 🔗 跨系列相关
+
+- [09-加密与国密](09-加密与国密) — 安全工具链配合使用
+- [10-文件与媒体](10-文件与媒体) — 图片外链域名白名单 + 存储安全
+- [04-CMS内容管理](04-CMS内容管理) — ArticleService 正文清洗接入点
+
+---
+
+## 🚀 下一步
+
+1. 为所有允许用户提交 HTML 的入口（CMS、评论、富文本编辑器）接入 `HtmlSanitizerUtil`。
+2. 在 HTTP 响应头中配置合理的 CSP（`Content-Security-Policy`）。
+3. 前端接入 `DOMPurify` 实现"输入时提示 + 渲染前清洗"的双重防护。
+4. 结合 `FileSecurityUtil` 验证外链图片的域名与 MIME 类型。
 
 ---
 

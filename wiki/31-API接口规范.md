@@ -611,20 +611,112 @@ const getUserList = async (pageNo: number, pageSize: number) => {
 <div align="center">
   <small>本文档最后更新: 2026-06-12 · JeeSite.NET Wiki</small>
 </div>
-
-
 ---
 
 ## 💡 快速参考
 
-| 项目 | 关键信息 |
-|------|---------|
-| **文档名称** | API接口规范 |
-| **最后更新** | 2026-06-13 |
-| **相关文档** | [15-JWT认证](15-JWT认证) · [30-开发规范](30-开发规范) |
+### 统一响应结构
+
+```csharp
+public class ApiResult<T>
+{
+    public int Code { get; set; }        // 200 = 成功
+    public string Message { get; set; }  // 消息
+    public T? Data { get; set; }         // 数据
+}
+
+public class PageResult<T> : ApiResult<IEnumerable<T>>
+{
+    public int Total { get; set; }       // 总条数
+    public int PageIndex { get; set; }   // 当前页码
+    public int PageSize { get; set; }    // 每页大小
+}
+```
+
+### 常用 API 错误码表
+
+| 错误码 | 说明 | HTTP 状态 |
+|--------|------|----------|
+| 200 | 成功 | 200 OK |
+| 400 | 参数错误 | 400 Bad Request |
+| 401 | 未授权 | 401 Unauthorized |
+| 403 | 无权限 | 403 Forbidden |
+| 404 | 资源不存在 | 404 Not Found |
+| 409 | 数据冲突 | 409 Conflict |
+| 500 | 服务器内部错误 | 500 Internal Server Error |
+
+### 分页请求规范
+
+```csharp
+public class PageRequest<T> where T : class
+{
+    public int PageIndex { get; set; } = 1;
+    public int PageSize { get; set; } = 20;
+    public T? Filter { get; set; }
+    public string? SortField { get; set; }
+    public string? SortOrder { get; set; } = "asc";
+}
+```
+
+### 最小工作示例
+
+```typescript
+// frontend/src/api/request.ts
+import axios from 'axios'
+
+const request = axios.create({
+    baseURL: '/api/v1',
+    timeout: 10000,
+    headers: { 'Content-Type': 'application/json' }
+})
+
+request.interceptors.request.use(config => {
+    const token = localStorage.getItem('token')
+    if (token) config.headers.Authorization = `Bearer ${token}`
+    return config
+})
+
+request.interceptors.response.use(
+    response => {
+        const res = response.data
+        if (res.code !== 200) {
+            // 全局错误处理
+            return Promise.reject(new Error(res.message || 'Error'))
+        }
+        return res.data
+    },
+    error => Promise.reject(error)
+)
+
+export default request
+```
 
 ---
 
-<div align="center">
-  <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>
-</div>
+## ❓ 常见问题（3-5 个）
+
+1. **问：API 接口如何向后兼容？**  
+   答：保持字段只增不减，废弃字段用 Obsolete 标记并保留默认值，重大改动用 `/api/v2/` 新路径。
+
+2. **问：接口响应时间过长怎么诊断？**  
+   答：在中间件中记录请求耗时，输出到日志中的 duration 字段，对超过阈值的接口进行 SQL 执行计划分析。
+
+3. **问：API 文档如何自动生成？**  
+   答：使用 Swashbuckle Swagger + XML 注释，访问 `/swagger` 查看文档，导出 OpenAPI JSON 用于前端代码生成。
+
+---
+
+## 📚 相关文档
+
+- [15-JWT认证](15-JWT认证) — 鉴权与 Token 机制
+- [30-开发规范](30-开发规范) — 代码风格与命名规范
+- [28-K6性能压测](28-K6性能压测) — 接口压力测试
+
+---
+
+## 🚀 下一步
+
+- 为所有公共接口补充完整的 XML 注释，确保 Swagger 文档字段说明完整
+- 引入 OpenAPI Generator，根据后端 Swagger JSON 自动生成前端 API 客户端（`api.ts`）
+- 规范分页/筛选/排序参数命名（统一 `pageIndex`、`pageSize`、`sort`、`filter`），避免历史遗留的命名分裂
+- 对「变更型接口」(POST/PUT/DELETE) 引入幂等键（Idempotency-Key），防止重复提交

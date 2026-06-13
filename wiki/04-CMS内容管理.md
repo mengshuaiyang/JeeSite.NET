@@ -4,7 +4,7 @@
 
 ---
 
-# CMS内容管理
+# 04 CMS内容管理
 
 > 站点、栏目、文章、标签、评论、留言、举报、访问统计等内容管理功能。
 >
@@ -395,17 +395,121 @@ services.AddScoped<ITool, YourTool>();
 </div>
 
 ---
-
 ## 💡 快速参考
+### 核心类与接口表
 
-| 项目 | 关键信息 |
-|------|---------|
-| **模块名称** | CMS内容管理 |
-| **最后更新** | 2026-06-13 |
-| **相关文档** | [25-Vditor编辑器](25-Vditor编辑器) · [22-Elasticsearch](22-Elasticsearch) |
+| 类型 | 名称 | 命名空间 | 说明 |
+|------|------|---------|------|
+| Service | `ArticleService` | `JeeSiteNET.Modules.Cms.Application.Services` | 文章管理服务 |
+| Service | `CategoryService` | `JeeSiteNET.Modules.Cms.Application.Services` | 栏目管理服务 |
+| Service | `SiteService` | `JeeSiteNET.Modules.Cms.Application.Services` | 站点管理服务 |
+| Service | `CmsService` | `JeeSiteNET.Modules.Cms.Application.Services` | CMS 核心服务 |
+| Service | `ArticleIndexService` | `JeeSiteNET.Modules.Cms.Application.Services` | 文章索引服务 |
+| Service | `ArticleAuthService` | `JeeSiteNET.Modules.Cms.Application.Services` | 文章权限服务 |
+| Service | `PageCacheService` | `JeeSiteNET.Modules.Cms.Application.Services` | 页面缓存服务 |
+| Controller | `ArticleController` | `JeeSiteNET.Modules.Cms.Controllers` | 文章 API |
+| Controller | `CategoryController` | `JeeSiteNET.Modules.Cms.Controllers` | 栏目 API |
+| Controller | `SiteController` | `JeeSiteNET.Modules.Cms.Controllers` | 站点 API |
+| Controller | `CmsController` | `JeeSiteNET.Modules.Cms.Controllers` | CMS 核心 API |
+| Controller | `CmsFrontController` | `JeeSiteNET.Modules.Cms.Controllers` | CMS 前端 API |
+| Controller | `FileTemplateController` | `JeeSiteNET.Modules.Cms.Controllers` | 文件模板 API |
+| Entity | `Article` | `JeeSiteNET.Modules.Cms.Domain.Entities` | 文章实体 |
+| Entity | `ArticleData` | `JeeSiteNET.Modules.Cms.Domain.Entities` | 文章正文实体 |
+| Entity | `Category` | `JeeSiteNET.Modules.Cms.Domain.Entities` | 栏目实体 |
+| Entity | `Site` | `JeeSiteNET.Modules.Cms.Domain.Entities` | 站点实体 |
+| Entity | `ArticleTag` | `JeeSiteNET.Modules.Cms.Domain.Entities` | 文章标签关联 |
+| Entity | `Tag` | `JeeSiteNET.Modules.Cms.Domain.Entities` | 标签实体 |
+
+### 常用 API 速查表
+
+| API | 方法 | 说明 |
+|-----|------|------|
+| `GET /api/v1/cms/article/{id}` | `ArticleService.GetByIdAsync()` | 获取单篇文章 |
+| `POST /api/v1/cms/article` | `ArticleService.CreateAsync()` | 创建文章 |
+| `PUT /api/v1/cms/article/{id}` | `ArticleService.UpdateAsync()` | 更新文章 |
+| `DELETE /api/v1/cms/article/{id}` | `ArticleService.DeleteAsync()` | 删除文章 |
+| `GET /api/v1/cms/article/list` | `ArticleService.GetListAsync()` | 文章分页列表 |
+| `GET /api/v1/cms/category/tree` | `CategoryService.GetTreeAsync()` | 栏目树 |
+| `POST /api/v1/cms/category` | `CategoryService.CreateAsync()` | 创建栏目 |
+| `PUT /api/v1/cms/category/{id}` | `CategoryService.UpdateAsync()` | 更新栏目 |
+| `DELETE /api/v1/cms/category/{id}` | `CategoryService.DeleteAsync()` | 删除栏目 |
+| `GET /api/v1/cms/front/articles` | `CmsFrontService.GetFrontArticles()` | 前台文章列表 |
+| `GET /api/v1/cms/front/article/{id}` | `CmsFrontService.GetFrontArticle()` | 前台文章详情 |
+
+### 最小工作示例
+
+```csharp
+// ===== 文章发布（Service 层）=====
+public async Task<Article> PublishArticleAsync(Article article)
+{
+    article.Status = ArticleStatus.Published;
+    article.PublishTime = DateTime.Now;
+    var saved = await _articleRepository.UpdateAsync(article);
+    
+    // 同步到 Elasticsearch（如果启用）
+    await _articleIndexService.IndexAsync(saved);
+    return saved;
+}
+
+// ===== 栏目树构建（Service 层）=====
+public async Task<IEnumerable<CategoryNode>> GetCategoryTreeAsync(string siteId)
+{
+    var categories = await _categoryRepository.GetBySiteIdAsync(siteId);
+    return BuildTree(categories, null);
+}
+
+// 递归构建树结构
+private IEnumerable<CategoryNode> BuildTree(IEnumerable<Category> categories, string? parentId)
+{
+    return categories
+        .Where(c => c.ParentId == parentId)
+        .Select(c => new CategoryNode
+        {
+            Id = c.Id,
+            Name = c.Name,
+            Children = BuildTree(categories, c.Id).ToList()
+        });
+}
+
+// ===== 页面缓存使用 =====
+// 页面访问时，根据 URL + 语言缓存 HTML 内容
+var cacheKey = $"cms:page:{siteId}:{url}";
+var cachedHtml = await _pageCache.GetOrSetAsync(cacheKey,
+    async () => await RenderPageAsync(siteId, url),
+    TimeSpan.FromMinutes(30));
+
+// 内容更新后手动清除缓存
+await _pageCache.RemoveByPrefixAsync($"cms:page:{siteId}:");
+```
+
+### 配置项清单
+
+| 配置键 | 默认值 | 数据类型 | 说明 | 必填 |
+|--------|--------|---------|------|------|
+| `CMS:DefaultSiteId` | `default` | string | 默认站点 ID | ⬜ |
+| `CMS:PageCacheDurationMinutes` | `30` | int | 页面缓存时长（分钟）| ⬜ |
+| `CMS:EnableSearchIndex` | `true` | bool | 是否启用文章搜索索引 | ⬜ |
+| `CMS:ArticleAutoPublishDelayMinutes` | `0` | int | 文章自动发布延迟（分钟）| ⬜ |
 
 ---
+## ❓ 常见问题
 
-<div align="center">
-  <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>
-</div>
+1. **问：如何让栏目只对特定用户组可见？**
+答：在 Category 表中配置数据权限字段，或通过 RoleDataScope 配置栏目范围的可见性。
+2. **问：富文本编辑器中的图片上传到哪里？**
+答：通过 FileController 上传到配置的存储（本地/MinIO/Aliyun），URL 自动替换后保存到 ArticleData.Content。
+3. **问：搜索功能如何配置中文分词？**
+答：在 Elasticsearch 中安装 IK 分词器，在索引映射中使用 `ik_max_word`（索引时）和 `ik_smart`（查询时）。
+
+---
+## 📚 相关文档
+
+- **上一篇**：[03-Sys系统管理](03-Sys系统管理)
+- **同系列**：[05-CodeGen代码生成](05-CodeGen代码生成) · [06-Tasks任务调度](06-Tasks任务调度) · [07-BPM工作流](07-BPM工作流) · [08-App移动端](08-App移动端)
+- **下一篇**：[05-CodeGen代码生成](05-CodeGen代码生成)
+
+---
+## 🚀 下一步
+
+- 实践 [25-Vditor编辑器](25-Vditor编辑器)，为文章编辑配置所见即所得的富文本体验。
+- 学习 [22-Elasticsearch](22-Elasticsearch)，将全站文章搜索能力接入后台。

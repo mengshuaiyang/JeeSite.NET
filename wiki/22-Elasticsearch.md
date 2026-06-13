@@ -4,7 +4,7 @@
 
 ---
 
-# Elasticsearch
+# 22 Elasticsearch
 
 > 基于 Elasticsearch 的全文搜索方案，IK 中文分词、向量相似度、聚合分析、零停机索引重建。
 >
@@ -463,15 +463,187 @@ curl http://localhost:9200/_cat/indices?v
 
 ---
 
-## 💡 快速参考
+## 🏗️ 架构与数据流
 
-| 项目 | 关键信息 |
-|------|---------|
-| **文档** | Elasticsearch |
-| **最后更新** | 2026-06-13 |
-| **相关文档** | [20-AI智能问答](20-AI智能问答) · [23-FusionCache缓存](23-FusionCache缓存) |
+### 索引与搜索流程图
+
+```mermaid
+flowchart TD
+    A[文章创建/更新<br/>ArticleService.CreateAsync] --> B[触发 ArticleIndexService.IndexAsync]
+    B --> C[序列化为 JSON 文档<br/>按字段映射配置]
+    C --> D[POST /{index}/_doc/{articleId}]
+    D --> E[ES 集群存储 + 索引<br/>ik_max_word 分词]
+    F[文章删除<br/>ArticleService.DeleteAsync] --> G[DELETE /{index}/_doc/{articleId}]
+    G --> H[ES 移除文档]
+
+    I[用户搜索] --> J[SearchService.SearchAsync]
+    J --> K[POST /{index}/_search<br/>query: match / term / bool]
+    K --> L[ES 搜索 + 相关性评分]
+    L --> M[返回 Top-N 文档<br/>按 score 降序]
+    M --> N[组装分页结果<br/>PageResult<ArticleSearchHit>]
+    N --> O[返回给前端]
+
+    P[零停机重建索引] --> Q[创建新索引 articles_v2<br/>应用最新 Mapping]
+    Q --> R[_reindex<br/>从 articles_v1 复制]
+    R --> S[别名切换<br/>DELETE articles alias<br/>POST articles_v2 alias]
+    S --> T[删除 articles_v1 旧索引]
+```
 
 ---
+
+## 💡 快速参考
+
+### 核心类与接口
+
+| 类型 | 名称 | 命名空间 | 说明 |
+|------|------|---------|------|
+| Service | `SearchService` | `JeeSiteNET.Modules.Cms.Application.Services` | 全文搜索服务（ES 索引创建/查询/重建） |
+| Service | `ArticleIndexService` | `JeeSiteNET.Modules.Cms.Application.Services` | 文章索引服务（单篇/批量/全量） |
+| Controller | `ArticleSearchController` | `JeeSiteNET.Modules.Cms.Controllers` | 前端搜索 API（/api/v1/cms/article/search） |
+| Options | `ElasticsearchOptions` | `JeeSiteNET.Core.Options` | ES 配置绑定（Nodes/DefaultIndex/Username/Password） |
+
+### 常用 API 速查
+
+| API | 说明 |
+|-----|------|
+| `SearchService.SearchAsync(keyword, pageIndex, pageSize, filters)` | 全文搜索，返回 `PagedResult<ArticleSearchItem>` |
+| `SearchService.CreateIndexAsync(indexName, mapping)` | 创建索引（含 IK 分词器、HNSW 向量索引） |
+| `SearchService.RebuildIndexAsync()` | 全量重建索引（别名切换，零停机） |
+| `SearchService.GetSuggestionsAsync(prefix)` | 搜索建议（补全提示） |
+| `ArticleIndexService.IndexArticleAsync(article)` | 单篇文章索引（新增/更新） |
+| `ArticleIndexService.IndexBatchAsync(articles)` | 批量索引（Bulk API，每批 1000 篇） |
+| `ArticleIndexService.DeleteIndexAsync(articleId)` | 删除文档 |
+| `GET /api/v1/cms/article/search?q=xxx&page=1&size=20` | 前端搜索接口 |
+
+### 最小工作示例
+
+```csharp
+// ===== Program.cs：注册 ES 客户端 =====
+builder.Services.Configure<ElasticsearchOptions>(
+    builder.Configuration.GetSection("Elasticsearch"));
+builder.Services.AddSingleton<SearchService>();
+builder.Services.AddScoped<ArticleIndexService>();
+
+// ===== 初始化索引（应用启动时） =====
+await _searchService.CreateIndexAsync("jeesite-articles-v1", new
+{
+    settings = new
+    {
+        number_of_shards = 3,
+        number_of_replicas = 1,
+        analysis = new
+        {
+            analyzer = new { ik_max_word = new { type = "custom", tokenizer = "ik_max_word" } }
+        }
+    },
+    mappings = new
+    {
+        properties = new
+        {
+            title        = new { type = "text", analyzer = "ik_max_word", search_analyzer = "ik_smart" },
+            content      = new { type = "text", analyzer = "ik_max_word" },
+            categoryCode = new { type = "keyword" },
+            publishDate  = new { type = "date" },
+            viewCount    = new { type = "integer" }
+        }
+    }
+});
+
+// ===== 搜索调用 =====
+var result = await _searchService.SearchAsync(
+    keyword: "微服务架构",
+    pageIndex: 1,
+    pageSize: 20,
+    filters: new SearchFilters { Category = "tech" }
+);
+
+foreach (var hit in result.Items)
+{
+    Console.WriteLine($"[{hit.Score:F2}] {hit.Title}  ({hit.PublishDate:yyyy-MM-dd})");
+}
+Console.WriteLine($"共 {result.TotalCount} 条，耗时 {result.LatencyMs} ms");
+
+// ===== 前端搜索（Vue 3） =====
+// const { data } = await axios.get('/api/v1/cms/article/search', {
+//   params: { q: keyword, page: 1, size: 20, category: 'tech' }
+// });
+// results.value = data.items;
+```
+
+### 配置项清单
+
+| 配置键 | 默认值 | 数据类型 | 说明 | 必填 |
+|--------|--------|---------|------|------|
+| `Elasticsearch:Enabled` | `true` | bool | 是否启用 ES；禁用时回退到数据库 `LIKE` 查询 | ⬜ |
+| `Elasticsearch:Nodes` | `["http://localhost:9200"]` | string[] | ES 集群节点列表（支持多节点） | ✅ |
+| `Elasticsearch:DefaultIndex` | `jeesite-articles` | string | 默认索引名 | ⬜ |
+| `Elasticsearch:Username` | (空) | string | Basic Auth 用户名（ES 8.x 默认启用） | ⬜ |
+| `Elasticsearch:Password` | (空) | string | Basic Auth 密码 | ⬜ |
+| `Elasticsearch:RequestTimeoutSeconds` | `30` | int | 单次请求超时时间 | ⬜ |
+| `Elasticsearch:SniffOnStartup` | `false` | bool | 启动时探测集群节点 | ⬜ |
+| `Elasticsearch:RefreshInterval` | `30s` | string | 索引刷新间隔（越小实时性越高，写入性能越低） | ⬜ |
+
+### Docker 快速启动
+
+```bash
+# 启动 ES + Kibana
+cd d:\Projects\jeesite.net
+docker compose up -d elasticsearch kibana
+
+# 安装 IK 中文分词器（版本必须与 ES 严格一致）
+# docker exec -it elasticsearch bin/elasticsearch-plugin install https://.../elasticsearch-analysis-ik-8.x.x.zip
+
+# 验证健康检查
+curl http://localhost:9200/_cluster/health
+# -> {"status":"green",...}
+```
+
+---
+
+## ❓ 常见问题
+
+**Q1：中文分词不准确，搜不到预期内容？**
+- 安装与 ES 版本严格一致的 IK 分词器。
+- mapping 中使用 `ik_max_word`（索引时最大化切分）+ `ik_smart`（查询时智能切分）。
+- 对专有名词可在 `elasticsearch/config/analysis-ik/custom/mydict.dic` 中维护自定义词库。
+
+**Q2：索引重建期间服务不可用？**
+- 使用「别名切换」方案：创建新索引 `articles-v2` → 批量写入 → 将别名 `jeesite-articles` 指向新索引 → 删除旧索引。
+- 整个过程搜索请求始终命中别名，用户无感知。
+
+**Q3：查询性能随数据量下降？**
+- 按日期/栏目分索引（如 `jeesite-articles-2026-06`），查询时只命中相关索引。
+- 使用路由分片（routing），让同一类文档落到同一分片。
+- 添加热点查询缓存层（FusionCache），缓存高频关键词的搜索结果。
+- 冷热分离：发布超过 90 天的文章迁移到冷节点。
+
+**Q4：启动 ES 报错 "max virtual memory areas vm.max_map_count [65530] is too low"？**
+- Linux/WSL2：`sudo sysctl -w vm.max_map_count=262144`（永久生效需写入 `/etc/sysctl.conf`）。
+- Windows Docker Desktop：在 `.wslconfig` 中设置。
+
+**Q5：新增文章后搜索不到？**
+- 可能是 `refresh_interval`（默认 30s）延迟。用户场景可接受。
+- 紧急需要立即可见可调用 `_refresh` API，但会影响写入性能，不建议频繁调用。
+- 可通过 `ArticleIndexService.IndexArticleAsync` 触发单篇索引。
+
+---
+
+## 📚 相关文档
+
+- [20-AI智能问答](20-AI智能问答) — ES 搜索与向量库检索共同构成 RAG 的「检索」层
+- [23-FusionCache缓存](23-FusionCache缓存) — 搜索结果缓存、热点关键词缓存
+- [26-AI-Tools开发](26-AI-Tools开发) — `cms_search_article` 工具将 ES 搜索暴露给 LLM
+- Home: [Wiki 首页](Home)
+
+---
+
+## 🚀 下一步
+
+1. **触发首次全量索引**：在管理后台「系统管理 → 高级 → 索引管理」中点击「重建索引」，完成所有已发布文章的首次索引。
+2. **配置 IK 词库**：将项目中的专有名词、行业术语整理到 `mydict.dic`，配置远程词库热更新。
+3. **监控慢查询**：在 Kibana 中配置 Search Slow Log 告警（>500ms 触发通知），识别需优化的查询模式。
+4. **冷热分离策略**：当文章量超过 10 万篇时，启用 ILM（Index Lifecycle Management）自动迁移冷数据。
+5. **与 AI 问答打通**：将 ES 关键词搜索与 pgvector 向量检索组合为混合检索（Hybrid Search），提升 RAG 准确率。
 
 <div align="center">
   <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>

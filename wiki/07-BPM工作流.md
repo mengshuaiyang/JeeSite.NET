@@ -4,7 +4,7 @@
 
 ---
 
-# BPM工作流
+# 07 BPM工作流
 
 > 基于 Elsa 工作流引擎的请假审批、报销审批等业务流程，支持可视化流程设计。
 >
@@ -466,17 +466,82 @@ frontend/src/
 </div>
 
 ---
-
 ## 💡 快速参考
+### 核心类与接口表
 
-| 项目 | 关键信息 |
-|------|---------|
-| **模块名称** | BPM工作流 |
-| **最后更新** | 2026-06-13 |
-| **相关文档** | [03-Sys系统管理](03-Sys系统管理) · [19-数据与字段权限](19-数据与字段权限) |
+| 类型 | 名称 | 命名空间 | 说明 |
+|------|------|---------|------|
+| Service | `LeaveService` | `JeeSiteNET.Modules.Bpm.Application.Services` | 请假审批服务 |
+| Service | `BpmService` | `JeeSiteNET.Modules.Bpm.Application.Services` | 流程管理服务 |
+| Controller | `LeaveController` | `JeeSiteNET.Modules.Bpm.Controllers` | 请假 API |
+| Controller | `ApprovalController` | `JeeSiteNET.Modules.Bpm.Controllers` | 审批 API |
+| Entity | `LeaveRequest` | `JeeSiteNET.Modules.Bpm.Domain.Entities` | 请假申请实体 |
+| Entity | `ApprovalRecord` | `JeeSiteNET.Modules.Bpm.Domain.Entities` | 审批记录实体 |
+| Entity | `WorkflowForm` | `JeeSiteNET.Modules.Bpm.Domain.Entities` | 工作流表单实体 |
+
+### 常用 API 速查表
+
+| API | 说明 |
+|-----|------|
+| `POST /api/v1/bpm/leave` | 发起请假申请 |
+| `GET /api/v1/bpm/leave/my` | 我的请假列表 |
+| `GET /api/v1/bpm/leave/pending` | 待我审批的列表 |
+| `POST /api/v1/bpm/leave/{id}/approve` | 审批通过 |
+| `POST /api/v1/bpm/leave/{id}/reject` | 审批驳回 |
+
+### 最小工作示例
+
+```csharp
+// ===== 发起请假申请 =====
+[HttpPost]
+public async Task<IActionResult> CreateLeave([FromBody] LeaveRequestDto dto)
+{
+    var leave = _mapper.Map<LeaveRequest>(dto);
+    leave.ApplicantId = CurrentUserId;
+    leave.Status = LeaveStatus.Pending;
+    var result = await _leaveService.CreateAsync(leave);
+
+    // 触发工作流：找到审批人并推送任务
+    await _bpmService.StartWorkflowAsync("leave_approval", result.Id);
+    return Ok(result);
+}
+
+// ===== 审批处理（Service 层）=====
+public async Task ApproveAsync(string leaveId, string approverId, string comment)
+{
+    var leave = await _leaveRepository.GetByIdAsync(leaveId);
+    // 记录审批动作
+    await _approvalRecordRepository.CreateAsync(new ApprovalRecord
+    {
+        LeaveRequestId = leaveId,
+        ApproverId = approverId,
+        Action = ApprovalAction.Approved,
+        Comment = comment,
+        CreateTime = DateTime.Now
+    });
+    // 判断是否所有审批完成，更新状态
+    leave.Status = LeaveStatus.Approved;
+    await _leaveRepository.UpdateAsync(leave);
+}
+```
 
 ---
+## ❓ 常见问题
 
-<div align="center">
-  <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>
-</div>
+1. **问：审批人休假期间如何转交？**
+答：实现审批代理功能，在用户设置中配置代理人，工作流自动将待办任务同时推送给代理人。
+2. **问：如何支持并行审批（多人同时审批）？**
+答：配置并行网关节点，在所有并行分支全部完成后进入下一节点。
+
+---
+## 📚 相关文档
+
+- **上一篇**：[06-Tasks任务调度](06-Tasks任务调度)
+- **同系列**：[03-Sys系统管理](03-Sys系统管理) · [04-CMS内容管理](04-CMS内容管理) · [05-CodeGen代码生成](05-CodeGen代码生成) · [08-App移动端](08-App移动端)
+- **下一篇**：[08-App移动端](08-App移动端)
+
+---
+## 🚀 下一步
+
+- 结合 [06-Tasks任务调度](06-Tasks任务调度)，实现超时未审批自动提醒或跳转到下一级审批。
+- 阅读 [19-数据与字段权限](19-数据与字段权限)，确保审批过程中用户只能看到自己有权限的申请单。

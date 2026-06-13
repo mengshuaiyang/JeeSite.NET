@@ -4,7 +4,7 @@
 
 ---
 
-# JWT认证
+# 15 JWT认证
 
 > 基于 JWT 的无状态认证体系：Token 生成/刷新/吊销、权限标识、在线用户管理、前端集成。
 >
@@ -477,16 +477,223 @@ salt = 每用户独立随机 16 字节（Base64 存储）
 
 ---
 
+## 🏗️ 架构与数据流
+
+### 认证时序图
+
+```mermaid
+sequenceDiagram
+    participant Client as 前端
+    participant Server as Web.API
+    participant AuthSvc as AuthService
+    participant JWT as JwtTokenUtil
+    participant DB as 数据库
+
+    Client->>Server: POST /api/v1/sys/auth/login<br/>(loginCode, password)
+    Server->>AuthSvc: LoginAsync(loginCode, password)
+    AuthSvc->>DB: GetByLoginCodeAsync(loginCode)
+    DB-->>AuthSvc: User 实体
+    AuthSvc->>AuthSvc: 验证密码哈希 (PBKDF2)
+    AuthSvc->>DB: 查询用户角色 + 权限标识
+    DB-->>AuthSvc: permissionCodes[]
+    AuthSvc->>JWT: GenerateToken(user, permissions)
+    JWT->>JWT: 创建 ClaimsIdentity
+    JWT->>JWT: SigningCredentials(SecretKey)
+    JWT-->>AuthSvc: JWT Token + RefreshToken
+    AuthSvc->>DB: 保存 RefreshToken + 过期时间
+    AuthSvc-->>Server: TokenResponse
+    Server-->>Client: 200 OK { token, expiresIn, refreshToken }
+
+    Note over Client,DB: ─── 后续请求 ───
+    Client->>Server: GET /api/v1/sys/user/list<br/>Authorization: Bearer {token}
+    Server->>Server: JwtBearerHandler 验证签名 + 有效期
+    Server->>Server: 从 Claims 提取 UserId + 权限
+    Server-->>Server: 建立 HttpContext.User
+    Server-->>Client: 返回受保护资源
+```
+
+### Token 刷新流程图
+
+```mermaid
+flowchart TD
+    A[前端检测 Token 即将过期] --> B[携带 RefreshToken 请求<br/>POST /api/v1/sys/auth/refresh]
+    B --> C[AuthService 验证 RefreshToken]
+    C --> D{在数据库中存在<br/>且未过期?}
+    D -->|是| E[生成新的 AccessToken]
+    D -->|否| F[返回 401 Unauthorized<br/>要求重新登录]
+    E --> G[返回新 Token + 新 RefreshToken]
+    G --> H[前端替换 localStorage 中的 token]
+    F --> I[前端跳转登录页]
+```
+
+---
+
 ## 💡 快速参考
 
-| 项目 | 关键信息 |
-|------|---------|
-| **核心服务** | AuthService → 登录/刷新/注销/获取用户信息 |
-| **Token 结构** | Header + Payload (sub/name/corp_code/roles/permissions) + HMAC-SHA256 签名 |
-| **有效期** | Access Token 默认 12 小时，Refresh Token 30 天（可配置） |
-| **权限标识** | sys:user:add / sys:user:edit 等模块:实体:操作三级体系 |
-| **吊销机制** | jwt:revoked:{jti} Redis 黑名单 → 中间件校验 |
-| **安全建议** | HTTPS 传输、Secret 环境变量注入、失败锁定、密码强度校验 |
+### 核心类与接口表
+
+| 类型 | 名称 | 命名空间 | 说明 |
+|------|------|---------|------|
+| Service | `AuthService` | `JeeSiteNET.Modules.Sys.Application.Services` | 认证主服务（登录/刷新/吊销/获取用户信息） |
+| Service | `ValidCodeService` | `JeeSiteNET.Modules.Sys.Application.Services` | 验证码（短信/邮件）发送与校验服务 |
+| Service | `PermissionRequirementHandler` | `JeeSiteNET.Modules.Sys.Application.Authorization` | 权限标识授权处理器 |
+| Controller | `AuthController` | `JeeSiteNET.Modules.Sys.Controllers` | 认证 API（登录/刷新/注销/信息/菜单） |
+| Controller | `ValidCodeController` | `JeeSiteNET.Modules.Sys.Controllers` | 图形验证码 API |
+| Middleware | `JwtBearerMiddleware` | `Microsoft.AspNetCore.Authentication.JwtBearer` | JWT 认证中间件（配合自定义 `OnTokenValidated`） |
+| Entity | `User` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 用户主体（含 status/last_login_ip 等） |
+| Interface | `IDataScoped` | `JeeSiteNET.Core.Domain` | 数据权限标记接口（详见文档 19） |
+
+### 常用 API 速查表
+
+| 方法 | API | 说明 | 对应服务方法 |
+|------|-----|------|-------------|
+| `POST` | `/api/v1/sys/auth/login` | 账号密码登录，返回 JWT | `AuthService.LoginAsync(loginCode, password)` |
+| `POST` | `/api/v1/sys/auth/login-by-code` | 手机号/邮箱 + 验证码登录 | `AuthService.LoginByCodeAsync(target, code)` |
+| `POST` | `/api/v1/sys/auth/logout` | 注销当前 jti（加入 Redis 黑名单） | `AuthService.LogoutAsync(userCode)` |
+| `POST` | `/api/v1/sys/auth/refresh` | 使用 Refresh Token 换取新 Access Token | `AuthService.RefreshTokenAsync(oldToken)` |
+| `GET` | `/api/v1/sys/auth/info` | 获取当前登录用户完整信息（角色/公司/权限） | `AuthService.GetAuthInfoAsync()` |
+| `GET` | `/api/v1/sys/auth/menu-route` | 获取当前用户可见菜单树（动态路由） | `AuthService.GetMenuRouteAsync(sysCode)` |
+| `GET` | `/api/v1/sys/online/list` | 管理员查看当前在线用户（jti 列表） | — |
+| `POST` | `/api/v1/sys/online/{userCode}/kick-out` | 强制某用户下线（吊销所有 jti） | — |
+| `GET` | `/api/v1/sys/valid-code/captcha` | 获取图形验证码（SVG/图片流） | `ValidCodeController` |
+
+### 最小工作示例（C# 代码块）
+
+```csharp
+// ===== 1. 登录并获取 Token =====
+var user = await _userRepository.GetByCodeAsync(loginCode);
+if (user == null || user.Status != 0)
+    throw new UnauthorizedAccessException("账号不存在或已禁用");
+
+if (!VerifyPassword(password, user.Password, user.Salt))
+    throw new UnauthorizedAccessException("账号或密码错误");
+
+var token = await _authService.CreateTokenAsync(user);
+return new { token.Token, token.ExpiresIn, user.UserName };
+
+// ===== 2. 生成 JWT（核心伪代码）=====
+var claims = new List<Claim>
+{
+    new(JwtRegisteredClaimNames.Sub, user.UserCode),
+    new(JwtRegisteredClaimNames.Name, user.UserName),
+    new("corp_code", user.CorpCode),
+    new("roles", string.Join(",", roles)),
+    new("permissions", string.Join(",", permissions)),
+    new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N"))
+};
+
+var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.Secret));
+var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+var jwt = new JwtSecurityToken(
+    issuer: _jwtOptions.Issuer,
+    audience: _jwtOptions.Audience,
+    claims: claims,
+    expires: DateTime.UtcNow.AddMinutes(_jwtOptions.AccessTokenExpirationMinutes),
+    signingCredentials: creds);
+
+string tokenValue = new JwtSecurityTokenHandler().WriteToken(jwt);
+
+// ===== 3. 自定义权限标识授权 =====
+// 声明
+[Permission("sys:user:add")]
+public async Task<IActionResult> Create([FromBody] UserDto dto) { ... }
+
+// 自定义 OnTokenValidated 事件（检查 jti 黑名单 + 用户状态）
+options.Events = new JwtBearerEvents
+{
+    OnTokenValidated = async context =>
+    {
+        var jti = context.Principal?.FindFirstValue(JwtRegisteredClaimNames.Jti);
+        var userCode = context.Principal?.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        if (await _redis.StringGetAsync($"jwt:revoked:{jti}").HasValue)
+        {
+            context.Fail("Token revoked");
+            return;
+        }
+        var user = await _userRepository.GetByCodeAsync(userCode);
+        if (user == null || user.Status != 0) context.Fail("User disabled");
+    }
+};
+
+// ===== 4. 前端调用（Vue 3 + Pinia）=====
+// stores/user.ts
+export const useUserStore = defineStore("user", () => {
+    const token = ref(localStorage.getItem("token") || "");
+    async function login({ loginCode, password }) {
+        const { data } = await request.post("/sys/auth/login", { loginCode, password });
+        token.value = data.token;
+        localStorage.setItem("token", data.token);
+    }
+    async function restoreSession() {
+        if (!token.value) return;
+        const { data } = await request.get("/sys/auth/info");
+        // data.roles / data.permissions 渲染菜单与按钮
+    }
+    return { token, login, logout, restoreSession };
+});
+```
+
+### 配置项清单表
+
+| 配置键 | 默认值 | 数据类型 | 说明 | 必填 |
+|--------|--------|---------|------|------|
+| `Auth:Jwt:Secret` | (空) | string | JWT 签名密钥，≥ 256 位，生产环境必须通过环境变量注入 | ✅ |
+| `Auth:Jwt:Issuer` | `JeeSite.NET` | string | Token 签发者（iss claim） | ⬜ |
+| `Auth:Jwt:Audience` | `JeeSite.NET-Web` | string | Token 受众（aud claim） | ⬜ |
+| `Auth:Jwt:AccessTokenExpirationMinutes` | `720` | int | Access Token 有效期（分钟），默认 12 小时 | ⬜ |
+| `Auth:Jwt:RefreshTokenExpirationDays` | `30` | int | Refresh Token 有效期（天） | ⬜ |
+| `Auth:Jwt:ClockSkewSeconds` | `300` | int | 允许的客户端/服务器时钟偏差（秒） | ⬜ |
+| `Auth:Jwt:ValidateIssuer` | `true` | bool | 是否校验 iss | ⬜ |
+| `Auth:Jwt:ValidateAudience` | `true` | bool | 是否校验 aud | ⬜ |
+| `Auth:Password:MinLength` | `8` | int | 最小密码长度 | ⬜ |
+| `Auth:Password:UseStrongHash` | `false` | bool | 是否启用 PBKDF2/Argon2id 替代 MD5 | ⬜ |
+| `Auth:Login:MaxFailCount` | `5` | int | 连续失败锁定阈值 | ⬜ |
+| `Auth:Login:LockMinutes` | `30` | int | 失败锁定持续时间（分钟） | ⬜ |
+| `Redis:ConnectionString` | (空) | string | Redis 连接（用于 jti 黑名单 + 验证码 + 失败计数） | ✅ |
+
+---
+
+## ❓ 常见问题（3-5 个）
+
+**Q1. JWT Token 被窃取后能否主动吊销？**
+可以。JeeSite.NET 通过 `jwt:revoked:{jti}` Redis 黑名单实现主动吊销。管理员在「在线用户 → 踢出」或用户执行 logout 时，对应 jti 会被写入 Redis（TTL = token 剩余有效期）。中间件在每次请求时检查该 key，命中则返回 401。
+
+**Q2. Token 过期后如何无感刷新？**
+前端检测到 API 返回 401 时（或距离 exp 剩余 <5 分钟），自动调用 `POST /api/v1/sys/auth/refresh`，服务端验证 Refresh Token（独立于 Access Token，更长 TTL）后下发新 Access Token。若 Refresh Token 也过期，则强制重新登录。
+
+**Q3. 为何 Payload 中把 roles/permissions 全部写入？**
+为避免每次请求反查数据库。JeeSite.NET 的权限标识（如 `sys:user:add`）数量有限，序列化后 Token 体积通常在 2KB 以内，可被大多数反向代理与浏览器 Accept。若权限频繁变更（分钟级），可改为仅写入 userCode，在服务端通过 `PermissionRequirementHandler` 实时查询。
+
+**Q4. Secret 如何安全管理？**
+严禁提交到源码仓库。推荐方案：① 开发环境使用 `dotnet user-secrets`；② 生产环境通过环境变量或云密钥管理服务（Azure Key Vault / 阿里云 KMS / HashiCorp Vault）注入；③ 每 90 天轮换一次 Secret，轮换期内同时接受新旧两个密钥。
+
+**Q5. 多角色用户的权限如何合并？**
+JWT Payload 中 `roles` 为逗号分隔的多角色代码；`permissions` 为所有角色权限标识的并集。若多个角色对同一菜单配置了不同数据权限，取最高权限（最宽松）。字段权限同样取并集——任一角色隐藏即隐藏。
+
+---
+
+## 📚 相关文档（上一篇/同系列/下一篇 + 跨系列）
+
+| 类别 | 文档 | 说明 |
+|------|------|------|
+| 上一篇 | [14-Excel 导入导出](14-Excel导入导出) | 表格数据导入导出安全（与字段权限/数据权限联动） |
+| 同系列 | [16-OAuth2 登录](16-OAuth2登录) | 第三方 OAuth 2.0 / OpenID Connect 登录方案 |
+| 同系列 | [17-CAS 单点登录](17-CAS单点登录) | 企业级 CAS SSO 身份认证 |
+| 同系列 | [18-LDAP 认证](18-LDAP认证) | AD / OpenLDAP 目录服务认证 |
+| 同系列 | [19-数据与字段权限](19-数据与字段权限) | 行级/列级权限的实现细节 |
+| 下一篇 | [20-AI 智能问答](20-AI智能问答) | AI 能力集成（认证同样适用本 Token 体系） |
+| 跨系列 | [33-深入架构剖析](33-深入架构剖析) | 权限/认证在整体架构中的定位 |
+| 跨系列 | [03-Sys 系统管理](03-Sys系统管理) | 用户/角色/菜单后台管理模块 |
+
+---
+
+## 🚀 下一步（推荐阅读）
+
+1. 先阅读 **[19-数据与字段权限](19-数据与字段权限)**，理解 JWT 中 `roles`/`permissions` 如何在 Service 层被消费。
+2. 若系统面向企业用户，按 **[17-CAS](17-CAS单点登录)** 或 **[18-LDAP](18-LDAP认证)** 接入统一身份源，减少本地账号管理。
+3. 检查 `appsettings.json` 中 `Auth:Jwt:Secret` 是否通过环境变量注入；**生产环境必须修改默认值**。
+4. 在前端 `router/index.ts` 中实现路由守卫 + `composables/usePermission.ts`，统一控制菜单与按钮可见性。
+5. 启用 `LdapSyncJob` 或 CAS 自动创建用户后，需评审「普通员工」默认角色权限，避免越权访问。
 
 ---
 

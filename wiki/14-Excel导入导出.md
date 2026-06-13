@@ -4,7 +4,7 @@
 
 ---
 
-# Excel导入导出
+# 14 Excel导入导出
 
 > NPOI 驱动的 Excel 导入导出服务，ExcelFieldAttribute 列注解，IExcelFieldType 自定义字段类型体系。
 >
@@ -521,14 +521,175 @@ public class ExcelController : ControllerBase
 
 ## 💡 快速参考
 
-| 项目 | 关键信息 |
-|------|---------|
-| **核心服务** | ExcelService → 基于 NPOI 的导入/导出/模板下载 |
-| **列注解** | ExcelFieldAttribute → 指定列名、顺序、格式、类型 |
-| **自定义类型** | IExcelFieldType 接口 → 可扩展任意字段类型 |
-| **导入流程** | 表头校验 → 类型转换 → 行级错误收集 → 批量写入 |
-| **导出格式** | xlsx / xls 双格式，支持合并单元格、列宽自动 |
-| **安全防护** | 文件大小限制、行数量限制、单元格最大长度、禁止公式 |
+### 核心类与接口
+
+| 类型 | 名称 | 命名空间 | 说明 |
+|------|------|---------|------|
+| Static Class | `ExcelUtil` | `JeeSiteNET.Core.Utils` | Excel 基础读写工具 |
+| Service | `ExcelService` | `JeeSiteNET.Core.Utils` / `Modules.Sys.Services` | Excel 导入/导出/模板下载服务 |
+| Attribute | `ExcelFieldAttribute` | `JeeSiteNET.Core.Utils` | 标记 Excel 列（列名/顺序/格式/必填）|
+| Interface | `IExcelFieldType` | `JeeSiteNET.Core.Utils` | 自定义字段类型双向转换接口 |
+| Class | `DecimalFieldType` / `MoneyFieldType` | `JeeSiteNET.Core.Utils` | 数字/金额类型转换 |
+| Class | `DateTimeFieldType` / `DateFieldType` | `JeeSiteNET.Core.Utils` | 日期时间类型转换 |
+| Class | `DictFieldType` | `JeeSiteNET.Core.Utils` | 字典标签 ↔ 字典值 |
+| Class | `BoolFieldType` | `JeeSiteNET.Core.Utils` | 是/否/男/女 等布尔语义映射 |
+| Class | `UserFieldType` / `OfficeFieldType` / `CompanyFieldType` | `JeeSiteNET.Core.Utils` | 名称 ↔ ID 的关联实体类型 |
+| Class | `ImageFieldType` | `JeeSiteNET.Core.Utils` | 图片字段（导入/导出图片）|
+
+### 常用 API 速查
+
+| API | 说明 |
+|-----|------|
+| `ExcelService.ImportAsync<T>(stream)` | 从流导入 Excel → `ImportResult<T>` |
+| `ExcelService.ExportAsync<T>(list, sheetName)` | 导出 `IEnumerable<T>` → Excel byte[] |
+| `ExcelService.GetTemplate<T>()` | 生成带表头和示例批注的空模板 |
+| `ExcelUtil.ReadExcel<T>(filePath, sheetIndex)` | 读取 Excel 文件到 List<T> |
+
+### 最小工作示例
+
+```csharp
+// ===== 定义带 ExcelField 的实体 =====
+public class EmployeeExcelDto
+{
+    [ExcelField("工号", IsRequired = true, ColumnIndex = 0, Width = 15)]
+    public string EmployeeCode { get; set; } = string.Empty;
+
+    [ExcelField("姓名", ColumnIndex = 1, Width = 12)]
+    public string Name { get; set; } = string.Empty;
+
+    [ExcelField("部门", FieldType = typeof(OfficeFieldType), ColumnIndex = 2)]
+    public string DepartmentId { get; set; } = string.Empty;
+
+    [ExcelField("状态", DictType = "sys_emp_status", ColumnIndex = 3)]
+    public string Status { get; set; } = string.Empty;
+
+    [ExcelField("入职日期", FieldType = typeof(DateFieldType),
+                Format = "yyyy-MM-dd", ColumnIndex = 4)]
+    public DateTime HireDate { get; set; }
+
+    [ExcelField("月薪", FieldType = typeof(MoneyFieldType),
+                Format = "￥#,##0.00", ColumnIndex = 5)]
+    public decimal Salary { get; set; }
+}
+
+// ===== Excel 导入（Controller）=====
+[HttpPost("import")]
+public async Task<IActionResult> ImportExcel(IFormFile file)
+{
+    // 安全校验：扩展名 + 文件大小 + 签名
+    var check = FileSecurityUtil.ValidateUpload(
+        file.FileName, file.OpenReadStream(),
+        maxSizeBytes: 10 * 1024 * 1024,
+        new[] { ".xlsx", ".xls" });
+    if (!check.Success) return BadRequest(check.Error);
+
+    using var stream = file.OpenReadStream();
+    var result = await ExcelService.ImportAsync<EmployeeExcelDto>(stream);
+
+    if (result.Errors.Any())
+        return BadRequest(new { result.TotalRows, result.SuccessRows,
+                                 result.FailedRows, result.Errors });
+
+    await _employeeService.BatchInsertAsync(result.Data);
+    return Ok(new { imported = result.SuccessRows });
+}
+
+// ===== Excel 导出 =====
+[HttpGet("export")]
+public async Task<IActionResult> ExportExcel(string? keyword)
+{
+    var list = await _employeeService.GetListAsync<EmployeeExcelDto>(keyword);
+    var excelBytes = await ExcelService.ExportAsync(list, "员工列表");
+    return File(excelBytes,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "员工列表.xlsx");
+}
+
+// ===== 下载导入模板 =====
+[HttpGet("template")]
+public IActionResult DownloadTemplate()
+{
+    byte[] template = ExcelService.GetTemplate<EmployeeExcelDto>();
+    return File(template,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "员工导入模板.xlsx");
+}
+
+// ===== 自定义字段类型（扩展 IExcelFieldType）=====
+public class ProjectFieldType : IExcelFieldType
+{
+    public object Import(object cellValue, string param)
+    {
+        var name = cellValue?.ToString()?.Trim() ?? "";
+        var proj = _projectRepo.FindByName(name);
+        if (proj == null) throw new FormatException($"项目 '{name}' 不存在");
+        return proj.Id;
+    }
+    public object Export(object value, string param)
+    {
+        var proj = _projectRepo.FindById(value?.ToString() ?? "");
+        return proj?.Name ?? "";
+    }
+}
+```
+
+### 配置项清单
+
+| 配置键 | 默认值 | 数据类型 | 说明 | 必填 |
+|--------|--------|---------|------|------|
+| `Excel:MaxRows` | `10000` | int | 单次导入最大行数 | ⬜ |
+| `Excel:MaxFileSizeMb` | `10` | int | 单文件最大大小（MB）| ⬜ |
+| `Excel:DefaultSheetName` | `Sheet1` | string | 默认工作表名称 | ⬜ |
+| `Excel:DefaultDateFormat` | `yyyy-MM-dd` | string | 默认日期格式 | ⬜ |
+| `Excel:DefaultDateTimeFormat` | `yyyy-MM-dd HH:mm:ss` | string | 默认日期时间格式 | ⬜ |
+| `Excel:NumberFormat` | `￥#,##0.00` | string | 默认金额格式 | ⬜ |
+| `Excel:AllowedExtensions` | `.xlsx,.xls` | string | 允许的 Excel 文件扩展名 | ⬜ |
+
+---
+
+## ❓ 常见问题
+
+**1. 问：导入日期格式解析错误？**
+答：在 `[ExcelField]` 上通过 `FieldType = typeof(DateFieldType)` + `Format = "yyyy-MM-dd"` 指定格式；Excel 原生日期序列值也会被自动识别。
+
+**2. 问：导入大数据量内存不足？**
+答：建议分批导入，单文件限制 `Excel:MaxRows = 10000` 行，超过提示运营分批上传；NPOI 流式读取（SAX 模式）可进一步降低内存占用。
+
+**3. 问：导出中文乱码？**
+答：NPOI 默认使用 Unicode 编码，通常不会乱码；如果出现问号或乱码，请确认服务端系统已安装中文字体（尤其 Linux/Docker）。
+
+**4. 问：Excel 中的公式单元格怎么处理？**
+答：`ExcelService` 默认只读取单元格的缓存值（计算结果），不会执行公式；如需强制重算，可在导入前通过 NPOI 的 `HSSFFormulaEvaluator` 求值。
+
+**5. 问：字典值/机构名称/用户姓名怎么在 Excel 中显示友好？**
+答：使用 `DictFieldType` / `OfficeFieldType` / `UserFieldType`：导入时"中文名称 → ID"，导出时"ID → 中文名称"，对运营无感知。
+
+**6. 问：如何防止 Excel 注入攻击（CSV/公式注入）？**
+答：`ExcelService` 默认对以 `=+-@` 开头的字符串单元格添加单引号前缀，强制作为文本处理；同时禁用公式执行。
+
+---
+
+## 📚 相关文档
+
+| 上一篇 | 同系列文档 | 下一篇 |
+|--------|-----------|--------|
+| [13-验证码与识别](13-验证码与识别) | [10-文件与媒体](10-文件与媒体) · [11-文本与差异](11-文本与差异) · [03-Sys系统管理](03-Sys系统管理) | [03-Sys系统管理](03-Sys系统管理) |
+
+### 🔗 跨系列相关
+
+- [10-文件与媒体](10-文件与媒体) — FileSecurityUtil 的上传安全校验配合
+- [03-Sys系统管理](03-Sys系统管理) — 系统用户/机构/字典导入导出场景
+- [11-文本与差异](11-文本与差异) — 拼音排序/身份证校验等可作为 Excel 字段校验
+- [29-系统管理员手册](29-系统管理员手册) — 运营数据导入的最佳实践
+
+---
+
+## 🚀 下一步
+
+1. 为关键业务实体（员工、产品、订单等）定义 `*ExcelDto` 并标注 `[ExcelField]`。
+2. 通过 `ExcelService.GetTemplate<T>()` 生成运营使用的标准化导入模板。
+3. 结合 `FileSecurityUtil` + 业务唯一约束校验，为导入流程增加完整防护。
+4. 为导入操作记录完整审计日志（导入人/时间/总行数/失败行数/错误内容）。
 
 ---
 

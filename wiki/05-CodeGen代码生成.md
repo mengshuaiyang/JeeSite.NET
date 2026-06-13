@@ -4,7 +4,7 @@
 
 ---
 
-# CodeGen代码生成
+# 05 CodeGen代码生成
 
 > 基于数据库表结构自动生成后端/前端代码，模板化、可预览、支持 ZIP 下载。
 >
@@ -528,17 +528,121 @@ frontend/src/
 </div>
 
 ---
-
 ## 💡 快速参考
+### 核心类与接口表
 
-| 项目 | 关键信息 |
-|------|---------|
-| **模块名称** | CodeGen代码生成 |
-| **最后更新** | 2026-06-13 |
-| **相关文档** | [30-开发规范](30-开发规范) |
+| 类型 | 名称 | 命名空间 | 说明 |
+|------|------|---------|------|
+| Service | `CodeGenService` | `JeeSiteNET.Modules.CodeGen.Application.Services` | 代码生成服务 |
+| Service | `GenTableService` | `JeeSiteNET.Modules.CodeGen.Application.Services` | 表结构管理服务 |
+| Controller | `GenTableController` | `JeeSiteNET.Modules.CodeGen.Controllers` | 代码生成 API |
+| Entity | `GenTable` | `JeeSiteNET.Modules.CodeGen.Domain.Entities` | 表配置实体 |
+| Entity | `GenTableColumn` | `JeeSiteNET.Modules.CodeGen.Domain.Entities` | 列配置实体 |
+
+### 常用 API 速查表
+
+| API | 方法 | 说明 |
+|-----|------|------|
+| `GET /api/v1/codegen/tables` | `GenTableService.GetListAsync()` | 获取当前可生成的表列表 |
+| `POST /api/v1/codegen/import` | `GenTableService.ImportTableAsync()` | 导入表结构 |
+| `POST /api/v1/codegen/preview` | `CodeGenService.PreviewAsync()` | 预览生成的代码 |
+| `POST /api/v1/codegen/generate` | `CodeGenService.GenerateAsync()` | 生成代码并下载 ZIP |
+| `GET /api/v1/codegen/gen-table/{id}` | `GenTableService.GetByIdAsync()` | 获取表配置 |
+| `PUT /api/v1/codegen/gen-table/{id}` | `GenTableService.UpdateAsync()` | 更新表配置 |
+| `DELETE /api/v1/codegen/gen-table/{id}` | `GenTableService.DeleteAsync()` | 删除表配置 |
+
+### 最小工作示例
+
+```csharp
+// ===== 从数据库导入表结构 =====
+public async Task<GenTable> ImportTableAsync(string tableName)
+{
+    // 1. 从 INFORMATION_SCHEMA 读取表元数据
+    var tableMeta = await _dbContext.GetTableMetadataAsync(tableName);
+    // 2. 转换为 GenTable + GenTableColumn 列表
+    var genTable = new GenTable
+    {
+        TableName = tableMeta.TableName,
+        TableComment = tableMeta.Comment,
+        EntityName = PascalCase(tableMeta.TableName),
+        ModuleName = "demo",
+        BusinessName = tableMeta.TableName.Replace("demo_", ""),
+        FunctionName = tableMeta.Comment,
+        Author = "CodeGen",
+        Columns = tableMeta.Columns.Select(c => new GenTableColumn
+        {
+            ColumnName = c.ColumnName,
+            ColumnComment = c.Comment,
+            ColumnType = c.DataType,
+            CsharpType = MapToCsharpType(c.DataType),
+            CsharpField = CamelCase(c.ColumnName),
+            IsInsert = true,
+            IsEdit = true,
+            IsList = true,
+            IsQuery = false
+        }).ToList()
+    };
+    return await _genTableRepository.CreateAsync(genTable);
+}
+
+// ===== 代码生成（模板替换）=====
+public async Task<byte[]> GenerateAsync(string tableId)
+{
+    var table = await _genTableRepository.GetWithColumnsAsync(tableId);
+    var data = new Dictionary<string, object>
+    {
+        ["tableName"] = table.TableName,
+        ["entityName"] = table.EntityName,
+        ["moduleName"] = table.ModuleName,
+        ["columns"] = table.Columns
+    };
+
+    // 根据模板文件生成
+    var templates = new[] { "Entity.cshtml", "Service.cshtml", "Controller.cshtml", "Dto.cshtml", "index.vue", "form.vue" };
+    var files = new Dictionary<string, string>();
+    foreach (var tpl in templates)
+    {
+        var template = await File.ReadAllTextAsync($"Templates/{tpl}");
+        files[$"{table.ModuleName}/{tpl.Replace(".cshtml", ".cs").Replace(".vue", ".vue")}"]
+            = Razor.Render(template, data);
+    }
+    return ZipFiles(files);
+}
+
+// ===== Vue 前端：使用代码生成器 =====
+// 选择表 -> 配置字段 -> 点击生成按钮 -> 下载 ZIP
+// 解压后得到完整的 Entity/Service/Controller/DTO/前端页面代码
+// 将文件复制到对应模块目录，在 DbContext 中添加 DbSet 即可编译运行
+```
+
+### 配置项清单
+
+| 配置键 | 默认值 | 数据类型 | 说明 | 必填 |
+|--------|--------|---------|------|------|
+| `CodeGen:Author` | `CodeGen` | string | 默认作者名 | ⬜ |
+| `CodeGen:TemplatePath` | `./Templates` | string | 模板路径 | ⬜ |
+| `CodeGen:TablePrefix` | `` | string | 忽略的表名前缀（如 sys_）| ⬜ |
+| `CodeGen:OutputPath` | `./Generated` | string | 生成文件输出路径 | ⬜ |
 
 ---
+## ❓ 常见问题
 
-<div align="center">
-  <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>
-</div>
+1. **问：生成的代码与已有模块命名冲突怎么办？**
+答：在生成前检查 EntityName/ModuleName 是否已存在，或在 GenTable 配置中调整命名。
+2. **问：自定义字段类型映射如何配置？**
+答：在 `CodeGenService.MapToCsharpType()` 方法中扩展类型映射表，或通过 GenTableColumn 手动覆盖。
+3. **问：如何添加自定义模板？**
+答：在 Templates 目录新增 `.cshtml` 文件，在 CodeGenService 的模板列表中添加即可。模板使用 Razor 语法，可以访问 `table`、`columns` 等变量。
+
+---
+## 📚 相关文档
+
+- **上一篇**：[04-CMS内容管理](04-CMS内容管理)
+- **同系列**：[03-Sys系统管理](03-Sys系统管理) · [06-Tasks任务调度](06-Tasks任务调度) · [07-BPM工作流](07-BPM工作流) · [08-App移动端](08-App移动端)
+- **下一篇**：[06-Tasks任务调度](06-Tasks任务调度)
+
+---
+## 🚀 下一步
+
+- 阅读 [30-开发规范](30-开发规范)，确保生成的代码符合项目统一的编码规范。
+- 结合 [24-前端路由权限](24-前端路由权限)，为生成的 Vue 前端页面注册路由与按钮权限。

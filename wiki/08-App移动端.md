@@ -4,7 +4,7 @@
 
 ---
 
-# App移动端
+# 08 App移动端
 
 > 移动端 API、意见反馈、版本升级管理、推送通知等移动端功能支持。
 >
@@ -442,17 +442,57 @@ API 鉴权说明：
 </div>
 
 ---
-
 ## 💡 快速参考
+### 核心类与接口表
 
-| 项目 | 关键信息 |
-|------|---------|
-| **模块名称** | App移动端 |
-| **最后更新** | 2026-06-13 |
-| **相关文档** | [15-JWT认证](15-JWT认证) |
+| 类型 | 名称 | 命名空间 | 说明 |
+|------|------|---------|------|
+| Service | `AppService` | `JeeSiteNET.Modules.App.Application.Services` | App 管理服务 |
+| Controller | `AppController` | `JeeSiteNET.Modules.App.Controllers` | App API |
+| Entity | `AppUpgrade` | `JeeSiteNET.Modules.App.Domain.Entities` | 版本升级实体 |
+| Entity | `AppComment` | `JeeSiteNET.Modules.App.Domain.Entities` | 意见反馈实体 |
+
+### 常用 API 速查表
+
+| API | 说明 |
+|-----|------|
+| `GET /api/v1/app/upgrade/check` | 检查版本升级 |
+| `POST /api/v1/app/comment` | 提交意见反馈 |
+| `GET /api/v1/app/comment/list` | 反馈列表 |
+
+### 最小工作示例
+
+```csharp
+// ===== 版本检查接口 =====
+[HttpGet("upgrade/check")]
+public async Task<IActionResult> CheckUpgrade(string platform, string currentVersion)
+{
+    var latest = await _appService.GetLatestVersionAsync(platform);
+    if (latest == null) return Ok(new { hasUpgrade = false });
+    return Ok(new
+    {
+        hasUpgrade = Version.Parse(latest.VersionCode) > Version.Parse(currentVersion),
+        latest.VersionCode,
+        latest.ReleaseNotes,
+        latest.DownloadUrl,
+        ForceUpdate = latest.IsForce
+    });
+}
+
+// ===== 前端（Vue 3）版本更新检查 =====
+// const { data } = await appApi.checkUpgrade(platform, versionCode);
+// if (data.hasUpgrade) showUpgradeDialog(data);
+```
 
 ---
+## 📚 相关文档
 
-<div align="center">
-  <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>
-</div>
+- **上一篇**：[07-BPM工作流](07-BPM工作流)
+- **同系列**：[03-Sys系统管理](03-Sys系统管理) · [04-CMS内容管理](04-CMS内容管理) · [05-CodeGen代码生成](05-CodeGen代码生成) · [06-Tasks任务调度](06-Tasks任务调度)
+- **下一篇**：[09-加密与国密](09-加密与国密)
+
+---
+## 🚀 下一步
+
+- 结合 [15-JWT认证](15-JWT认证)，实现移动端用户的 Token 登录与会话管理。
+- 通过 [06-Tasks任务调度](06-Tasks任务调度)，定时推送版本升级提醒或公告到移动端。

@@ -4,7 +4,7 @@
 
 ---
 
-# LDAP认证
+# 18 LDAP认证
 
 > 企业 AD / OpenLDAP 目录集成，LDAPS 安全连接、用户属性同步、最小权限 BindDn 配置。
 >
@@ -260,14 +260,140 @@ public async Task<LoginResultDto> LoginAsync(string loginCode, string password)
 
 ## 💡 快速参考
 
-| 项目 | 关键信息 |
-|------|---------|
-| **支持目录** | Active Directory (AD) / OpenLDAP |
-| **核心类** | LdapAuthService → Bind/Search/用户同步 |
-| **搜索过滤** | (&(objectClass=user)(sAMAccountName={0})) |
-| **安全** | 强制 LDAPS (636/3269)、BindDn 最小权限、密码不入日志 |
-| **同步机制** | LdapSyncJob → 定时增量同步 AD 用户到本地 |
-| **字段映射** | displayName/mail/telephoneNumber → user_name/email/mobile |
+### 核心类与接口表
+
+| 类型 | 名称 | 命名空间 | 说明 |
+|------|------|---------|------|
+| Service | `LdapAuthService` | `JeeSiteNET.Modules.Sys.Application.Services` | LDAP 主服务（认证 + 同步） |
+| Util | `LdapFilter` | `JeeSiteNET.Core.Utils` | LDAP 过滤器转义工具（防注入） |
+| Controller | `LdapAuthController` | `JeeSiteNET.Modules.Sys.Controllers` | LDAP API（login/sync） |
+| Entity | `User` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 本地用户主体 |
+
+### 常用 API 速查表
+
+| 方法 | API | 说明 | 对应服务方法 |
+|------|-----|------|-------------|
+| `POST` | `/api/v1/sys/ldap/login` | LDAP 账号登录（Body: `{ loginCode, password }`） | `LdapAuthService.LoginAsync(loginCode, password)` |
+| `POST` | `/api/v1/sys/ldap/sync` | 管理员手动触发 LDAP 用户增量同步 | `LdapAuthService.SyncUsersAsync()` |
+
+### 最小工作示例（C# 代码块）
+
+```csharp
+// ===== 1. LDAP 登录 =====
+// LdapAuthController
+[HttpPost("login")]
+public async Task<IActionResult> Login([FromBody] LoginDto dto)
+{
+    using var conn = new LdapConnection();
+    conn.SecureSocketLayer = _ldapOptions.UseSsl;
+    conn.Connect(_ldapOptions.Server, _ldapOptions.Port);
+
+    // 系统级 Bind（只读权限），搜索用户 DN
+    conn.Bind(_ldapOptions.BindDn, _ldapOptions.BindPassword);
+    var filter = string.Format(_ldapOptions.SearchFilter,
+        LdapFilter.Escape(dto.LoginCode));
+    var results = conn.Search(_ldapOptions.BaseDn, LdapConnection.SCOPE_SUB,
+        filter, null, false);
+
+    if (!results.HasMore())
+        return Unauthorized("账号不存在");
+
+    var entry = results.Next();
+    // 用户级 Bind（真正校验密码）
+    try { conn.Bind(entry.DN, dto.Password); }
+    catch { return Unauthorized("密码错误"); }
+
+    // 绑定/刷新本地用户
+    var user = await _ldapAuthService.SyncOrCreate(entry);
+    var jwt = await _authService.CreateTokenAsync(user);
+    return Ok(new { jwt.Token, jwt.ExpiresIn });
+}
+
+// ===== 2. 定时同步（LdapSyncJob）=====
+// 背景任务：按配置频率（如每天 02:00）从 LDAP 全量或增量同步用户
+// - 新增：本地不存在的账号 → 自动创建
+// - 更新：email/displayName/org_code 变化 → 刷新
+// - 禁用：LDAP 中 UF_ACCOUNTDISABLE 标志位的账号 → 本地 status = 1
+public async Task<int> SyncUsersAsync()
+{
+    // 读取 LDAP 所有用户
+    var entries = await _ldapAuthService.SearchAllUsers();
+    var (added, updated, disabled) = (0, 0, 0);
+    foreach (var entry in entries)
+    {
+        var loginCode = entry.Attributes["sAMAccountName"][0];
+        var user = await _userRepository.GetByCodeAsync(loginCode);
+        if (user == null) { await CreateFromLdap(entry); added++; }
+        else if (await RefreshFromLdap(user, entry)) updated++;
+        if (IsDisabled(entry)) { user.Status = 1; disabled++; }
+    }
+    return added + updated + disabled;
+}
+
+// ===== 3. 前端（Vue 3）集成 =====
+// Login.vue - 与本地账号登录同表单，后台按配置自动选择认证通道
+const { data } = await request.post("/sys/ldap/login", { loginCode, password });
+userStore.token = data.token;
+```
+
+### 配置项清单表
+
+| 配置键 | 默认值 | 数据类型 | 说明 | 必填 |
+|--------|--------|---------|------|------|
+| `Auth:Ldap:Enabled` | `false` | bool | 是否启用 LDAP 登录 | ✅ |
+| `Auth:Ldap:Server` | (空) | string | LDAP 服务器地址（多值逗号分隔可用于故障转移） | ✅ |
+| `Auth:Ldap:Port` | `389` | int | 端口：明文 389 / LDAPS 636 / GC 3268/3269 | ✅ |
+| `Auth:Ldap:UseSsl` | `false` | bool | 是否启用 SSL/TLS（**生产环境必须为 true**） | ✅ |
+| `Auth:Ldap:BaseDn` | (空) | string | 用户搜索根 DN（如 OU=Users,DC=example,DC=com） | ✅ |
+| `Auth:Ldap:BindDn` | (空) | string | 系统只读 Bind DN（**最小权限原则，仅可读**） | ✅ |
+| `Auth:Ldap:BindPassword` | (空) | string | Bind 密码（**必须通过环境变量注入**） | ✅ |
+| `Auth:Ldap:SearchFilter` | AD: `(&(objectClass=user)(sAMAccountName={0}))` | string | 用户查询过滤器（`{0}` 为 loginCode，会自动转义） | ✅ |
+| `Auth:Ldap:AttributeMappings:email` | `mail` | string | LDAP 属性 → 本地字段映射 | ⬜ |
+| `Auth:Ldap:AttributeMappings:user_name` | `displayName` | string | 同上 | ⬜ |
+| `Auth:Ldap:AttributeMappings:mobile` | `telephoneNumber` | string | 同上 | ⬜ |
+| `Auth:Ldap:DefaultRole` | `employee` | string | 自动创建用户的默认角色 | ⬜ |
+
+---
+
+## ❓ 常见问题（3-5 个）
+
+**Q1. 为何生产环境必须使用 LDAPS（端口 636）？**
+明文 389 会暴露用户密码与目录属性，易被中间人劫持。启用 `UseSsl: true` 后使用端口 636，企业自签证书需将 CA 根证书添加到主机信任区。
+
+**Q2. BindDn 权限最小化到什么程度？**
+仅需「读取用户属性」权限，禁止写入或修改用户信息。建议使用独立服务账号，不是域管理员。
+
+**Q3. BindPassword 如何安全存放？**
+**绝对不能出现在 appsettings.json 或源码中**。推荐：环境变量、云 KMS（Azure Key Vault / 阿里云 KMS）、HashiCorp Vault。密码每 90 天轮换一次，旧版本保留 48 小时作为回退窗口。
+
+**Q4. 如何防止过滤注入攻击？**
+所有用户输入必须通过 `LdapFilter.Escape(loginCode)` 转义，将 `\ * ( ) NUL` 等特殊字符替换为 `\XX` 十六进制形式。禁止使用字符串拼接构造过滤器。
+
+**Q5. LDAP 与本地账号登录如何共存？**
+JeeSite.NET 采用**并行认证策略**：先尝试本地密码登录（sys_user），若失败且 LDAP 已启用，则调用 `LdapAuthService.LoginAsync` 做 LDAP 认证，成功后同步本地账号属性。管理员可在配置中指定优先级。
+
+---
+
+## 📚 相关文档（上一篇/同系列/下一篇 + 跨系列）
+
+| 类别 | 文档 | 说明 |
+|------|------|------|
+| 上一篇 | [17-CAS 单点登录](17-CAS单点登录) | 企业级 CAS SSO（与 LDAP 同源，可二选一或并存） |
+| 同系列 | [15-JWT 认证](15-JWT认证) | JWT 基础认证（LDAP 登录后签发同一 JWT） |
+| 同系列 | [16-OAuth2 登录](16-OAuth2登录) | 第三方 OAuth 方案 |
+| 同系列 | [19-数据与字段权限](19-数据与字段权限) | 行级/列级权限（LDAP 用户同样适用 |
+| 下一篇 | [20-AI 智能问答](20-AI智能问答) | AI 能力集成 |
+| 跨系列 | [33-深入架构剖析](33-深入架构剖析) | 身份认证/权限在整体架构中的位置 |
+
+---
+
+## 🚀 下一步（推荐阅读）
+
+1. **检查企业 AD 或 OpenLDAP** 是否允许应用服务器访问 389/636 端口。
+2. **获取最小权限 Bind 账号**（仅可读用户属性），配置好 `BindDn` / `BindPassword`。
+3. **测试 `SearchFilter` 是否正确返回目标 OU 下用户**。
+4. **启用 `UseSsl: true`**（生产环境强制），并添加企业自签 CA 证书到信任区。
+5. **配合文档 [19-数据与字段权限](19-数据与字段权限)**，将 LDAP `department` 属性映射到 `org_code`，自动获得正确的数据权限。
 
 ---
 

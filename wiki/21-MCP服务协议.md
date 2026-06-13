@@ -4,7 +4,7 @@
 
 ---
 
-# MCP服务协议
+# 21 MCP服务协议
 
 > JeeSite.NET 作为 MCP Server 暴露内部业务能力供 LLM 客户端调用，统一 JSON-RPC 2.0 协议。
 >
@@ -504,13 +504,177 @@ services.AddScoped<IAiTool, CmsMonthlyStatsTool>();
 
 ## 💡 快速参考
 
-| 项目 | 关键信息 |
-|------|---------|
-| **文档** | MCP服务协议 |
-| **最后更新** | 2026-06-13 |
-| **相关文档** | [20-AI智能问答](20-AI智能问答) · [26-AI-Tools开发](26-AI-Tools开发) |
+### 核心类与接口
+
+| 类型 | 名称 | 命名空间 | 说明 |
+|------|------|---------|------|
+| Controller | `McpController` | `JeeSiteNET.Modules.Sys.Controllers` | MCP JSON-RPC 2.0 统一入口（/api/v1/sys/mcp） |
+| Service | `McpService` | `JeeSiteNET.Modules.Sys.Application.Services` | 工具路由、参数校验、审计写入 |
+| Registry | `AiToolRegistry` | `JeeSiteNET.Modules.Cms.Application.Services` | 反射扫描所有 `[AiTool]` 类并维护元信息 |
+| Interface | `IAiTool` | `JeeSiteNET.Core.Interfaces` | 所有 AI Tool 的统一接口（`ExecuteAsync(input, ct)`） |
+| Attribute | `AiToolAttribute` | `JeeSiteNET.Core.Annotations` | 工具元信息标记（Name/Description/InputSchemaJson/RateLimit） |
+
+### 常用 API 速查
+
+| API | HTTP 方法 | 说明 |
+|-----|-----------|------|
+| `/api/v1/sys/mcp/jsonrpc` | `POST` | **核心端点**：JSON-RPC 2.0 请求入口，支持 `tools/list`、`tools/call`、`session/list`、`session/create`、`user/profile`、`system/health` |
+| `/api/v1/sys/mcp/tools` | `GET` | 浏览器调试用：返回所有已注册工具的 HTML/JSON 清单 |
+| `/api/v1/sys/mcp/health` | `GET` | 健康检查（公开端点），返回 postgres/redis/elasticsearch 状态 |
+| `tools/list` | JSON-RPC | 列出所有 AI 工具（含名称、描述、JSON Schema） |
+| `tools/call` | JSON-RPC | 调用指定工具（传入 `name` + `arguments`） |
+| `session/list` | JSON-RPC | 列出当前用户的历史会话 |
+| `session/create` | JSON-RPC | 创建新会话，返回 `sessionId` |
+| `user/profile` | JSON-RPC | 获取当前登录用户资料 |
+| `system/health` | JSON-RPC | 系统健康检查（返回各组件状态与版本号） |
+
+### 最小工作示例
+
+```json
+// ===== 请求：列出所有工具 =====
+POST /api/v1/sys/mcp/jsonrpc
+Authorization: Bearer <jwt-token>
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": "req-001",
+  "method": "tools/list",
+  "params": { "limit": 50, "offset": 0 }
+}
+
+// ===== 响应：工具清单 =====
+{
+  "jsonrpc": "2.0",
+  "id": "req-001",
+  "result": {
+    "tools": [
+      {
+        "name": "cms_search_article",
+        "description": "按关键词搜索 CMS 文章，返回最相关的 N 篇",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "q":        { "type": "string",  "description": "搜索关键词" },
+            "category": { "type": "string",  "description": "栏目代码（可选）" },
+            "limit":    { "type": "integer", "description": "返回数量，默认 10" }
+          },
+          "required": ["q"]
+        }
+      }
+      // ... 其他工具
+    ],
+    "total": 6
+  }
+}
+
+// ===== 调用工具 =====
+{
+  "jsonrpc": "2.0",
+  "id": "req-002",
+  "method": "tools/call",
+  "params": {
+    "name": "cms_search_article",
+    "arguments": { "q": "密码重置", "limit": 5 }
+  }
+}
+
+// ===== 工具调用响应 =====
+{
+  "jsonrpc": "2.0",
+  "id": "req-002",
+  "result": {
+    "toolName": "cms_search_article",
+    "content": "[{\"title\":\"忘记密码怎么办\",\"url\":\"/article/a001\"}]",
+    "contentType": "application/json"
+  }
+}
+
+// ===== 错误响应（示例） =====
+{
+  "jsonrpc": "2.0",
+  "id": "req-002",
+  "error": {
+    "code": -32001,
+    "message": "Permission denied",
+    "data": { "requiredPermission": "sys:mcp:invoke" }
+  }
+}
+```
+
+### 标准错误码速查
+
+| Code | 含义 |
+|------|------|
+| `-32700` | Parse error（JSON 解析失败） |
+| `-32600` | Invalid Request（请求格式不合法） |
+| `-32601` | Method not found（方法不存在） |
+| `-32602` | Invalid params（参数不合法） |
+| `-32603` | Internal error（服务器内部错误） |
+| `-32001` | Permission denied（无 `sys:mcp:invoke` 权限） |
+| `-32002` | Rate limit exceeded（调用过于频繁） |
+
+### 配置项清单
+
+| 配置键 | 默认值 | 数据类型 | 说明 | 必填 |
+|--------|--------|---------|------|------|
+| `Mcp:Enabled` | `true` | bool | 是否启用 MCP 端点 | ⬜ |
+| `Mcp:RequireBearerToken` | `true` | bool | 是否强制 JWT 鉴权（生产环境必须 true） | ⬜ |
+| `Mcp:RateLimit:PerUserPerMinute` | `10` | int | 每用户每分钟 `tools/call` 次数上限 | ⬜ |
+| `Mcp:RateLimit:PerUserPerHour` | `200` | int | 每用户每小时次数上限 | ⬜ |
+| `Mcp:RateLimit:GlobalPerMinute` | `500` | int | 全局每分钟次数上限 | ⬜ |
+| `Mcp:RateLimit:GlobalPerDay` | `10000` | int | 全局每日次数上限 | ⬜ |
+| `Mcp:AuditLogRetentionDays` | `90` | int | MCP 调用审计日志保留天数 | ⬜ |
+| `Mcp:Tools:EnableDeleteArticle` | `false` | bool | 是否暴露「删除文章」这类有副作用的工具 | ⬜ |
 
 ---
+
+## ❓ 常见问题
+
+**Q1：请求 MCP 端点返回 401 Unauthorized？**
+- 检查请求头是否携带 `Authorization: Bearer <jwt-token>`。
+- 验证 Token 是否过期（可在 `sys/auth/info` 中查看）。
+- 确认当前用户拥有 `sys:mcp:invoke` 权限标识。
+
+**Q2：工具未被 LLM 选中调用？**
+- 这是最常见问题。检查 `[AiTool]` 的 `Description` 是否用自然语言清晰描述了场景（「用于什么、输入什么、输出什么」）。
+- 检查 `InputSchemaJson` 是否完整描述了每个字段的 `type` / `description` / `required`。
+- LLM 倾向于选择描述清晰的工具。可使用 Claude Code 的「Tools Debug」模式验证。
+
+**Q3：LLM 构造的 JSON 参数解析失败？**
+- `McpService` 内部已使用 `JsonSerializerDefaults.Web` + try-catch 容错降级。
+- 若频繁失败，可简化 `InputSchemaJson`（避免复杂嵌套、避免 enum 过多）。
+- 对 string/int 字段增加 `minimum` / `maximum` / `minLength` 约束。
+
+**Q4：工具执行超时或外部 API 太慢？**
+- HttpClient 默认超时 5 秒，可在 `Program.cs` 中通过 `builder.Services.AddHttpClient("WeatherAPI", c => c.Timeout = TimeSpan.FromSeconds(10))` 调整。
+- 工具层必须使用 `CancellationToken` 支持取消（前端可随时终止请求）。
+- 对高延迟外部 API 建议加本地缓存（如天气查询结果缓存 10 分钟）。
+
+**Q5：如何让 MCP 端点只对内部网络开放？**
+- 生产环境建议在 Nginx / API Gateway 层配置 IP 白名单。
+- 在 `Program.cs` 中间件中增加 `RemoteIpAddress` 检查。
+- 可设置 `Mcp:RequireBearerToken=true` + 专用 API Key 的双重鉴权。
+
+---
+
+## 📚 相关文档
+
+- [20-AI智能问答](20-AI智能问答) — AI 对话服务的完整架构（MCP 是其协议层）
+- [22-Elasticsearch](22-Elasticsearch) — `cms_search_article` 工具的底层实现
+- [23-FusionCache缓存](23-FusionCache缓存) — MCP 会话缓存与失效广播
+- [26-AI-Tools开发](26-AI-Tools开发) — 如何实现一个自定义 AI Tool（新增工具必读）
+- Home: [Wiki 首页](Home)
+
+---
+
+## 🚀 下一步
+
+1. **暴露第一个自定义工具**：参考 26-AI-Tools开发 的 10 条最佳实践，将已有业务服务（如用户查询、任务调度）包装为 MCP 工具。
+2. **在 Claude Code 中测试**：使用 Claude Code 的 MCP Client 功能连接 `/api/v1/sys/mcp/jsonrpc`，验证 `tools/list` → `tools/call` 流程。
+3. **审计与限流策略调优**：在管理后台查看 `sys_mcp_log`，根据实际用量调整 `Mcp:RateLimit:*` 配置。
+4. **为敏感工具加二次确认**：对有副作用的工具（删除、修改）设置前端二次确认弹窗，默认禁用。
+5. **WebSocket 推送（可选）**：如需将 MCP 调用结果实时推送到前端，可扩展 `McpController` 为 SignalR/WebSocket 模式。
 
 <div align="center">
   <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>

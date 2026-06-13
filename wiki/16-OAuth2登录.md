@@ -4,7 +4,7 @@
 
 ---
 
-# OAuth2登录
+# 16 OAuth2登录
 
 > 通过 GitHub / 微信 / 钉钉 OAuth 2.0 协议实现第三方账号登录，含本地账号关联与自定义 Provider 扩展。
 >
@@ -378,14 +378,156 @@ function loginWithGitHub() {
 
 ## 💡 快速参考
 
-| 项目 | 关键信息 |
-|------|---------|
-| **支持平台** | GitHub / 微信开放平台 / 钉钉开放平台 |
-| **协议** | OAuth 2.0 Authorization Code Flow |
-| **核心服务** | OAuth2Service + IOAuth2Provider 接口 |
-| **关联策略** | provider + provider_user_id → 本地账号，邮箱匹配自动关联 |
-| **关联表** | sys_oauth2_user (provider, provider_user_id, user_code) |
-| **安全** | state 参数防 CSRF、HTTPS 强制、Token 服务端交换 |
+### 核心类与接口表
+
+| 类型 | 名称 | 命名空间 | 说明 |
+|------|------|---------|------|
+| Service | `OAuth2Service` | `JeeSiteNET.Modules.Sys.Application.Services.OAuth2` | OAuth2 主服务（Challenge/Callback/关联本地账号） |
+| Interface | `IOAuth2Provider` | `JeeSiteNET.Modules.Sys.Application.Services.OAuth2` | 第三方 Provider 统一接口 |
+| Class | `GitHubOAuth2Provider` | `JeeSiteNET.Modules.Sys.Application.Services.OAuth2` | GitHub Provider（OAuth 2.0 + OIDC） |
+| Class | `WeChatOAuth2Provider` | `JeeSiteNET.Modules.Sys.Application.Services.OAuth2` | 微信开放平台 Provider（snsapi_login） |
+| Class | `DingTalkOAuth2Provider` | `JeeSiteNET.Modules.Sys.Application.Services.OAuth2` | 钉钉开放平台 Provider |
+| Controller | `OAuth2Controller` | `JeeSiteNET.Modules.Sys.Controllers` | OAuth2 API（challenge/callback/providers/bind/unbind） |
+| Entity | `OAuth2User` | `JeeSiteNET.Modules.Sys.Domain.Entities` | 第三方账号与本地账号关联实体（sys_oauth2_user） |
+
+### 常用 API 速查表
+
+| 方法 | API | 说明 | 对应服务方法 |
+|------|-----|------|-------------|
+| `GET` | `/api/v1/sys/oauth2/challenge?provider=github` | 发起第三方登录（重定向到平台授权页） | `OAuth2Service.ChallengeAsync(provider, returnUrl)` |
+| `GET` | `/api/v1/sys/oauth2/callback?code=xxx&state=xxx` | 第三方回调，完成登录或关联 | `OAuth2Service.CallbackAsync(provider, code, state, returnUrl)` |
+| `GET` | `/api/v1/sys/oauth2/providers` | 返回已启用第三方登录列表（前端动态渲染按钮） | — |
+| `POST` | `/api/v1/sys/oauth2/bind` | 已登录用户绑定第三方账号 | `OAuth2Service.BindAsync(provider, code, state)` |
+| `POST` | `/api/v1/sys/oauth2/unbind?provider=xxx` | 已登录用户解绑指定 provider | `OAuth2Service.UnbindAsync(provider)` |
+
+### 最小工作示例（C# 代码块）
+
+```csharp
+// ===== 1. 自定义 Provider（企业内部 OIDC 平台）=====
+public class CustomOidcProvider : IOAuth2Provider
+{
+    public string Name => "custom-oidc";
+
+    public string BuildChallengeUrl(string state)
+    {
+        var config = _configuration.GetSection("OAuth2:Custom");
+        return $"https://auth.example.com/authorize" +
+               $"?client_id={config["ClientId"]}" +
+               $"&redirect_uri={config["CallbackUrl"]}" +
+               $"&response_type=code&scope=openid profile email" +
+               $"&state={state}";
+    }
+
+    public async Task<string> ExchangeCodeForTokenAsync(string code)
+    {
+        var tokenResp = await _httpClient.PostAsync("https://auth.example.com/token", ...);
+        return await tokenResp.Content.ReadAsStringAsync();
+    }
+
+    public async Task<OAuth2UserInfo> GetUserInfoAsync(string accessToken)
+    {
+        var userResp = await _httpClient.GetFromJsonAsync<OpenIdUser>("https://auth.example.com/userinfo");
+        return new OAuth2UserInfo
+        {
+            ProviderUserId = userResp.Sub,
+            DisplayName = userResp.Name,
+            Email = userResp.Email,
+            AvatarUrl = userResp.Picture
+        };
+    }
+}
+
+// ===== 2. 在 Program.cs 中注册 =====
+builder.Services.AddScoped<IOAuth2Provider, CustomOidcProvider>();
+builder.Services.AddScoped<OAuth2Service>();
+
+// ===== 3. 登录回调（OAuth2Controller.Callback）=====
+public async Task<IActionResult> Callback(string provider, string code, string state)
+{
+    var oauthUser = await _oauth2Service.CallbackAsync(provider, code, state, returnUrl);
+    // 查 sys_oauth2_user：若已关联 → 直接签发 JWT
+    // 若未关联但 email 匹配 → 自动关联
+    // 否则 → 创建新 sys_user（默认角色）+ 关联记录
+    var jwt = await _authService.CreateTokenAsync(localUser);
+    return Redirect($"/#/oauth2-callback?token={jwt.Token}");
+}
+
+// ===== 4. 前端（Vue 3）登录按钮 =====
+// Login.vue
+function loginWithGitHub() {
+    window.location.href = "/api/v1/sys/oauth2/challenge?provider=github";
+}
+
+// OAuth2Callback.vue（挂载时解析 query）
+onMounted(() => {
+    const query = useRoute().query;
+    if (query.token) {
+        const userStore = useUserStore();
+        userStore.token = query.token;
+        localStorage.setItem("token", query.token);
+        router.push("/");
+    }
+});
+```
+
+### 配置项清单表
+
+| 配置键 | 默认值 | 数据类型 | 说明 | 必填 |
+|--------|--------|---------|------|------|
+| `OAuth2:GitHub:ClientId` | (空) | string | GitHub OAuth App Client ID | ✅（启用 GitHub 时） |
+| `OAuth2:GitHub:ClientSecret` | (空) | string | GitHub OAuth App Client Secret（**必须环境变量注入**） | ✅（启用 GitHub 时） |
+| `OAuth2:GitHub:CallbackUrl` | (空) | string | 回调地址（需与 GitHub 登记完全一致） | ✅（启用 GitHub 时） |
+| `OAuth2:GitHub:Scope` | `read:user user:email` | string | OAuth Scope | ⬜ |
+| `OAuth2:WeChat:AppId` | (空) | string | 微信开放平台 AppId | ⬜（启用微信时必填） |
+| `OAuth2:WeChat:AppSecret` | (空) | string | 微信开放平台 AppSecret | ⬜（启用微信时必填） |
+| `OAuth2:WeChat:CallbackUrl` | (空) | string | 微信回调地址 | ⬜（启用微信时必填） |
+| `OAuth2:DingTalk:AppKey` | (空) | string | 钉钉开放平台 AppKey | ⬜（启用钉钉时必填） |
+| `OAuth2:DingTalk:AppSecret` | (空) | string | 钉钉开放平台 AppSecret | ⬜（启用钉钉时必填） |
+| `OAuth2:DingTalk:CallbackUrl` | (空) | string | 钉钉回调地址 | ⬜（启用钉钉时必填） |
+| `OAuth2:DefaultRole` | `employee` | string | 第三方登录首次创建用户的默认角色 | ⬜ |
+| `OAuth2:AutoBindByEmail` | `true` | bool | 未关联但邮箱匹配时是否自动关联本地账号 | ⬜ |
+
+---
+
+## ❓ 常见问题（3-5 个）
+
+**Q1. 为何 callback 必须在服务端完成 token 交换？**
+OAuth 2.0 标准要求 `code → access_token` 交换必须使用 ClientSecret（仅服务端可见），绝对不能暴露给浏览器。JeeSite.NET 的中间件在服务端完成这一步，保证密钥永远不离开服务端。
+
+**Q2. 同一用户已绑定多个 provider，如何管理？**
+关联关系为 `1 sys_user → N provider_user_id`。`sys_oauth2_user` 表中 `(provider, provider_user_id)` 唯一约束保证同一第三方账号不会重复关联到多个本地账号。用户可在「个人设置 → 账号绑定」中管理。
+
+**Q3. 第三方登录创建的本地账号如何登录？**
+默认角色为 `employee`（普通员工），密码由系统随机生成并加密存储（用户可在个人设置中修改）。如企业不允许第三方登录用户在后续使用密码登录，可将该用户 password 留空并仅允许第三方登录通道。
+
+**Q4. CSRF state 参数如何实现？**
+`challenge` 阶段生成随机 `state`（32 字节），写入 `oauth2:state:{state}` Redis key，5 分钟 TTL；`callback` 阶段校验 state 存在后一次性删除。未通过校验直接拒绝回调，防止 CSRF。
+
+**Q5. 能否同时启用多种第三方登录？**
+可以。`/api/v1/sys/oauth2/providers` 返回所有已在 `appsettings.json` 中配置的 provider。登录页动态渲染按钮。任一 provider 独立关联至本地账号体系互不干扰。
+
+---
+
+## 📚 相关文档（上一篇/同系列/下一篇 + 跨系列）
+
+| 类别 | 文档 | 说明 |
+|------|------|------|
+| 上一篇 | [15-JWT 认证](15-JWT认证) | 基础认证与权限系统（本方案最终也使用同一 JWT） |
+| 同系列 | [17-CAS 单点登录](17-CAS单点登录) | 企业级 CAS SSO 方案 |
+| 同系列 | [18-LDAP 认证](18-LDAP认证) | AD / OpenLDAP 目录服务认证 |
+| 同系列 | [19-数据与字段权限](19-数据与字段权限) | 行级/列级权限（第三方登录创建的用户同样适用 |
+| 下一篇 | [20-AI 智能问答](20-AI智能问答) | AI 能力集成 |
+| 跨系列 | [03-Sys 系统管理](03-Sys系统管理) | 后台用户/角色/菜单管理 |
+
+---
+
+## 🚀 下一步（推荐阅读）
+
+1. 确认各平台 AppKey/AppSecret 已通过**环境变量注入**，严禁提交到 Git 仓库。
+2. 若企业已部署统一认证中心（CAS/OIDC），优先使用 [17-CAS](17-CAS单点登录) 或自定义 Provider 实现单点登录，减少重复账号管理。
+3. 在「系统管理 → 角色管理」中评审 `employee` 默认角色的权限集合，确保第三方登录用户不会越权访问敏感模块。
+4. 对外部用户（非员工）通过 GitHub/微信登录创建的账号，建议在 `sys_oauth2_user` 中保留 `remark` 标识来源，便于审计。
+5. 配合文档 **[19-数据与字段权限](19-数据与字段权限)**，对第三方登录用户同样享受统一的行级/列级权限。
 
 ---
 

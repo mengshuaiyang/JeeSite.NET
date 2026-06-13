@@ -4,7 +4,7 @@
 
 ---
 
-# Vditor编辑器
+# 25 Vditor编辑器
 
 > 所见即所得 Markdown 富文本编辑器集成，图片/附件上传、AI 帮写、数学公式、流程图。
 >
@@ -713,13 +713,181 @@ cache: {
 
 ## 💡 快速参考
 
-| 项目 | 关键信息 |
-|------|---------|
-| **文档** | Vditor编辑器 |
-| **最后更新** | 2026-06-13 |
-| **相关文档** | [12-HTML清洗](12-HTML清洗) · [20-AI智能问答](20-AI智能问答) |
+### 核心类/文件清单
+
+| 类型 | 文件/名称 | 说明 |
+|------|----------|------|
+| Component | `VditorEditor.vue` | `frontend/src/components/VditorEditor.vue`（所见即所得 Markdown 富文本编辑器封装） |
+| API | `POST /api/v1/sys/file/upload` | 文件上传接口（图片/附件） |
+| API | `POST /api/v1/cms/ai-chat/send` | AI 写作助手（摘要/扩写/润色/翻译/续写） |
+
+### 常用 API 速查
+
+| API | 说明 |
+|-----|------|
+| `editor.getValue()` | 获取编辑器内容（wysiwyg 模式返回 HTML，ir/sv 模式返回 Markdown） |
+| `editor.setValue(value)` | 设置编辑器内容 |
+| `editor.insertText(text)` | 在光标位置插入文本 |
+| `editor.focus()` | 聚焦编辑器 |
+| `editor.destroy()` | 销毁实例，释放 DOM 节点（切换路由务必调用） |
+| `VditorEditor`（组件 ref） | `getValue()` / `setValue()` / `focus()` / `insertText()` |
+
+### 最小工作示例（Vue 3）
+
+```vue
+<template>
+  <a-form :model="formState" layout="vertical">
+    <a-form-item label="文章标题" required>
+      <a-input v-model:value="formState.title" placeholder="请输入文章标题" />
+    </a-form-item>
+
+    <a-form-item label="文章摘要">
+      <a-textarea v-model:value="formState.description" :rows="2" />
+    </a-form-item>
+
+    <a-form-item label="正文">
+      <!-- 工具栏 -->
+      <a-space style="margin-bottom: 8px">
+        <a-button @click="aiHelp('summary')">📝 摘要</a-button>
+        <a-button @click="aiHelp('expand')">✏️ 扩写</a-button>
+        <a-button @click="aiHelp('polish')">💎 润色</a-button>
+        <a-button @click="aiHelp('translate')">🌐 翻译</a-button>
+        <a-button @click="aiHelp('continue')">✍️ 续写</a-button>
+      </a-space>
+
+      <!-- Vditor 编辑器 -->
+      <VditorEditor
+        ref="editorRef"
+        v-model="formState.content"
+        :height="500"
+        mode="wysiwyg"
+        placeholder="请输入文章内容..."
+      />
+    </a-form-item>
+
+    <a-form-item>
+      <a-space>
+        <a-button type="primary" @click="saveArticle">保存</a-button>
+        <a-button @click="publishArticle">发布</a-button>
+        <a-button @click="previewArticle">预览</a-button>
+      </a-space>
+    </a-form-item>
+  </a-form>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive } from 'vue';
+import { message } from 'ant-design-vue';
+import VditorEditor from '@/components/VditorEditor.vue';
+import * as articleApi from '@/api/article';
+import * as aiApi from '@/api/cms';
+
+const editorRef = ref<InstanceType<typeof VditorEditor> | null>(null);
+const formState = reactive({
+  id: '',
+  title: '',
+  description: '',
+  content: ''
+});
+
+async function saveArticle() {
+  const result = await articleApi.save(formState);
+  if (result.code === 0) message.success('保存成功');
+}
+
+function publishArticle() {
+  (formState as any).status = 1;
+  saveArticle();
+}
+
+function previewArticle() {
+  // 弹出模态，渲染 formState.content
+}
+
+async function aiHelp(mode: 'summary' | 'expand' | 'polish' | 'translate' | 'continue') {
+  try {
+    const result = await aiApi.aiChatSend({
+      message: `${mode}: ${formState.title}\n${formState.content}`,
+      sessionId: `article-${Date.now()}`,
+      stream: false
+    });
+    if (result.code === 0 && result.data?.answer) {
+      editorRef.value?.focus();
+      editorRef.value?.insertText(`\n\n${result.data.answer}\n\n`);
+      message.success('AI 内容已插入');
+    }
+  } catch (e) {
+    message.error('AI 服务暂时不可用');
+  }
+}
+</script>
+```
+
+### 三种编辑模式
+
+| 模式 | `mode` 值 | 说明 | `getValue()` 返回 |
+|------|-----------|------|-------------------|
+| 所见即所得（WYSIWYG） | `'wysiwyg'` | 类 Word 富文本体验（默认） | HTML 字符串 |
+| 即时渲染（IR） | `'ir'` | 输入 Markdown 语法后即时渲染 | Markdown 字符串 |
+| 分屏预览（SV） | `'sv'` | 左侧 Markdown 源码 / 右侧实时预览 | Markdown 字符串 |
+
+### 文件上传
+
+| 项目 | 值 |
+|------|-----|
+| 接口 | `POST /api/v1/sys/file/upload` |
+| 文件大小限制 | 默认 `10 MB`（可在 `appsettings.json` 中调整 `Upload:MaxSize`） |
+| 允许扩展名 | `.jpg/.jpeg/.png/.gif/.webp/.bmp`（非图片需单独扩展） |
+| 安全策略 | 文件头 Magic Number 校验 + 重命名为随机文件名 |
+| 返回 | `{ code: 0, data: { url, fileCode, fileSize } }` |
 
 ---
+
+## ❓ 常见问题
+
+**Q1：粘贴的图片不显示？**
+- 浏览器安全策略禁止直接读取本地文件（粘贴图片本质是读取文件）。
+- 使用编辑器的「📎 上传图片」按钮；或拖拽图片到编辑区域（已支持）。
+
+**Q2：工具栏按钮不生效（如加粗/列表无反应）？**
+- 检查 `package.json` 中 `vditor` 版本是否与 Vue 3 兼容（`>= 3.10.0`）。
+- 确认 `vditor/dist/index.css` 已在 `main.ts` 或组件内引入。
+
+**Q3：保存后格式丢失？**
+- 后端 `HtmlSanitizerUtil.SanitizeRich` 是相对宽松的富文本白名单，保留了 `div/p/span/img/a/table/...` 等标签。
+- 若仍有标签丢失，在白名单配置中补充即可；或使用 `ir`/`sv` 模式保存 Markdown。
+
+**Q4：图片上传返回 401？**
+- JWT Token 过期或未正确传递。
+- 检查 `localStorage.getItem('token')` 是否有效；检查 `FileController` 的 `[Authorize]` 策略。
+
+**Q5：切换路由后页面卡死？**
+- Vditor 实例未在 `onBeforeUnmount` 中 `destroy()`，导致 DOM 节点泄漏。
+- 务必在组件 `onBeforeUnmount(() => editorInstance?.destroy())` 中释放。
+
+**Q6：wysiwyg 模式内容与 HTML 渲染不一致？**
+- WYSIWYG 模式产生的 HTML 使用 Vditor 内部 class，需要在预览区引入同样的 CSS。
+- 在文章详情页引入 `vditor/dist/css/content-theme/vditor.css` 或直接使用 `Vditor.previewElement()`。
+
+---
+
+## 📚 相关文档
+
+- [12-HTML清洗](12-HTML清洗) — 后端 `HtmlSanitizerUtil` 白名单策略（XSS 防护必读）
+- [04-CMS内容管理](04-CMS内容管理) — 文章/栏目/分类的完整业务流程
+- [20-AI智能问答](20-AI智能问答) — AI 写作助手的底层服务
+- [26-AI-Tools开发](26-AI-Tools开发) — 如何将编辑器功能扩展为 AI Tool
+- Home: [Wiki 首页](Home)
+
+---
+
+## 🚀 下一步
+
+1. **在 CMS 文章编辑页使用 VditorEditor**：参考上述最小示例，替换当前使用的纯 textarea。
+2. **启用 AI 写作助手**：确保 `Ai:Provider` + `ApiKey` 已配置，测试 5 种模式（摘要/扩写/润色/翻译/续写）。
+3. **配置自定义词库与同义词**：在 `HtmlSanitizerUtil` 中补充业务场景的安全标签（如代码高亮、视频等）。
+4. **启用本地草稿**：如需浏览器本地草稿，将 `VditorEditor` 中 `cache: { enable: true, id: 'article-' + articleId }` 打开。
+5. **移动端适配**：窄屏设备默认回退到 `wysiwyg` 模式，确保样式与 PC 一致。
 
 <div align="center">
   <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>

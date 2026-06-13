@@ -4,7 +4,7 @@
 
 ---
 
-# Tasks任务调度
+# 06 Tasks任务调度
 
 > 基于 Quartz.NET 的定时任务调度中心，支持 Cron 表达式、任务日志、失败重试、手动触发。
 >
@@ -414,17 +414,86 @@ frontend/src/
 </div>
 
 ---
-
 ## 💡 快速参考
+### 核心类与接口表
 
-| 项目 | 关键信息 |
-|------|---------|
-| **模块名称** | Tasks任务调度 |
-| **最后更新** | 2026-06-13 |
-| **相关文档** | [32-部署与运维](32-部署与运维) |
+| 类型 | 名称 | 命名空间 | 说明 |
+|------|------|---------|------|
+| Service | `SchedulerService` | `JeeSiteNET.Modules.Tasks.Application.Services` | 调度服务 |
+| Service | `JobService` | `JeeSiteNET.Modules.Tasks.Application.Services` | 任务管理服务 |
+| Controller | `TasksJobController` | `JeeSiteNET.Modules.Tasks.Controllers` | 任务 API |
+
+### 常用 API 速查表
+
+| API | 说明 |
+|-----|------|
+| `GET /api/v1/tasks/jobs` | 任务列表 |
+| `POST /api/v1/tasks/job` | 创建定时任务 |
+| `PUT /api/v1/tasks/job/{id}` | 更新任务 |
+| `DELETE /api/v1/tasks/job/{id}` | 删除任务 |
+| `POST /api/v1/tasks/job/{id}/run` | 立即执行一次 |
+| `POST /api/v1/tasks/job/{id}/pause` | 暂停任务 |
+| `POST /api/v1/tasks/job/{id}/resume` | 恢复任务 |
+| `GET /api/v1/tasks/job/{id}/logs` | 任务执行日志 |
+
+### 最小工作示例
+
+```csharp
+// ===== 自定义 Job 实现 =====
+public class MyCustomJob : IJob
+{
+    public async Task Execute(IJobExecutionContext context)
+    {
+        // 业务逻辑：例如清理过期日志、推送消息等
+        await Console.Out.WriteLineAsync($"Job executed at {DateTime.Now}");
+    }
+}
+
+// ===== 注册并调度任务（Service 层）=====
+public async Task ScheduleJobAsync(string jobName, string cronExpression)
+{
+    var job = JobBuilder.Create<MyCustomJob>()
+        .WithIdentity(jobName, "group1")
+        .Build();
+
+    var trigger = TriggerBuilder.Create()
+        .WithIdentity($"{jobName}-trigger", "group1")
+        .WithCronSchedule(cronExpression)
+        .Build();
+
+    await _scheduler.ScheduleJob(job, trigger);
+}
+
+// ===== 常用 Cron 表达式 =====
+// "0 0 2 * * ?"   每天凌晨 2 点
+// "0 0/10 * * * ?"  每 10 分钟
+// "0 0 0 ? * SUN"  每周日零点
+// "0 0 0 1 * ?"   每月 1 号零点
+
+// ===== 持久化任务配置到数据库 =====
+// 在 Program.cs 中配置 Quartz.NET 持久化（AdoJobStore）
+// 这样重启后任务不丢失
+```
 
 ---
+## ❓ 常见问题
 
-<div align="center">
-  <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>
-</div>
+1. **问：任务执行超时如何处理？**
+答：配置 `JobExecutionTimeoutSeconds`，超时自动取消任务执行，在下次调度时重试。
+2. **问：多实例部署如何避免重复执行？**
+答：使用 Quartz.NET 的 AdoJobStore，所有实例共享同一个数据库锁表，确保同一时间只有一个实例执行任务。
+3. **问：任务失败如何告警？**
+答：在 JobListener 中监听失败事件，通过邮件或消息推送告警。
+
+---
+## 📚 相关文档
+
+- **上一篇**：[05-CodeGen代码生成](05-CodeGen代码生成)
+- **同系列**：[03-Sys系统管理](03-Sys系统管理) · [04-CMS内容管理](04-CMS内容管理) · [07-BPM工作流](07-BPM工作流) · [08-App移动端](08-App移动端)
+- **下一篇**：[07-BPM工作流](07-BPM工作流)
+
+---
+## 🚀 下一步
+
+- 参考 [32-部署与运维](32-部署与运维)，在生产环境中配置 Quartz.NET 集群与持久化。
+- 将业务 Job 与 [07-BPM工作流](07-BPM工作流) 结合，实现定时触发的审批流程。

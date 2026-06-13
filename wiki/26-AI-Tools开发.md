@@ -4,7 +4,7 @@
 
 ---
 
-# AI-Tools开发
+# 26 AI-Tools开发
 
 > 自定义 AI 工具开发最佳实践：IAiTool 接口、工具元信息、参数校验、审计日志、权限控制。
 >
@@ -610,13 +610,211 @@ public class CmsSearchToolTests
 
 ## 💡 快速参考
 
-| 项目 | 关键信息 |
-|------|---------|
-| **文档** | AI-Tools开发 |
-| **最后更新** | 2026-06-13 |
-| **相关文档** | [20-AI智能问答](20-AI智能问答) · [21-MCP服务协议](21-MCP服务协议) |
+### 核心类与接口
+
+| 类型 | 名称 | 命名空间 | 说明 |
+|------|------|---------|------|
+| Interface | `IAiTool` | `JeeSiteNET.Core.Interfaces` | AI 工具统一接口（`ExecuteAsync(object input, CancellationToken ct)`） |
+| Attribute | `AiToolAttribute` | `JeeSiteNET.Core.Annotations` | AI 工具元信息标记（`Name` / `Description` / `InputSchemaJson` / `RateLimitPerMinute`） |
+| Registry | `AiToolRegistry` | `JeeSiteNET.Modules.Cms.Services` | 反射扫描所有实现 `IAiTool` + `[AiTool]` 的类 |
+| Service | `AiChatService` | `JeeSiteNET.Modules.Cms.Application.Services` | 对话主服务：LLM 调用 → 工具调度 → 审计日志 |
+
+### 最小工作示例
+
+```csharp
+// ===== 步骤 1：实现自定义工具 =====
+using JeeSiteNET.Core.Annotations;
+using JeeSiteNET.Core.Interfaces;
+using System.Text.Json.Serialization;
+
+namespace JeeSiteNET.Modules.Cms.Application.AiTools;
+
+[AiTool(
+    Name = "cms_get_weather",
+    Description = "查询指定城市当前的天气信息，包括温度、天气现象、湿度和风速。"
+                + "适用于用户问天气、出门建议、气候相关的查询。",
+    InputSchemaJson = @"{
+        ""type"": ""object"",
+        ""properties"": {
+            ""city"": { ""type"": ""string"", ""description"": ""城市中文名，如 北京、上海"" },
+            ""unit"": { ""type"": ""string"", ""enum"": [""C"", ""F""], ""default"": ""C"",
+                         ""description"": ""温度单位，C=摄氏度，F=华氏度"" }
+        },
+        ""required"": [""city""]
+    }",
+    RateLimitPerMinute = 30
+)]
+public class WeatherTool : IAiTool
+{
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<WeatherTool> _logger;
+
+    public WeatherTool(IHttpClientFactory httpClientFactory, ILogger<WeatherTool> logger)
+    {
+        _httpClientFactory = httpClientFactory;
+        _logger = logger;
+    }
+
+    public async Task<object> ExecuteAsync(object input, CancellationToken ct)
+    {
+        try
+        {
+            var args = JsonSerializer.Deserialize<WeatherArgs>(
+                input?.ToString() ?? "{}") ?? new WeatherArgs();
+
+            if (string.IsNullOrWhiteSpace(args.City))
+                throw new ArgumentException("city 参数不能为空");
+
+            var http = _httpClientFactory.CreateClient("WeatherAPI");
+            http.BaseAddress = new Uri("https://api.open-meteo.com/v1/");
+            http.Timeout = TimeSpan.FromSeconds(5);
+
+            var (lat, lon) = CityToLatLon(args.City);
+            var data = await http.GetFromJsonAsync<WeatherResponse>(
+                $"forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code,wind_speed_10m",
+                ct);
+
+            var temp = args.Unit == "F"
+                ? Math.Round(data.Current.Temperature2m * 9 / 5 + 32, 1)
+                : Math.Round(data.Current.Temperature2m, 1);
+
+            return new
+            {
+                city = args.City,
+                temperature = temp,
+                unit = args.Unit,
+                weather = WeatherCodeToText(data.Current.WeatherCode),
+                windSpeedKmh = Math.Round(data.Current.WindSpeed10m, 1),
+                updatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm")
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "天气查询失败");
+            return new { error = "暂时无法查询天气信息，请稍后再试" };
+        }
+    }
+
+    private static (double lat, double lon) CityToLatLon(string city) => city switch
+    {
+        "北京" or "Beijing" => (39.9042, 116.4074),
+        "上海" or "Shanghai" => (31.2304, 121.4737),
+        "广州" or "Guangzhou" => (23.1291, 113.2644),
+        _ => (31.2304, 121.4737)
+    };
+
+    private static string WeatherCodeToText(int code) => code switch
+    {
+        0 => "晴天", 1 or 2 or 3 => "多云", 45 or 48 => "有雾",
+        51 or 53 or 55 => "小雨", 61 or 63 or 65 => "中雨",
+        71 or 73 or 75 => "小雪", 80 or 81 or 82 => "阵雨",
+        95 or 96 or 99 => "雷阵雨", _ => "其他天气"
+    };
+
+    public class WeatherArgs { public string City { get; set; } = ""; public string Unit { get; set; } = "C"; }
+
+    public class WeatherResponse
+    {
+        public CurrentWeather Current { get; set; } = new();
+        public class CurrentWeather
+        {
+            [JsonPropertyName("temperature_2m")] public double Temperature2m { get; set; }
+            [JsonPropertyName("weather_code")] public int WeatherCode { get; set; }
+            [JsonPropertyName("wind_speed_10m")] public double WindSpeed10m { get; set; }
+        }
+    }
+}
+
+// ===== 步骤 2：注册到 DI（Program.cs）=====
+builder.Services.AddScoped<IAiTool, WeatherTool>();
+builder.Services.AddAiTools(typeof(WeatherTool).Assembly);  // 注册整个程序集
+
+// ===== 步骤 3：测试验证 =====
+// 启动后访问：GET  /api/v1/sys/mcp/tools  → 应包含 cms_get_weather
+// 或者使用 Swagger 测试： POST /api/v1/cms/ai-chat/send
+// 提问："北京今天天气怎么样？" → LLM 自动调用工具 → 返回结构化天气信息
+```
+
+### 已内置工具清单
+
+| 工具名 | 说明 | 调用频率 |
+|--------|------|---------|
+| `cms_search_article` | 按关键词搜索 CMS 文章 | 60 次/分钟 |
+| `cms_get_article` | 获取文章详情 | 60 次/分钟 |
+| `cms_datetime` | 获取当前日期时间和时区 | 不限 |
+| `sys_get_user_info` | 获取当前登录用户信息 | 30 次/分钟 |
+| `sys_get_dict_data` | 获取字典数据枚举值 | 60 次/分钟 |
+| `sys_get_cache_stats` | 获取缓存命中率与统计信息（管理员专用） | 10 次/分钟 |
+
+### 工具开发 10 条最佳实践
+
+| # | 实践 |
+|---|------|
+| 1 | **有意义的工具名**：`{模块}_{动作}_{实体}`，如 `cms_search_article` |
+| 2 | **清晰的自然语言描述**（`Description`）：LLM 根据此描述决定是否调用工具，务必写明用途、输入/输出、适用场景 |
+| 3 | **完整的 JSON Schema**：完整描述每个字段的 `type` / `description` / `required` / `enum` / `default` |
+| 4 | **强类型输入/输出**：使用 `class ToolArgs` / `class ToolResult` 而非 `dynamic` |
+| 5 | **Token 经济**：只返回 LLM 需要的最小信息，列表截断为 Top N |
+| 6 | **参数严格校验**：`ExecuteAsync` 开头检查必填字段、类型范围，抛出 `ArgumentException` |
+| 7 | **幂等 + 可重入**：可以被多次调用而不产生副作用；避免"创建/发送/删除"类不可回滚操作 |
+| 8 | **异步 + 可取消**：支持 `CancellationToken`，在长耗时操作（ES 查询、HTTP 请求）中检查取消标记 |
+| 9 | **异常不直接暴露**：捕获异常并记录日志，返回 `{ error = "描述" }`，让 LLM 自行处理 |
+| 10 | **每个工具必须配一个单元测试**：验证空输入异常、合法输入预期输出、依赖服务 Mock |
 
 ---
+
+## ❓ 常见问题
+
+**Q1：新添加的工具在 `/api/v1/sys/mcp/tools` 中不显示？**
+- 检查是否同时实现了 `IAiTool` 接口并使用 `[AiTool]` 特性修饰类。
+- 确认在 `Program.cs` 中调用了 `builder.Services.AddAiTools(assemblies...)`，扫描的 assemblies 包含该工具所在程序集。
+- 检查 `Name` 是否唯一（与已有工具冲突会被跳过并记录警告日志）。
+
+**Q2：工具已注册但 LLM 从不调用？**
+- 这是最常见问题。**请重新撰写 `[AiTool(Description = "...")]`**，使用自然语言清晰描述工具用途、输入、输出、适用场景。
+- 检查 `InputSchemaJson` 是否完整：每个字段必须有 `type` + `description`，`required` 数组正确。
+- 建议与 Claude Code 配合调试，观察 Tool Use 决策日志。
+
+**Q3：工具函数返回内容过长导致 Token 超限？**
+- 对列表结果设置 `Top N` 限制（如 `Take(5)`）。
+- 只返回 LLM 需要的关键字段（标题 + 摘要，而非全文）。
+- 可对长文本做摘要处理后再返回。
+
+**Q4：工具注入用户数据有安全风险？**
+- 对 `input` 严格校验（长度限制、类型检查、SQL 注入关键字过滤）。
+- 仅在工具的权限范围内操作，不可通过工具绕过后端 API 权限。
+- 有副作用的工具（如删除、修改）默认禁用，必须在管理后台显式开启 + 前端二次确认。
+- 所有调用写入 `sys_ai_usage_log` 审计日志，可追溯。
+
+**Q5：外部 API 太慢或失败如何处理？**
+- 使用 `IHttpClientFactory` + `Timeout = 5s`，启用指数退避重试（最多 3 次）。
+- 通过 `CancellationToken` 支持取消。
+- `try/catch` 捕获 `HttpRequestException` 和 `TaskCanceledException`，返回友好 `{ error }` 格式，不要暴露内部异常给 LLM。
+
+**Q6：如何为工具加限流？**
+- 在 `[AiTool(...)]` 中设置 `RateLimitPerMinute`，默认 10。
+- 全局可通过 `Ai:RateLimit:PerUserPerMinute` 控制总调用频率。
+- `AiChatService` 已内置基于用户 + 工具维度的滑动窗口限流。
+
+---
+
+## 📚 相关文档
+
+- [20-AI智能问答](20-AI智能问答) — AI 对话服务核心（工具的调用方）
+- [21-MCP服务协议](21-MCP服务协议) — JSON-RPC 协议封装（工具暴露给 LLM 的方式）
+- [22-Elasticsearch](22-Elasticsearch) — `cms_search_article` 工具底层实现参考
+- [23-FusionCache缓存](23-FusionCache缓存) — 工具可利用缓存降低成本
+- Home: [Wiki 首页](Home)
+
+---
+
+## 🚀 下一步
+
+1. **为业务模块添加第一个 AI Tool**：选择一个现有业务服务（如 `ArticleService.GetByIdAsync`），按上述骨架实现一个只读类工具。
+2. **编写单元测试**：为新工具编写至少 3 个测试（空输入、合法输入、异常场景），确保 CI 环境通过。
+3. **在 Claude Code 中调试**：通过 MCP 协议连接，观察 LLM 是否正确调用工具并返回预期结果。
+4. **Token 成本分析**：记录新工具的平均 Token 消耗，评估是否需要进一步精简输出或增加缓存。
+5. **逐步开放给最终用户**：先在"AI 写作助手"中启用该工具，收集用户反馈后再扩展到更多场景。
 
 <div align="center">
   <small>本文档最后更新: 2026-06-13 · JeeSite.NET Wiki</small>
