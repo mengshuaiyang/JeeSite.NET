@@ -96,6 +96,7 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddHttpClient();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<ITenantContext, TenantContext>();
 
@@ -137,6 +138,7 @@ builder.Services.AddDbContext<JeeSiteDbContext>((sp, options) =>
         sp.GetRequiredService<TreeEntityInterceptor>(),
         sp.GetRequiredService<SoftDeleteInterceptor>());
 });
+builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<JeeSiteDbContext>());
 
 // FusionCache with Redis L2
 var redisConnection = builder.Configuration.GetSection("Redis")["Connection"] ?? "localhost:6379";

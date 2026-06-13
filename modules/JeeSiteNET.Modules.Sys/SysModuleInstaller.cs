@@ -51,9 +51,9 @@ public class SysModuleInstaller : IModuleInstaller
         services.AddScoped<AuthService>();
         services.AddScoped<CasAuthService>();
         services.AddScoped<OAuth2Service>();
-        services.AddSingleton<IOAuth2Provider, GitHubOAuth2Provider>();
-        services.AddSingleton<IOAuth2Provider, WeChatOAuth2Provider>();
-        services.AddSingleton<IOAuth2Provider, DingTalkOAuth2Provider>();
+        services.AddScoped<IOAuth2Provider, GitHubOAuth2Provider>();
+        services.AddScoped<IOAuth2Provider, WeChatOAuth2Provider>();
+        services.AddScoped<IOAuth2Provider, DingTalkOAuth2Provider>();
         services.AddScoped<ISmsSender, SmsService>();
         services.AddScoped<IEmailSender, EmailService>();
         services.AddScoped<DictTypeService>();
