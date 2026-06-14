@@ -3,13 +3,34 @@ using Microsoft.Extensions.Configuration;
 
 namespace JeeSiteNET.Infrastructure.EntityFrameworkCore;
 
+/// <summary>
+/// 多数据源/多租户连接字符串解析器：支持读写分离（轮询/随机）与按租户切换连接。
+/// 从 IConfiguration 的 "MultiDataSource" 节点读取配置，无配置时回退到默认连接字符串。
+/// </summary>
 public class DbConnectionStringResolver : IDbConnectionStringResolver
 {
+    /// <summary>
+    /// 配置对象
+    /// </summary>
     private readonly IConfiguration _configuration;
+    /// <summary>
+    /// 当前租户上下文（用于按租户解析目标连接）
+    /// </summary>
     private readonly ITenantContext _tenantContext;
+    /// <summary>
+    /// 解析后的多数据源选项
+    /// </summary>
     private readonly MultiDataSourceOptions _options;
+    /// <summary>
+    /// 读库轮询索引（通过 Interlocked 保证线程安全递增）
+    /// </summary>
     private int _roundRobinIndex;
 
+    /// <summary>
+    /// 构造函数：从 IConfiguration 加载 MultiDataSource 节点
+    /// </summary>
+    /// <param name="configuration">应用配置</param>
+    /// <param name="tenantContext">当前租户上下文（可选，由 DI 注入）</param>
     public DbConnectionStringResolver(IConfiguration configuration, ITenantContext tenantContext)
     {
         _configuration = configuration;
@@ -17,6 +38,10 @@ public class DbConnectionStringResolver : IDbConnectionStringResolver
         _options = LoadOptions();
     }
 
+    /// <summary>
+    /// 从 IConfiguration 加载 MultiDataSource 选项
+    /// </summary>
+    /// <returns>多数据源选项</returns>
     private MultiDataSourceOptions LoadOptions()
     {
         var opts = new MultiDataSourceOptions();
@@ -53,6 +78,12 @@ public class DbConnectionStringResolver : IDbConnectionStringResolver
         return opts;
     }
 
+    /// <summary>
+    /// 按租户和操作类型获取连接字符串：优先按租户解析，否则回落到读写分离逻辑
+    /// </summary>
+    /// <param name="tenantCode">目标租户编号（null 时使用 ITenantContext）</param>
+    /// <param name="operation">操作类型：Read 走读库，Write 走主库</param>
+    /// <returns>匹配的连接字符串</returns>
     public string GetConnectionString(string? tenantCode = null, DbOperation operation = DbOperation.Write)
     {
         var code = tenantCode ?? _tenantContext.TenantCode;
@@ -67,6 +98,11 @@ public class DbConnectionStringResolver : IDbConnectionStringResolver
         return GetConnectionString(operation);
     }
 
+    /// <summary>
+    /// 仅按操作类型解析连接字符串：支持读库负载均衡（轮询/随机）与主库回退
+    /// </summary>
+    /// <param name="operation">操作类型</param>
+    /// <returns>连接字符串</returns>
     public string GetConnectionString(DbOperation operation)
     {
         if (_options.EnableReadWriteSplitting && operation == DbOperation.Read)

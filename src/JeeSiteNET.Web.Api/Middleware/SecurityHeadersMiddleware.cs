@@ -1,21 +1,29 @@
 namespace JeeSiteNET.Web.Api.Middleware;
 
 /// <summary>
-/// 添加安全响应头。
-/// 注意：严格按顺序处理 X-Frame-Options / CSP / X-XSS-Protection / nosniff 等头。
+/// 安全响应头中间件。
+/// 统一输出 CSP / X-Frame-Options / X-XSS-Protection / HSTS 等常见安全头。
 /// </summary>
 public class SecurityHeadersMiddleware
 {
     private readonly RequestDelegate _next;
 
+    /// <summary>
+    /// 初始化 <see cref="SecurityHeadersMiddleware"/> 的新实例。
+    /// </summary>
+    /// <param name="next">管道中的下一个委托。</param>
     public SecurityHeadersMiddleware(RequestDelegate next)
     {
         _next = next;
     }
 
+    /// <summary>
+    /// 在响应开始写入前附加安全响应头，再继续执行管道。
+    /// </summary>
+    /// <param name="context">当前 HTTP 上下文。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async Task InvokeAsync(HttpContext context)
     {
-        // 在开始写响应前注册回调，避免 Headers 已经发送
         context.Response.OnStarting(state =>
         {
             var ctx = (HttpContext)state!;
@@ -27,8 +35,6 @@ public class SecurityHeadersMiddleware
             headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
             headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), interest-cohort=()";
 
-            // 内容安全策略：默认只信任自身；图片/媒体允许自身 + https 协议；
-            // style 'unsafe-inline' 是 Vue 3 开发环境必须；生产环境建议收紧。
             headers["Content-Security-Policy"] =
                 "default-src 'self'; " +
                 "script-src 'self' 'unsafe-inline' 'unsafe-eval' localhost:5173 localhost:4173; " +

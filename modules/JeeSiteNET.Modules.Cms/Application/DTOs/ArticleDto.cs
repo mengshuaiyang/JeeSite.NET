@@ -1,11 +1,17 @@
+    // 引入 JeeSiteNET.Modules.Cms.Domain.Entities 命名空间
 using JeeSiteNET.Modules.Cms.Domain.Entities;
 
+// 定义 JeeSiteNET.Modules.Cms.Application.DTOs 命名空间
 namespace JeeSiteNET.Modules.Cms.Application.DTOs;
 
+// 定义class ArticleDto
 public class ArticleDto
 {
+    // 属性 ArticleCode
     public string ArticleCode { get; set; } = string.Empty;
+    // 属性 CategoryCode
     public string CategoryCode { get; set; } = string.Empty;
+    // 属性 Title
     public string Title { get; set; } = string.Empty;
     public string? Subtitle { get; set; }
     public string? Summary { get; set; }
@@ -23,6 +29,7 @@ public class ArticleDto
     public ArticleDataDto? ArticleData { get; set; }
     public List<string>? PosIds { get; set; }
 
+    // 方法 FromEntity
     public static ArticleDto FromEntity(Article e, string? categoryName = null) => new()
     {
         ArticleCode = e.ArticleCode, CategoryCode = e.CategoryCode,
@@ -37,13 +44,16 @@ public class ArticleDto
     };
 }
 
+// 定义class ArticleDataDto
 public class ArticleDataDto
 {
+    // 属性 ArticleCode
     public string ArticleCode { get; set; } = string.Empty;
     public string? Content { get; set; }
     public string? Relation { get; set; }
     public string? IsCanComment { get; set; }
 
+    // 方法 FromEntity
     public static ArticleDataDto FromEntity(ArticleData e) => new()
     {
         ArticleCode = e.ArticleCode, Content = e.Content,
@@ -51,10 +61,13 @@ public class ArticleDataDto
     };
 }
 
+// 定义class ArticleSaveDto
 public class ArticleSaveDto
 {
     public string? ArticleCode { get; set; }
+    // 属性 CategoryCode
     public string CategoryCode { get; set; } = string.Empty;
+    // 属性 Title
     public string Title { get; set; } = string.Empty;
     public string? Subtitle { get; set; }
     public string? Summary { get; set; }

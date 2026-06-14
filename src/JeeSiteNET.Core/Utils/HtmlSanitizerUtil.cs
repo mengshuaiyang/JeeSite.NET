@@ -5,33 +5,37 @@ using System.Text;
 namespace JeeSiteNET.Core.Utils;
 
 /// <summary>
-/// HTML 富文本清洗工具类，基于白名单策略，使用轻量级状态机扫描实现，不依赖第三方库。
+/// HTML 富文本清理工具类。基于白名单策略（标签/属性/CSS/协议），
+/// 使用轻量级逐字符状态机扫描实现，不依赖第三方库，不使用正则表达式，避免 ReDoS。
+/// 核心能力：移除 script/iframe 等危险标签、剥离事件处理程序、
+/// 规范化 href/src 伪协议、允许/禁止按等级过滤标签与属性、
+/// 多重 HTML 实体解码循环防御（针对双层编码绕过攻击）。
 /// </summary>
 public static class HtmlSanitizerUtil
 {
     /// <summary>
-    /// 清洗等级。
+    /// HTML 清理等级，决定标签白名单范围：
+    /// <list type="bullet">
+    /// <item><term>Strict</term><description>仅保留换行标签（&lt;br&gt; &lt;p&gt;），其余作为纯文本。</description></item>
+    /// <item><term>Balanced</term><description>默认等级，适用于 CMS 文章/评论。</description></item>
+    /// <item><term>Relaxed</term><description>保留更丰富的标签（iframe、video、audio 等），仅用于后台编辑。</description></item>
+    /// </list>
     /// </summary>
     public enum SanitizerLevel
     {
-        /// <summary>
-        /// 严格模式，仅保留纯文本及少量换行标签 (&lt;br&gt; &lt;p&gt;)。
-        /// </summary>
+        /// <summary>严格模式。</summary>
         Strict,
-
-        /// <summary>
-        /// 均衡模式，标准内容管理（CMS 文章、评论默认使用此级别）。
-        /// </summary>
+        /// <summary>均衡模式（默认）。</summary>
         Balanced,
-
-        /// <summary>
-        /// 宽松模式，保留更多标签（iframe、video 等，用于后台管理富文本编辑）。
-        /// </summary>
+        /// <summary>宽松模式。</summary>
         Relaxed
     }
 
-    // ============= 白名单集合 =============
+    // ========== 白名单集合：按等级/标签决定允许的内容 ==========
 
+    /// <summary>
+    /// 均衡模式允许的标签集合。包含常见排版、表格、列表、图片、超链接。
+    /// </summary>
     private static readonly HashSet<string> BalancedTagWhitelist = new(StringComparer.OrdinalIgnoreCase)
     {
         "a", "b", "blockquote", "br", "caption", "code", "col", "colgroup", "del", "dd",
@@ -41,61 +45,79 @@ public static class HtmlSanitizerUtil
         "tr", "u", "ul"
     };
 
+    /// <summary>
+    /// 严格模式允许的标签集合（仅换行/段落）。
+    /// </summary>
     private static readonly HashSet<string> StrictTagWhitelist = new(StringComparer.OrdinalIgnoreCase)
     {
         "br", "p"
     };
 
+    /// <summary>
+    /// 宽松模式额外允许的标签集合（多媒体容器）。
+    /// </summary>
     private static readonly HashSet<string> RelaxedExtraTags = new(StringComparer.OrdinalIgnoreCase)
     {
         "iframe", "video", "audio", "source", "track"
     };
 
+    /// <summary>通用属性白名单（title、class、style、alt、width、height）。</summary>
     private static readonly HashSet<string> GeneralAllowedAttributes = new(StringComparer.OrdinalIgnoreCase)
     {
         "title", "class", "style", "alt", "width", "height"
     };
 
+    /// <summary>&lt;a&gt; 的属性白名单。</summary>
     private static readonly HashSet<string> AnchorAllowedAttributes = new(StringComparer.OrdinalIgnoreCase)
     {
         "href", "title", "class", "style", "target", "rel"
     };
 
+    /// <summary>&lt;img&gt; 的属性白名单。</summary>
     private static readonly HashSet<string> ImageAllowedAttributes = new(StringComparer.OrdinalIgnoreCase)
     {
         "src", "alt", "title", "width", "height", "class", "style"
     };
 
+    /// <summary>&lt;iframe&gt; 的属性白名单。</summary>
     private static readonly HashSet<string> IframeAllowedAttributes = new(StringComparer.OrdinalIgnoreCase)
     {
         "src", "width", "height", "frameborder", "allow", "class", "style", "title"
     };
 
+    /// <summary>&lt;video&gt; / &lt;audio&gt; / &lt;source&gt; / &lt;track&gt; 共用属性白名单。</summary>
     private static readonly HashSet<string> MediaAllowedAttributes = new(StringComparer.OrdinalIgnoreCase)
     {
         "src", "width", "height", "controls", "autoplay", "loop", "muted", "preload", "class", "style", "title"
     };
 
+    /// <summary>
+    /// style 属性中允许的 CSS 键（仅保留无执行能力的视觉样式，禁止 expression、url 等）。
+    /// </summary>
     private static readonly HashSet<string> StyleAllowedProperties = new(StringComparer.OrdinalIgnoreCase)
     {
         "color", "background-color", "font-size", "font-weight",
         "font-style", "text-align", "text-decoration"
     };
 
+    /// <summary>
+    /// 显式危险属性集合（含能形成脚本回调、XBL 绑定等能力的属性名）。
+    /// </summary>
     private static readonly HashSet<string> DangerousAttributes = new(StringComparer.OrdinalIgnoreCase)
     {
         "xmlns", "xlink:href", "formaction", "form", "formmethod",
         "formtarget", "fscommand", "seeksegmenttime", "ping"
     };
 
-    // ============= 公共入口 =============
+    // ========== 公共入口方法 ==========
 
     /// <summary>
-    /// 使用指定等级清洗 HTML 文本。
+    /// 使用指定等级清理 HTML 文本。
+    /// 流程：多重实体解码 → 移除危险标签 → 状态机白名单过滤 → 伪协议归一化。
     /// </summary>
-    /// <param name="html">原始 HTML 字符串。</param>
-    /// <param name="level">清洗等级，默认 <see cref="SanitizerLevel.Balanced"/>。</param>
-    /// <returns>清洗后的安全 HTML。</returns>
+    /// <param name="html">原始 HTML 字符串（可能含恶意内容）。</param>
+    /// <param name="level">清理等级，默认 <see cref="SanitizerLevel.Balanced"/>。</param>
+    /// <returns>清理后的安全 HTML 字符串。</returns>
     public static string Sanitize(string html, SanitizerLevel level = SanitizerLevel.Balanced)
     {
         if (string.IsNullOrEmpty(html))
@@ -103,40 +125,32 @@ public static class HtmlSanitizerUtil
 
         var working = html;
 
-        // Step 1: 多重编码/解码循环防御 &lt;script&gt; 等绕过
+        // 步骤 1：多重实体解码循环（最多 5 次），防御双层编码绕过（如 &amp;lt;script&amp;gt;）
         working = DecodeLoop(working);
 
-        // Step 2: 移除 script / iframe 等危险标签 & 内容（先于白名单扫描运行，对内容也做一次兜底）
+        // 步骤 2：整体移除 script/iframe/form 等危险标签及其内容
         working = RemoveScriptTagsInternal(working);
 
-        // Step 3: 状态机扫描：基于白名单处理标签与属性
+        // 步骤 3：基于白名单进行标签/属性级状态机扫描与重写
         working = StateMachineSanitize(working, level);
 
-        // Step 4: 再次对残留的 javascript: / vbscript: 伪协议进行归一化
+        // 步骤 4：再次扫描 href/src，对残留的 javascript:/vbscript: 做兜底归一
         working = NormalizeProtocolInternal(working);
 
         return working;
     }
 
-    /// <summary>
-    /// 严格模式：仅保留纯文本（保留 &lt;br&gt; 与 &lt;p&gt;）。
-    /// </summary>
-    public static string SanitizeStrict(string html)
-    {
-        return Sanitize(html, SanitizerLevel.Strict);
-    }
+    /// <summary>严格模式清理（别名）。</summary>
+    public static string SanitizeStrict(string html) => Sanitize(html, SanitizerLevel.Strict);
+
+    /// <summary>均衡模式清理（别名）。</summary>
+    public static string SanitizeRich(string html) => Sanitize(html, SanitizerLevel.Balanced);
 
     /// <summary>
-    /// 富文本模式：保留常用格式化标签。
+    /// 整体移除 script/iframe/object/style 等危险标签及其内容（作为独立公开方法调用）。
     /// </summary>
-    public static string SanitizeRich(string html)
-    {
-        return Sanitize(html, SanitizerLevel.Balanced);
-    }
-
-    /// <summary>
-    /// 独立方法：移除 script / iframe / object / embed / style / link / meta 等危险标签及其内容。
-    /// </summary>
+    /// <param name="html">原始 HTML。</param>
+    /// <returns>移除了危险标签的文本。</returns>
     public static string RemoveScriptTags(string html)
     {
         if (string.IsNullOrEmpty(html))
@@ -145,8 +159,10 @@ public static class HtmlSanitizerUtil
     }
 
     /// <summary>
-    /// 独立方法：移除 onclick / onload / onmouseover 等事件处理属性。
+    /// 仅移除 onclick/onload/onmouseover 等事件处理程序，保留其它标签与属性。
     /// </summary>
+    /// <param name="html">原始 HTML。</param>
+    /// <returns>移除了事件处理程序的 HTML。</returns>
     public static string RemoveEventHandlers(string html)
     {
         if (string.IsNullOrEmpty(html))
@@ -155,8 +171,10 @@ public static class HtmlSanitizerUtil
     }
 
     /// <summary>
-    /// 独立方法：归一化伪协议，将 javascript: / vbscript: 等危险 URL 替换为 #。
+    /// 归一化伪协议：将 href/src 中的 javascript:/vbscript:/data: 等值替换为 #。
     /// </summary>
+    /// <param name="html">原始 HTML。</param>
+    /// <returns>协议安全后的 HTML。</returns>
     public static string NormalizeProtocol(string html)
     {
         if (string.IsNullOrEmpty(html))
@@ -164,11 +182,15 @@ public static class HtmlSanitizerUtil
         return NormalizeProtocolInternal(html);
     }
 
-    // ============= 核心：状态机扫描 =============
+    // ========== 核心：逐字符状态机扫描 ==========
 
     /// <summary>
-    /// 逐字符扫描的 HTML 标签解析器，非正则，避免 ReDoS。
+    /// 逐字符扫描并重建标签树，按白名单保留/丢弃标签、属性与 style。
     /// </summary>
+    /// <param name="html">输入 HTML。</param>
+    /// <param name="level">清理等级。</param>
+    /// <param name="onlyRemoveHandlers">true=仅移除事件处理程序，保留全部标签。</param>
+    /// <returns>清理后的 HTML。</returns>
     private static string StateMachineSanitize(string html, SanitizerLevel level, bool onlyRemoveHandlers = false)
     {
         var sb = new StringBuilder(html.Length);
@@ -181,17 +203,13 @@ public static class HtmlSanitizerUtil
 
             if (c == '<')
             {
-                // 尝试解析标签
-                int tagStart = i;
+                // 进入标签解析：寻找起始/结束与标签名
                 int j = i + 1;
-
-                // 跳过可选空白
                 while (j < n && char.IsWhiteSpace(html[j])) j++;
                 if (j >= n)
                 {
-                    // 不是完整标签，直接追加 '<' 并继续
-                    sb.Append('&');
-                    sb.Append("lt;");
+                    // 孤立 '<'：直接编码为文本实体
+                    sb.Append("&lt;");
                     i++;
                     continue;
                 }
@@ -199,38 +217,31 @@ public static class HtmlSanitizerUtil
                 bool isClosing = false;
                 if (html[j] == '/') { isClosing = true; j++; }
 
-                // 读取标签名：直到空白、> 或 /
                 int nameStart = j;
                 while (j < n && !char.IsWhiteSpace(html[j]) && html[j] != '>' && html[j] != '/')
                     j++;
 
                 if (j == nameStart)
                 {
-                    // 空标签名：编码为文本
-                    sb.Append('&');
-                    sb.Append("lt;");
+                    sb.Append("&lt;");
                     i++;
                     continue;
                 }
 
                 string tagName = html.Substring(nameStart, j - nameStart).Trim();
+                // 标签名仅允许字母/数字/'-'/':'，抑制任意自定义标签攻击
                 if (string.IsNullOrEmpty(tagName) || !IsValidTagName(tagName))
                 {
-                    sb.Append('&');
-                    sb.Append("lt;");
+                    sb.Append("&lt;");
                     i++;
                     continue;
                 }
 
-                // 寻找标签结束
+                // 寻找标签结束位置 '>'
                 bool selfClosing = false;
                 while (j < n && html[j] != '>')
                 {
-                    if (html[j] == '<')
-                    {
-                        // 异常的嵌套 '<'，放弃此标签
-                        break;
-                    }
+                    if (html[j] == '<') break; // 异常嵌套，放弃此标签
                     if (html[j] == '/' && j + 1 < n && html[j + 1] == '>')
                     {
                         selfClosing = true;
@@ -241,23 +252,21 @@ public static class HtmlSanitizerUtil
 
                 if (j >= n || html[j] != '>')
                 {
-                    // 未闭合的标签，编码为文本
-                    sb.Append('&');
-                    sb.Append("lt;");
+                    // 未闭合的标签，整个 '<' 编码为文本
+                    sb.Append("&lt;");
                     i++;
                     continue;
                 }
 
-                int tagEnd = j; // index of '>'
+                int tagEnd = j;
 
-                // 决定是否保留此标签
                 bool keepTag = onlyRemoveHandlers || IsTagAllowed(tagName, level);
 
                 if (keepTag && !onlyRemoveHandlers)
                 {
+                    // 在白名单内：重写属性，同时对 <a> 强制附加 target/rel
                     int attrStart = nameStart + tagName.Length;
                     int attrEnd = selfClosing ? tagEnd - 1 : tagEnd;
-
                     var processedAttrs = ProcessAttributes(tagName, html, attrStart, attrEnd, level);
 
                     sb.Append('<');
@@ -270,7 +279,8 @@ public static class HtmlSanitizerUtil
                         sb.Append(processedAttrs);
                     }
 
-                    // 为 <a> 强制补充 rel / target
+                    // 链接强制 target=_blank 且 rel=noopener noreferrer
+                    // 避免在新窗口中通过 window.opener 访问原窗口
                     if (string.Equals(tagName, "a", StringComparison.OrdinalIgnoreCase) && !isClosing)
                     {
                         bool hasTarget = ContainsAttribute(html, attrStart, attrEnd, "target");
@@ -278,10 +288,6 @@ public static class HtmlSanitizerUtil
                         if (!hasTarget)
                         {
                             sb.Append(" target=\"_blank\"");
-                        }
-                        else if (processedAttrs.Length == 0 || !processedAttrs.Contains("target="))
-                        {
-                            // processedAttrs 已经过滤出合法 target，这里只是保护
                         }
                         if (!hasRel || !ContainsRelNoopener(processedAttrs))
                         {
@@ -295,7 +301,7 @@ public static class HtmlSanitizerUtil
                 }
                 else if (onlyRemoveHandlers)
                 {
-                    // 仅移除事件处理：保留标签，但重写属性
+                    // 仅事件处理程序剥离模式：保留标签本身，重写属性
                     int attrStart = nameStart + tagName.Length;
                     int attrEnd = selfClosing ? tagEnd - 1 : tagEnd;
                     var processedAttrs = ProcessAttributes(tagName, html, attrStart, attrEnd, level, onlyRemoveHandlers: true);
@@ -314,11 +320,8 @@ public static class HtmlSanitizerUtil
                 }
                 else
                 {
-                    // 不在白名单：编码为文本
-                    sb.Append('&');
-                    sb.Append("lt;");
-                    // 保留原内容作为纯文本的一部分
-                    // （将 '<' 编码，后续字符作为普通文本追加）
+                    // 不在白名单：将 '<' 编码为文本，其内容作为普通文字继续
+                    sb.Append("&lt;");
                     i++;
                     continue;
                 }
@@ -327,7 +330,7 @@ public static class HtmlSanitizerUtil
             }
             else if (c == '&')
             {
-                // 保留 HTML 实体原样输出
+                // HTML 实体原样输出（解码由 DecodeLoop 完成）
                 sb.Append(c);
                 i++;
             }
@@ -341,21 +344,23 @@ public static class HtmlSanitizerUtil
         return sb.ToString();
     }
 
+    /// <summary>
+    /// 判断标签名在指定等级下是否被允许。
+    /// </summary>
     private static bool IsTagAllowed(string tagName, SanitizerLevel level)
     {
-        switch (level)
+        return level switch
         {
-            case SanitizerLevel.Strict:
-                return StrictTagWhitelist.Contains(tagName);
-            case SanitizerLevel.Balanced:
-                return BalancedTagWhitelist.Contains(tagName);
-            case SanitizerLevel.Relaxed:
-                return BalancedTagWhitelist.Contains(tagName) || RelaxedExtraTags.Contains(tagName);
-            default:
-                return false;
-        }
+            SanitizerLevel.Strict => StrictTagWhitelist.Contains(tagName),
+            SanitizerLevel.Balanced => BalancedTagWhitelist.Contains(tagName),
+            SanitizerLevel.Relaxed => BalancedTagWhitelist.Contains(tagName) || RelaxedExtraTags.Contains(tagName),
+            _ => false
+        };
     }
 
+    /// <summary>
+    /// 校验标签名合法性：仅允许字母/数字/'-'/':'（防止脚本、SVG 命名空间滥用等攻击）。
+    /// </summary>
     private static bool IsValidTagName(string name)
     {
         if (string.IsNullOrEmpty(name)) return false;
@@ -368,10 +373,10 @@ public static class HtmlSanitizerUtil
         return true;
     }
 
-    // ============= 属性解析 =============
+    // ========== 属性解析与规则 ==========
 
     /// <summary>
-    /// 扫描属性区间，按标签白名单规则重新生成安全的属性串。
+    /// 扫描 [attrStart, attrEnd) 区间内的属性串，按标签白名单规则重建安全属性串。
     /// </summary>
     private static string ProcessAttributes(string tagName, string html, int attrStart, int attrEnd, SanitizerLevel level, bool onlyRemoveHandlers = false)
     {
@@ -382,23 +387,22 @@ public static class HtmlSanitizerUtil
         int i = attrStart;
         int n = Math.Min(attrEnd, html.Length);
 
-        // 跳过标签名后面的空白，直接进入属性扫描
+        // 跳过标签名后面的空白
         while (i < n && char.IsWhiteSpace(html[i])) i++;
 
         while (i < n)
         {
-            // 跳过 '/' 自闭合符号
+            // 跳过自闭合符号 '/' 与连续空白
             if (html[i] == '/') { i++; continue; }
             if (char.IsWhiteSpace(html[i])) { i++; continue; }
 
-            // 读取属性名：直到 =、空白、/、或区间结束
+            // 读取属性名：直到 =、空白、/ 或区间结束
             int nameStart = i;
             while (i < n && html[i] != '=' && !char.IsWhiteSpace(html[i]) && html[i] != '/')
                 i++;
 
             if (i == nameStart)
             {
-                // 空属性名，跳过
                 if (i < n) i++;
                 continue;
             }
@@ -407,7 +411,7 @@ public static class HtmlSanitizerUtil
             if (string.IsNullOrEmpty(attrName))
                 continue;
 
-            // 跳过 '=' 与空白
+            // 读取 '=' 及其值（支持双引号、单引号、无引号三种书写形式）
             bool hasValue = false;
             string? attrValue = null;
             while (i < n && char.IsWhiteSpace(html[i])) i++;
@@ -442,11 +446,11 @@ public static class HtmlSanitizerUtil
                 }
             }
 
-            // --- 属性白名单判断 ---
+            // 属性白名单判定
             if (!IsAttributeAllowed(tagName, attrName, attrValue, level, onlyRemoveHandlers, out string? finalValue))
                 continue;
 
-            // 追加
+            // 追加安全属性
             if (sb.Length > 0)
                 sb.Append(' ');
             sb.Append(attrName.ToLowerInvariant());
@@ -462,28 +466,32 @@ public static class HtmlSanitizerUtil
         return sb.ToString();
     }
 
+    /// <summary>
+    /// 判断单个属性是否允许：事件处理程序一律禁止、显式危险属性禁止、
+    /// 按标签区分属性白名单、href/src 只允许 http(s)/相对路径、
+    /// style 只允许白名单内 CSS 键，并对值中的伪协议再做一轮防御。
+    /// </summary>
     private static bool IsAttributeAllowed(string tagName, string attrName, string? rawValue, SanitizerLevel level, bool onlyRemoveHandlers, out string? finalValue)
     {
         finalValue = rawValue;
 
-        // 1) on* 事件处理程序：永远禁止
+        // 1) on* 事件处理程序：永远禁止（onclick、onload、onmouseover 等）
         if (attrName.StartsWith("on", StringComparison.OrdinalIgnoreCase))
             return false;
 
-        // 2) 显式危险属性
+        // 2) 显式危险属性黑名单（xlink:href、formaction、ping 等）
         if (DangerousAttributes.Contains(attrName))
             return false;
 
-        // 3) 若是仅移除事件处理模式：到这里就通过
+        // 3) 仅移除事件处理程序模式：此处即可放行（但仍然对伪协议防御）
         if (onlyRemoveHandlers)
         {
-            // 仍然防御：如果值是 javascript: 协议则拒绝
             if (rawValue != null && ContainsDangerousProtocol(rawValue))
                 return false;
             return true;
         }
 
-        // 4) 按标签决定属性是否许可
+        // 4) 按标签选择属性白名单
         HashSet<string>? allowedAttrs = null;
         if (string.Equals(tagName, "a", StringComparison.OrdinalIgnoreCase))
             allowedAttrs = AnchorAllowedAttributes;
@@ -502,7 +510,7 @@ public static class HtmlSanitizerUtil
         if (!allowedAttrs.Contains(attrName))
             return false;
 
-        // 5) href / src 值安全检查
+        // 5) href/src 只允许 http(s) 绝对 URL 或相对路径，禁止伪协议
         if (string.Equals(attrName, "href", StringComparison.OrdinalIgnoreCase)
             || string.Equals(attrName, "src", StringComparison.OrdinalIgnoreCase))
         {
@@ -510,7 +518,6 @@ public static class HtmlSanitizerUtil
                 return false;
 
             string value = rawValue.Trim();
-            // 允许 http:// / https:// / / (相对路径)
             if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
                 || value.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
                 || value.StartsWith("/", StringComparison.Ordinal))
@@ -521,7 +528,7 @@ public static class HtmlSanitizerUtil
             return false;
         }
 
-        // 6) target 属性：仅允许 _blank（对 <a>）
+        // 6) target 属性：仅允许 _blank
         if (string.Equals(attrName, "target", StringComparison.OrdinalIgnoreCase))
         {
             if (string.Equals(rawValue, "_blank", StringComparison.OrdinalIgnoreCase))
@@ -539,7 +546,7 @@ public static class HtmlSanitizerUtil
             return true;
         }
 
-        // 8) style 属性：仅允许特定 CSS 键
+        // 8) style 属性：按 CSS 键白名单过滤，禁止 expression/url/javascript 等
         if (string.Equals(attrName, "style", StringComparison.OrdinalIgnoreCase))
         {
             var cleaned = FilterStyleValue(rawValue);
@@ -549,7 +556,7 @@ public static class HtmlSanitizerUtil
             return true;
         }
 
-        // 9) 值中包含 javascript: 的一律禁止（防御性）
+        // 9) 值中包含 javascript:/vbscript: 的一律禁止（兜底防御）
         if (rawValue != null && ContainsDangerousProtocol(rawValue))
             return false;
 
@@ -557,6 +564,9 @@ public static class HtmlSanitizerUtil
         return true;
     }
 
+    /// <summary>
+    /// 过滤 style 属性值：按 CSS 键白名单保留安全的视觉声明，并对值中的危险模式过滤。
+    /// </summary>
     private static string? FilterStyleValue(string? rawValue)
     {
         if (string.IsNullOrWhiteSpace(rawValue))
@@ -577,8 +587,7 @@ public static class HtmlSanitizerUtil
                 continue;
             if (!StyleAllowedProperties.Contains(key))
                 continue;
-
-            // 防御：值中不能包含 expression、url、javascript 等
+            // 禁止包含 expression、url、javascript、data:、moz-binding、behavior 等执行能力
             if (ContainsStyleDangerousValue(value))
                 continue;
 
@@ -591,6 +600,9 @@ public static class HtmlSanitizerUtil
         return sb.Length == 0 ? null : sb.ToString();
     }
 
+    /// <summary>
+    /// 判断 style 值中是否存在危险关键字（expression、url、javascript 等）。
+    /// </summary>
     private static bool ContainsStyleDangerousValue(string value)
     {
         if (string.IsNullOrEmpty(value)) return false;
@@ -604,6 +616,10 @@ public static class HtmlSanitizerUtil
             || v.Contains("behavior");
     }
 
+    /// <summary>
+    /// 判断字符串中是否包含 javascript:/vbscript:/data: 等危险伪协议。
+    /// 去除空格与制表符以防御 "java script:" 这种插入空白的绕过。
+    /// </summary>
     private static bool ContainsDangerousProtocol(string value)
     {
         if (string.IsNullOrWhiteSpace(value)) return false;
@@ -615,10 +631,10 @@ public static class HtmlSanitizerUtil
             || v.Contains("vbscript:");
     }
 
-    // ============= 辅助 =============
+    // ========== 辅助工具 ==========
 
     /// <summary>
-    /// 识别 raw 属性文本中是否包含指定属性（仅用于 <a> 的 target/rel 判断）。
+    /// 判断原属性区间中是否包含指定属性名（用于 <a> 的 target/rel 强制补充决策）。
     /// </summary>
     private static bool ContainsAttribute(string html, int start, int end, string attrName)
     {
@@ -657,10 +673,12 @@ public static class HtmlSanitizerUtil
         return false;
     }
 
+    /// <summary>
+    /// 判断已处理后的属性串中是否已包含 rel="noopener noreferrer"。
+    /// </summary>
     private static bool ContainsRelNoopener(string attrsText)
     {
         if (string.IsNullOrWhiteSpace(attrsText)) return false;
-        // 简单扫描：寻找 rel="..." 中是否包含 noopener + noreferrer
         int idx = attrsText.IndexOf("rel", StringComparison.OrdinalIgnoreCase);
         if (idx < 0) return false;
         int eq = attrsText.IndexOf('=', idx);
@@ -677,6 +695,9 @@ public static class HtmlSanitizerUtil
             && v.Contains("noreferrer", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// 对属性值进行 HTML 编码：转义双引号、与号、尖括号，保证属性解析安全。
+    /// </summary>
     private static string HtmlEncodeAttributeValue(string value)
     {
         if (string.IsNullOrEmpty(value)) return value;
@@ -696,11 +717,15 @@ public static class HtmlSanitizerUtil
         return sb.ToString();
     }
 
-    // ============= 脚本标签与伪协议清理 =============
+    // ========== 脚本标签与伪协议整体清理 ==========
 
+    /// <summary>
+    /// 整体移除 script/iframe/object/form/input 等危险标签及其内部内容，
+    /// 不进入后续白名单扫描（用于双重防御）。
+    /// </summary>
     private static string RemoveScriptTagsInternal(string html)
     {
-        // 按标签名完整移除（含内容）的危险标签集合
+        // 危险标签集合：含脚本、外嵌资源、文档结构与表单元素
         var dangerous = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "script", "noscript", "style", "link", "meta", "base",
@@ -731,7 +756,6 @@ public static class HtmlSanitizerUtil
                     continue;
                 }
                 string tagName = html.Substring(nameStart, j - nameStart).Trim();
-                // 找 '>'
                 while (j < n && html[j] != '>') j++;
                 if (j >= n)
                 {
@@ -742,10 +766,9 @@ public static class HtmlSanitizerUtil
 
                 if (!string.IsNullOrEmpty(tagName) && dangerous.Contains(tagName))
                 {
-                    // 若是开标签，跳到对应闭合标签
+                    // 开标签：跳到对应闭合标签
                     if (!isClosing)
                     {
-                        // 跳到内容结尾（下一个 </tagName>）
                         string closeTag = "</" + tagName;
                         int closeIdx = html.IndexOf(closeTag, j + 1, StringComparison.OrdinalIgnoreCase);
                         if (closeIdx > 0)
@@ -758,7 +781,7 @@ public static class HtmlSanitizerUtil
                         }
                         else
                         {
-                            // 未找到闭合：跳到文档末尾
+                            // 未找到闭合：跳到文档末尾（保守策略）
                             i = html.Length;
                         }
                     }
@@ -769,7 +792,7 @@ public static class HtmlSanitizerUtil
                     continue;
                 }
 
-                // 非危险标签：原样追加
+                // 非危险标签：原样追加标签区间
                 sb.Append(html.AsSpan(i, j - i + 1));
                 i = j + 1;
             }
@@ -783,9 +806,12 @@ public static class HtmlSanitizerUtil
         return sb.ToString();
     }
 
+    /// <summary>
+    /// 伪协议归一化：针对 state machine 之后可能残留的属性再次扫描，
+    /// 将所有 href/src 中含 javascript:/vbscript:/data: 的值替换为 #。
+    /// </summary>
     private static string NormalizeProtocolInternal(string html)
     {
-        // 扫描所有 href / src，将危险协议替换为 #（针对 state machine 遗漏的双写情况做兜底）
         var sb = new StringBuilder(html.Length);
         int i = 0;
         int n = html.Length;
@@ -798,12 +824,10 @@ public static class HtmlSanitizerUtil
                 int j = i + 1;
                 while (j < n && char.IsWhiteSpace(html[j])) j++;
                 if (j < n && html[j] == '/') j++;
-                int nameStart = j;
                 while (j < n && !char.IsWhiteSpace(html[j]) && html[j] != '>' && html[j] != '/') j++;
                 while (j < n && html[j] != '>') j++;
                 if (j >= n) { sb.Append(c); i++; continue; }
 
-                // 处理标签区间：扫描属性中的 href / src 值
                 string segment = html.Substring(tagStart, j - tagStart + 1);
                 segment = SanitizeProtocolInTagSegment(segment);
                 sb.Append(segment);
@@ -818,9 +842,11 @@ public static class HtmlSanitizerUtil
         return sb.ToString();
     }
 
+    /// <summary>
+    /// 在单个标签区间内扫描 href/src 属性并替换危险协议值。
+    /// </summary>
     private static string SanitizeProtocolInTagSegment(string segment)
     {
-        // 简单的属性内协议替换：查找 href="..." src="..." href='...' src='...' 并替换危险协议值
         var patterns = new[] { "href", "src" };
         string result = segment;
         foreach (var p in patterns)
@@ -830,9 +856,11 @@ public static class HtmlSanitizerUtil
         return result;
     }
 
+    /// <summary>
+    /// 将指定属性名（href/src）下的值中如含危险协议，则值整体替换为 #。
+    /// </summary>
     private static string ReplaceProtocol(string text, string attrName)
     {
-        // 寻找 attrName="..." 或 attrName='...'
         var sb = new StringBuilder(text.Length);
         int i = 0;
         int n = text.Length;
@@ -846,7 +874,6 @@ public static class HtmlSanitizerUtil
             }
             sb.Append(text.AsSpan(i, idx - i));
             i = idx;
-            // 找 '='
             int eq = text.IndexOf('=', i);
             if (eq < 0)
             {
@@ -855,7 +882,7 @@ public static class HtmlSanitizerUtil
             }
             sb.Append(text.AsSpan(i, eq - i + 1));
             i = eq + 1;
-            // 跳过空白
+            // 跳过 = 后的空白
             while (i < n && char.IsWhiteSpace(text[i])) { sb.Append(text[i]); i++; }
             if (i < n && (text[i] == '"' || text[i] == '\''))
             {
@@ -875,6 +902,9 @@ public static class HtmlSanitizerUtil
         return sb.ToString();
     }
 
+    /// <summary>
+    /// 从文本中从 startIndex 起寻找属性名「attrName」的起始下标（大小写不敏感，支持属性名与 '=' 之间存在空白）。
+    /// </summary>
     private static int IndexOfAttrName(string text, string attrName, int startIndex)
     {
         for (int i = startIndex; i + attrName.Length <= text.Length; i++)
@@ -884,7 +914,7 @@ public static class HtmlSanitizerUtil
                 int after = i + attrName.Length;
                 if (after < text.Length && text[after] == '=')
                     return i;
-                // 或空白后 =
+                // 允许属性名与 = 之间存在空白（兼容常见的宽松书写）
                 int k = after;
                 while (k < text.Length && char.IsWhiteSpace(text[k])) k++;
                 if (k < text.Length && text[k] == '=')
@@ -894,8 +924,12 @@ public static class HtmlSanitizerUtil
         return -1;
     }
 
-    // ============= 多重编码/解码循环防御 =============
+    // ========== 多重 HTML 实体解码循环防御 ==========
 
+    /// <summary>
+    /// 对输入进行多次 HTML 实体解码（最多 5 次），直到结果不再变化，
+    /// 以防御 "&amp;lt;script&amp;gt;" 这样的双层编码绕过攻击。
+    /// </summary>
     private static string DecodeLoop(string html)
     {
         string current = html;
@@ -910,10 +944,12 @@ public static class HtmlSanitizerUtil
         return current;
     }
 
+    /// <summary>
+    /// 手写简化版 HTML 实体解码：处理常见命名实体（amp/lt/gt/quot/apos/nbsp）
+    /// 以及数字实体 &#x / &#，避免引入 System.Web 依赖。
+    /// </summary>
     private static string WebUtilityHtmlDecode(string value)
     {
-        // 手写简单 HTML 实体解码，避免引入 System.Web；
-        // 仅处理常见命名实体与数字实体 &#x / &#
         if (string.IsNullOrEmpty(value))
             return value;
 
@@ -926,11 +962,11 @@ public static class HtmlSanitizerUtil
             if (c == '&')
             {
                 int end = value.IndexOf(';', i);
+                // 限制实体长度（最多 12 字符），避免误匹配长文本
                 if (end > 0 && end - i <= 12)
                 {
                     string entity = value.Substring(i + 1, end - i - 1);
-                    char decoded;
-                    if (TryDecodeEntity(entity, out decoded))
+                    if (TryDecodeEntity(entity, out char decoded))
                     {
                         sb.Append(decoded);
                         i = end + 1;
@@ -949,6 +985,10 @@ public static class HtmlSanitizerUtil
         return sb.ToString();
     }
 
+    /// <summary>
+    /// 尝试解码单个 HTML 实体字符串（不含前后的 & 与 ;）。
+    /// 支持常见命名实体及数字实体（&#123; / &#x1F;）。
+    /// </summary>
     private static bool TryDecodeEntity(string entity, out char value)
     {
         value = '\0';
@@ -962,6 +1002,7 @@ public static class HtmlSanitizerUtil
             case "apos": value = '\''; return true;
             case "nbsp": value = '\u00A0'; return true;
         }
+        // &#xHHHH; 十六进制
         if (entity.StartsWith("#x", StringComparison.OrdinalIgnoreCase))
         {
             string hex = entity.Substring(2);
@@ -973,6 +1014,7 @@ public static class HtmlSanitizerUtil
                 return true;
             }
         }
+        // &#123; 十进制
         else if (entity.StartsWith("#", StringComparison.Ordinal))
         {
             string num = entity.Substring(1);

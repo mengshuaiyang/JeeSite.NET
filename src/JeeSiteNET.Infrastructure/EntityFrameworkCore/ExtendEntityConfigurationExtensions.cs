@@ -4,8 +4,16 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace JeeSiteNET.Infrastructure.EntityFrameworkCore;
 
+/// <summary>
+/// 实体配置扩展：为 ICorpEntity / IExtendEntity 提供字段长度与类型的便捷配置方法
+/// </summary>
 public static class ExtendEntityConfigurationExtensions
 {
+    /// <summary>
+    /// 配置 ICorpEntity 的 CorpCode（varchar 100）和 CorpName（varchar 200）字段
+    /// </summary>
+    /// <typeparam name="T">实现 ICorpEntity 的实体类型</typeparam>
+    /// <param name="builder">实体类型构建器</param>
     public static void ConfigureCorpFields<T>(this EntityTypeBuilder<T> builder)
         where T : class, ICorpEntity
     {
@@ -13,6 +21,11 @@ public static class ExtendEntityConfigurationExtensions
         builder.Property(e => e.CorpName).HasMaxLength(200);
     }
 
+    /// <summary>
+    /// 配置 IExtendEntity 的扩展字段（S1-S8 varchar 500；I1-I4 int；F1-F4 decimal(18,4)；D1-D4 datetime；ExtendJson）
+    /// </summary>
+    /// <typeparam name="T">实现 IExtendEntity 的实体类型</typeparam>
+    /// <param name="builder">实体类型构建器</param>
     public static void ConfigureExtendFields<T>(this EntityTypeBuilder<T> builder)
         where T : class, IExtendEntity
     {

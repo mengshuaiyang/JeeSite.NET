@@ -1,10 +1,14 @@
+// 定义 JeeSiteNET.Modules.CodeGen.Application.Services 命名空间
 namespace JeeSiteNET.Modules.CodeGen.Application.Services;
 
+// 定义class CodeGenTemplates
 public static class CodeGenTemplates
 {
     public const string Entity = @"using JeeSiteNET.Core;
+    // 引入 {{ module_namespace }}.Domain.Entities 命名空间
 using {{ module_namespace }}.Domain.Entities;
 
+// 定义  命名空间
 namespace {{ module_namespace }}.Domain.Entities;
 
 public class {{ class_name }} : {{ base_class }}
@@ -15,13 +19,17 @@ public class {{ class_name }} : {{ base_class }}
 }";
 
     public const string Configuration = @"using {{ module_namespace }}.Domain.Entities;
+    // 引入 Microsoft.EntityFrameworkCore 命名空间
 using Microsoft.EntityFrameworkCore;
+    // 引入 Microsoft.EntityFrameworkCore.Metadata.Builders 命名空间
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
+// 定义  命名空间
 namespace {{ module_namespace }}.Infrastructure.EntityConfigurations;
 
 public class {{ class_name }}Configuration : IEntityTypeConfiguration<{{ class_name }}>
 {
+    // 方法 Configure
     public void Configure(EntityTypeBuilder<{{ class_name }}> builder)
     {
         builder.ToTable(""{{ table_name }}"");
@@ -40,6 +48,7 @@ public class {{ class_name }}Configuration : IEntityTypeConfiguration<{{ class_n
 
     public const string TreeEntity = @"using JeeSiteNET.Core;
 
+// 定义  命名空间
 namespace {{ module_namespace }}.Domain.Entities;
 
 public class {{ class_name }} : TreeEntity
@@ -52,13 +61,17 @@ public class {{ class_name }} : TreeEntity
 }";
 
     public const string TreeConfiguration = @"using {{ module_namespace }}.Domain.Entities;
+    // 引入 Microsoft.EntityFrameworkCore 命名空间
 using Microsoft.EntityFrameworkCore;
+    // 引入 Microsoft.EntityFrameworkCore.Metadata.Builders 命名空间
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
+// 定义  命名空间
 namespace {{ module_namespace }}.Infrastructure.EntityConfigurations;
 
 public class {{ class_name }}Configuration : IEntityTypeConfiguration<{{ class_name }}>
 {
+    // 方法 Configure
     public void Configure(EntityTypeBuilder<{{ class_name }}> builder)
     {
         builder.ToTable(""{{ table_name }}"");
@@ -80,40 +93,57 @@ public class {{ class_name }}Configuration : IEntityTypeConfiguration<{{ class_n
 }";
 
     public const string RepositoryInterface = @"using JeeSiteNET.Core;
+    // 引入 {{ module_namespace }}.Domain.Entities 命名空间
 using {{ module_namespace }}.Domain.Entities;
 
+// 定义  命名空间
 namespace {{ module_namespace }}.Domain.Interfaces;
 
+// 定义接口 I
 public interface I{{ class_name }}Repository : IRepository<{{ class_name }}>
 {
 }";
 
     public const string Repository = @"using JeeSiteNET.Core;
+    // 引入 {{ module_namespace }}.Domain.Entities 命名空间
 using {{ module_namespace }}.Domain.Entities;
+    // 引入 {{ module_namespace }}.Domain.Interfaces 命名空间
 using {{ module_namespace }}.Domain.Interfaces;
+    // 引入 JeeSiteNET.Infrastructure.EntityFrameworkCore 命名空间
 using JeeSiteNET.Infrastructure.EntityFrameworkCore;
+    // 引入 Microsoft.EntityFrameworkCore 命名空间
 using Microsoft.EntityFrameworkCore;
 
+// 定义  命名空间
 namespace {{ module_namespace }}.Infrastructure.Repositories;
 
 public class {{ class_name }}Repository : I{{ class_name }}Repository
 {
+    // 字段 _db
     private readonly JeeSiteDbContext _db;
     public {{ class_name }}Repository(JeeSiteDbContext db) => _db = db;
     public IQueryable<{{ class_name }}> Query() => _db.Set<{{ class_name }}>().AsNoTracking();
     public async Task<{{ class_name }}?> GetAsync(object id) => await _db.Set<{{ class_name }}>().FindAsync(id);
     public async Task<List<{{ class_name }}>> FindListAsync() => await _db.Set<{{ class_name }}>().AsNoTracking().ToListAsync();
+    // 方法 AddAsync
     public async Task AddAsync({{ class_name }} entity) { _db.Set<{{ class_name }}>().Add(entity); await _db.SaveChangesAsync(); }
+    // 方法 UpdateAsync
     public async Task UpdateAsync({{ class_name }} entity) { _db.Set<{{ class_name }}>().Update(entity); await _db.SaveChangesAsync(); }
+    // 方法 DeleteAsync
     public async Task DeleteAsync({{ class_name }} entity) { _db.Set<{{ class_name }}>().Remove(entity); await _db.SaveChangesAsync(); }
 }";
 
     public const string Service = @"using JeeSiteNET.Core;
+    // 引入 {{ module_namespace }}.Application.DTOs 命名空间
 using {{ module_namespace }}.Application.DTOs;
+    // 引入 {{ module_namespace }}.Domain.Entities 命名空间
 using {{ module_namespace }}.Domain.Entities;
+    // 引入 {{ module_namespace }}.Domain.Interfaces 命名空间
 using {{ module_namespace }}.Domain.Interfaces;
+    // 引入 Microsoft.EntityFrameworkCore 命名空间
 using Microsoft.EntityFrameworkCore;
 
+// 定义  命名空间
 namespace {{ module_namespace }}.Application.Services;
 
 public class {{ class_name }}Service
@@ -121,12 +151,14 @@ public class {{ class_name }}Service
     private readonly I{{ class_name }}Repository _repository;
     public {{ class_name }}Service(I{{ class_name }}Repository repository) => _repository = repository;
 
+    // 方法 GetAsync
     public async Task<{{ class_name }}Dto?> GetAsync({{ pk_net_type }} id)
     {
         var entity = await _repository.GetAsync(id);
         return entity == null ? null : MapToDto(entity);
     }
 
+    // 方法 FindPageAsync
     public async Task<PageResult<{{ class_name }}Dto>> FindPageAsync(PageRequest<{{ class_name }}> request)
     {
         var query = _repository.Query().OrderBy(e => e.{{ pk_name }});
@@ -135,6 +167,7 @@ public class {{ class_name }}Service
         return new PageResult<{{ class_name }}Dto> { List = list.Select(MapToDto).ToList(), Total = total, PageNo = request.PageNo, PageSize = request.PageSize };
     }
 
+    // 方法 SaveAsync
     public async Task<ApiResult> SaveAsync({{ class_name }}SaveDto dto)
     {
         var now = DateTime.Now;
@@ -164,6 +197,7 @@ public class {{ class_name }}Service
         return ApiResult.Ok(MapToDto(entity));
     }
 
+    // 方法 DeleteAsync
     public async Task<ApiResult> DeleteAsync({{ pk_net_type }} id)
     {
         var entity = await _repository.GetAsync(id);
@@ -172,6 +206,7 @@ public class {{ class_name }}Service
         return ApiResult.Ok();
     }
 
+    // 方法 MapToDto
     private static {{ class_name }}Dto MapToDto({{ class_name }} e) => new()
     {
 {{ for col in columns -}}
@@ -183,11 +218,16 @@ public class {{ class_name }}Service
 }";
 
     public const string TreeService = @"using JeeSiteNET.Core;
+    // 引入 {{ module_namespace }}.Application.DTOs 命名空间
 using {{ module_namespace }}.Application.DTOs;
+    // 引入 {{ module_namespace }}.Domain.Entities 命名空间
 using {{ module_namespace }}.Domain.Entities;
+    // 引入 {{ module_namespace }}.Domain.Interfaces 命名空间
 using {{ module_namespace }}.Domain.Interfaces;
+    // 引入 Microsoft.EntityFrameworkCore 命名空间
 using Microsoft.EntityFrameworkCore;
 
+// 定义  命名空间
 namespace {{ module_namespace }}.Application.Services;
 
 public class {{ class_name }}Service
@@ -195,18 +235,21 @@ public class {{ class_name }}Service
     private readonly I{{ class_name }}Repository _repository;
     public {{ class_name }}Service(I{{ class_name }}Repository repository) => _repository = repository;
 
+    // 方法 GetTreeAsync
     public async Task<List<{{ class_name }}Dto>> GetTreeAsync()
     {
         var list = await _repository.Query().OrderBy(e => e.TreeSort).ToListAsync();
         return list.Select(MapToDto).ToList();
     }
 
+    // 方法 GetAsync
     public async Task<{{ class_name }}Dto?> GetAsync({{ pk_net_type }} id)
     {
         var entity = await _repository.GetAsync(id);
         return entity == null ? null : MapToDto(entity);
     }
 
+    // 方法 SaveAsync
     public async Task<ApiResult> SaveAsync({{ class_name }}SaveDto dto)
     {
         var now = DateTime.Now;
@@ -236,6 +279,7 @@ public class {{ class_name }}Service
         return ApiResult.Ok(MapToDto(entity));
     }
 
+    // 方法 DeleteAsync
     public async Task<ApiResult> DeleteAsync({{ pk_net_type }} id)
     {
         var entity = await _repository.GetAsync(id);
@@ -244,6 +288,7 @@ public class {{ class_name }}Service
         return ApiResult.Ok();
     }
 
+    // 方法 MapToDto
     private static {{ class_name }}Dto MapToDto({{ class_name }} e) => new()
     {
 {{ for col in columns -}}
@@ -299,12 +344,18 @@ public class {{ class_name }}SaveDto
 }";
 
     public const string Controller = @"using JeeSiteNET.Core;
+    // 引入 {{ module_namespace }}.Application.DTOs 命名空间
 using {{ module_namespace }}.Application.DTOs;
+    // 引入 {{ module_namespace }}.Application.Services 命名空间
 using {{ module_namespace }}.Application.Services;
+    // 引入 {{ module_namespace }}.Domain.Entities 命名空间
 using {{ module_namespace }}.Domain.Entities;
+    // 引入 JeeSiteNET.Core.Security 命名空间
 using JeeSiteNET.Core.Security;
+    // 引入 Microsoft.AspNetCore.Mvc 命名空间
 using Microsoft.AspNetCore.Mvc;
 
+// 定义  命名空间
 namespace {{ module_namespace }}.Controllers;
 
 [ApiController]
@@ -321,6 +372,7 @@ public class {{ class_name }}Controller : ControllerBase
 
     [HttpGet(""get"")]
     [Permission(""{{ permission_prefix }}:view"")]
+    // 方法 Get
     public async Task<ApiResult<{{ class_name }}Dto?>> Get([FromQuery] {{ pk_net_type }} id)
     {
         var dto = await _service.GetAsync(id);
@@ -336,14 +388,20 @@ public class {{ class_name }}Controller : ControllerBase
     public async Task<ApiResult> Delete([FromBody] Delete{{ class_name }}Request request) => await _service.DeleteAsync(request.Id);
 }
 
+// 定义class Delete
 public class Delete{{ class_name }}Request { public {{ pk_net_type }} Id { get; set; } = default!; }";
 
     public const string TreeController = @"using JeeSiteNET.Core;
+    // 引入 {{ module_namespace }}.Application.DTOs 命名空间
 using {{ module_namespace }}.Application.DTOs;
+    // 引入 {{ module_namespace }}.Application.Services 命名空间
 using {{ module_namespace }}.Application.Services;
+    // 引入 JeeSiteNET.Core.Security 命名空间
 using JeeSiteNET.Core.Security;
+    // 引入 Microsoft.AspNetCore.Mvc 命名空间
 using Microsoft.AspNetCore.Mvc;
 
+// 定义  命名空间
 namespace {{ module_namespace }}.Controllers;
 
 [ApiController]
@@ -355,11 +413,13 @@ public class {{ class_name }}Controller : ControllerBase
 
     [HttpGet(""tree"")]
     [Permission(""{{ permission_prefix }}:list"")]
+    // 方法 Tree
     public async Task<ApiResult<List<{{ class_name }}Dto>>> Tree()
         => ApiResult<List<{{ class_name }}Dto>>.Ok(await _service.GetTreeAsync());
 
     [HttpGet(""get"")]
     [Permission(""{{ permission_prefix }}:view"")]
+    // 方法 Get
     public async Task<ApiResult<{{ class_name }}Dto?>> Get([FromQuery] {{ pk_net_type }} id)
     {
         var dto = await _service.GetAsync(id);
@@ -375,14 +435,20 @@ public class {{ class_name }}Controller : ControllerBase
     public async Task<ApiResult> Delete([FromBody] Delete{{ class_name }}Request request) => await _service.DeleteAsync(request.Id);
 }
 
+// 定义class Delete
 public class Delete{{ class_name }}Request { public string Id { get; set; } = string.Empty; }";
 
     public const string QueryService = @"using JeeSiteNET.Core;
+    // 引入 {{ module_namespace }}.Application.DTOs 命名空间
 using {{ module_namespace }}.Application.DTOs;
+    // 引入 {{ module_namespace }}.Domain.Entities 命名空间
 using {{ module_namespace }}.Domain.Entities;
+    // 引入 {{ module_namespace }}.Domain.Interfaces 命名空间
 using {{ module_namespace }}.Domain.Interfaces;
+    // 引入 Microsoft.EntityFrameworkCore 命名空间
 using Microsoft.EntityFrameworkCore;
 
+// 定义  命名空间
 namespace {{ module_namespace }}.Application.Services;
 
 public class {{ class_name }}Service
@@ -390,12 +456,14 @@ public class {{ class_name }}Service
     private readonly I{{ class_name }}Repository _repository;
     public {{ class_name }}Service(I{{ class_name }}Repository repository) => _repository = repository;
 
+    // 方法 GetAsync
     public async Task<{{ class_name }}Dto?> GetAsync({{ pk_net_type }} id)
     {
         var entity = await _repository.GetAsync(id);
         return entity == null ? null : MapToDto(entity);
     }
 
+    // 方法 FindPageAsync
     public async Task<PageResult<{{ class_name }}Dto>> FindPageAsync(PageRequest<{{ class_name }}> request)
     {
         var query = _repository.Query().OrderBy(e => e.{{ pk_name }});
@@ -404,6 +472,7 @@ public class {{ class_name }}Service
         return new PageResult<{{ class_name }}Dto> { List = list.Select(MapToDto).ToList(), Total = total, PageNo = request.PageNo, PageSize = request.PageSize };
     }
 
+    // 方法 MapToDto
     private static {{ class_name }}Dto MapToDto({{ class_name }} e) => new()
     {
 {{ for col in columns -}}
@@ -415,12 +484,18 @@ public class {{ class_name }}Service
 }";
 
     public const string QueryController = @"using JeeSiteNET.Core;
+    // 引入 {{ module_namespace }}.Application.DTOs 命名空间
 using {{ module_namespace }}.Application.DTOs;
+    // 引入 JeeSiteNET.Modules.{{ module_code }}.Application.Services 命名空间
 using JeeSiteNET.Modules.{{ module_code }}.Application.Services;
+    // 引入 JeeSiteNET.Modules.{{ module_code }}.Domain.Entities 命名空间
 using JeeSiteNET.Modules.{{ module_code }}.Domain.Entities;
+    // 引入 JeeSiteNET.Core.Security 命名空间
 using JeeSiteNET.Core.Security;
+    // 引入 Microsoft.AspNetCore.Mvc 命名空间
 using Microsoft.AspNetCore.Mvc;
 
+// 定义  命名空间
 namespace {{ module_namespace }}.Controllers;
 
 [ApiController]
@@ -437,6 +512,7 @@ public class {{ class_name }}Controller : ControllerBase
 
     [HttpGet(""get"")]
     [Permission(""{{ permission_prefix }}:view"")]
+    // 方法 Get
     public async Task<ApiResult<{{ class_name }}Dto?>> Get([FromQuery] {{ pk_net_type }} id)
     {
         var dto = await _service.GetAsync(id);
@@ -445,16 +521,22 @@ public class {{ class_name }}Controller : ControllerBase
 }";
 
     public const string ModuleInstaller = @"using {{ module_namespace }}.Application.Services;
+    // 引入 {{ module_namespace }}.Domain.Interfaces 命名空间
 using {{ module_namespace }}.Domain.Interfaces;
+    // 引入 {{ module_namespace }}.Infrastructure.Repositories 命名空间
 using {{ module_namespace }}.Infrastructure.Repositories;
+    // 引入 Microsoft.Extensions.Configuration 命名空间
 using Microsoft.Extensions.Configuration;
+    // 引入 Microsoft.Extensions.DependencyInjection 命名空间
 using Microsoft.Extensions.DependencyInjection;
 
+// 定义  命名空间
 namespace {{ module_namespace }};
 
 [ModuleDescription(Code = ""{{ module_code }}"", Name = ""{{ function_name }}"", Version = ""1.0.0"")]
 public class {{ class_name }}ModuleInstaller : IModuleInstaller
 {
+    // 方法 ConfigureServices
     public void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<I{{ class_name }}Repository, {{ class_name }}Repository>();

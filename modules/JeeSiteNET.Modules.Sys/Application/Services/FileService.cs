@@ -9,6 +9,7 @@ using System.Security.Cryptography;
 
 namespace JeeSiteNET.Modules.Sys.Application.Services;
 
+/// <summary>文件服务，负责文件上传/下载/删除，集成 MD5 秒传、文件内容签名校验和路径遍历防御。</summary>
 public class FileService
 {
     private readonly IFileEntityRepository _fileEntityRepo;
@@ -16,6 +17,7 @@ public class FileService
     private readonly IFileStorageProvider _storage;
     private readonly ICurrentUser _currentUser;
 
+    /// <summary>依赖注入构造函数。</summary>
     public FileService(
         IFileEntityRepository fileEntityRepo,
         IFileUploadRepository fileUploadRepo,
@@ -28,6 +30,11 @@ public class FileService
         _currentUser = currentUser;
     }
 
+    /// <summary>上传单个文件（支持 MD5 秒传 + 三层安全校验）。</summary>
+    /// <param name="file">上传的文件流。</param>
+    /// <param name="bizType">业务类型（可选，用于文件归类）。</param>
+    /// <param name="bizKey">业务 Key（可选，关联具体业务记录）。</param>
+    /// <returns>上传结果（含文件访问 URL）。</returns>
     public async Task<ApiResult<FileUploadResult>> UploadAsync(IFormFile file, string? bizType = null, string? bizKey = null)
     {
         if (file == null || file.Length == 0)
@@ -64,6 +71,7 @@ public class FileService
 
         if (existing != null)
         {
+            // MD5 命中已存在文件 → 秒传，无需重复落盘
             fileId = existing.FileId;
             filePath = existing.FilePath;
         }
@@ -112,6 +120,9 @@ public class FileService
         });
     }
 
+    /// <summary>根据 UploadId 获取下载信息（流 + 类型 + 原始文件名）。</summary>
+    /// <param name="uploadId">上传记录 ID。</param>
+    /// <returns>下载结果，不存在时返回 null。</returns>
     public async Task<FileDownloadResult?> GetDownloadAsync(string uploadId)
     {
         var upload = await _fileUploadRepo.GetAsync(uploadId);
@@ -131,6 +142,10 @@ public class FileService
         };
     }
 
+    /// <summary>按业务维度查询关联的文件列表。</summary>
+    /// <param name="bizType">业务类型。</param>
+    /// <param name="bizKey">业务 Key。</param>
+    /// <returns>文件列表。</returns>
     public async Task<List<FileUploadDto>> GetByBizAsync(string bizType, string bizKey)
     {
         var list = await _fileUploadRepo.GetByBizAsync(bizType, bizKey);
@@ -154,6 +169,9 @@ public class FileService
         return dtos;
     }
 
+    /// <summary>根据 MD5 校验文件是否已上传（秒传查询接口）。</summary>
+    /// <param name="md5">文件 MD5（小写十六进制）。</param>
+    /// <returns>文件存在性结果，不存在时返回 null。</returns>
     public async Task<FileExistResult?> CheckMd5ExistAsync(string md5)
     {
         var entity = await _fileEntityRepo.GetByMd5Async(md5);
@@ -170,6 +188,9 @@ public class FileService
         };
     }
 
+    /// <summary>按上传记录 ID 删除文件（仅删除 upload 记录，FileEntity 保留以便 MD5 秒传）。</summary>
+    /// <param name="uploadId">上传记录 ID。</param>
+    /// <returns>操作结果。</returns>
     public async Task<ApiResult> DeleteAsync(string uploadId)
     {
         var upload = await _fileUploadRepo.GetAsync(uploadId);
@@ -180,6 +201,9 @@ public class FileService
         return ApiResult.Ok();
     }
 
+    /// <summary>按相对路径直接获取文件流（用于富文本/静态图引用）。</summary>
+    /// <param name="path">文件相对路径。</param>
+    /// <returns>文件流，路径非法或不存在时返回 null。</returns>
     public async Task<Stream?> GetByPathAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -194,6 +218,7 @@ public class FileService
         return await _storage.GetAsync(normalized);
     }
 
+    /// <summary>计算字节数组的 MD5 并返回小写十六进制字符串。</summary>
     private static string ComputeMd5(byte[] bytes)
     {
         var hash = MD5.HashData(bytes);
@@ -201,6 +226,7 @@ public class FileService
     }
 }
 
+/// <summary>文件上传结果 DTO。</summary>
 public class FileUploadResult
 {
     public string UploadId { get; set; } = string.Empty;
@@ -210,6 +236,7 @@ public class FileUploadResult
     public string FileUrl { get; set; } = string.Empty;
 }
 
+/// <summary>文件上传查询 DTO。</summary>
 public class FileUploadDto
 {
     public string UploadId { get; set; } = string.Empty;
@@ -221,6 +248,7 @@ public class FileUploadDto
     public string? BizKey { get; set; }
 }
 
+/// <summary>文件下载结果 DTO。</summary>
 public class FileDownloadResult
 {
     public Stream Stream { get; set; } = Stream.Null;
@@ -228,6 +256,7 @@ public class FileDownloadResult
     public string FileName { get; set; } = string.Empty;
 }
 
+/// <summary>MD5 秒传查询结果 DTO。</summary>
 public class FileExistResult
 {
     public string UploadId { get; set; } = string.Empty;

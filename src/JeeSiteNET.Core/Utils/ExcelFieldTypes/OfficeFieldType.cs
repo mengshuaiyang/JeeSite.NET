@@ -2,21 +2,28 @@ namespace JeeSiteNET.Core.Utils.ExcelFieldTypes;
 
 /// <summary>
 /// 机构字段类型。
-///
-/// 导出：机构编码（如 "OFF001"）→ 机构编码 + 名称（如 "OFF001 人力资源部"）
-/// 导入：Excel 单元格中含 "OFF001 人力资源部" 或 "OFF001" → 提取机构编码写入模型
-///
-/// 通过静态 OfficeFieldType.Register(Dictionary&lt;string, string&gt;) 注入映射表。
+/// 导出：机构编码（如 "OFF001"）→ "OFF001 人力资源部"；
+/// 导入：Excel 单元格中含 "OFF001 人力资源部" 或 "OFF001" → 提取机构编码。
+/// 通过静态 OfficeFieldType.Register(...) 注入映射表。
 /// </summary>
 public class OfficeFieldType : IExcelFieldType
 {
+    /// <summary>目标属性类型：string（机构编码）。</summary>
     public Type ValueType => typeof(string);
 
+    /// <summary>编码 → 名称 映射。</summary>
     private static readonly Dictionary<string, string> _codeToName = new();
+
+    /// <summary>名称 → 编码 映射。</summary>
     private static readonly Dictionary<string, string> _nameToCode = new();
+
+    /// <summary>线程锁。</summary>
     private static readonly object _lock = new();
 
-    /// <summary>注册映射表（code → name）。通常在应用启动时调用。</summary>
+    /// <summary>
+    /// 注册机构编码-名称映射。
+    /// </summary>
+    /// <param name="codeNamePairs">编码-名称键值对集合。</param>
     public static void Register(IEnumerable<KeyValuePair<string, string>> codeNamePairs)
     {
         if (codeNamePairs == null) return;
@@ -30,11 +37,17 @@ public class OfficeFieldType : IExcelFieldType
         }
     }
 
+    /// <summary>清空映射。</summary>
     public static void Clear()
     {
         lock (_lock) { _codeToName.Clear(); _nameToCode.Clear(); }
     }
 
+    /// <summary>
+    /// 导出：对象值 → "编码 名称"。
+    /// </summary>
+    /// <param name="value">机构编码。</param>
+    /// <returns>"OFF001 人力资源部" 或仅编码。</returns>
     public string? ValueToCell(object? value)
     {
         if (value == null) return null;
@@ -48,11 +61,15 @@ public class OfficeFieldType : IExcelFieldType
         return code;
     }
 
+    /// <summary>
+    /// 导入：单元格文本 → 机构编码。
+    /// </summary>
+    /// <param name="cellText">单元格文本。</param>
+    /// <returns>机构编码。</returns>
     public object? CellToValue(string cellText)
     {
         if (string.IsNullOrWhiteSpace(cellText)) return null;
         var trimmed = cellText.Trim();
-
         var firstToken = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? trimmed;
         lock (_lock)
         {

@@ -2,8 +2,14 @@ using System.Text;
 
 namespace JeeSiteNET.Core.Utils;
 
+/// <summary>
+/// 中文汉字转拼音工具类（轻量内置字典，覆盖常用 200+ 汉字，用于搜索索引、排序键等场景）
+/// </summary>
 public static class PinyinUtil
 {
+    /// <summary>
+    /// 汉字 -> 拼音映射表（单字级别简化映射，非全量拼音库）
+    /// </summary>
     private static readonly Dictionary<char, string> PinyinMap = new()
     {
         ['啊'] = "a", ['阿'] = "a", ['哎'] = "ai", ['哀'] = "ai", ['安'] = "an", ['按'] = "an",
@@ -106,6 +112,11 @@ public static class PinyinUtil
         ['座'] = "zuo"
     };
 
+    /// <summary>
+    /// 将字符串中的汉字转换为完整拼音（非汉字字符原样保留）
+    /// </summary>
+    /// <param name="text">原始文本</param>
+    /// <returns>拼音化字符串</returns>
     public static string ToPinyin(string text)
     {
         if (string.IsNullOrEmpty(text)) return text;
@@ -120,6 +131,11 @@ public static class PinyinUtil
         return sb.ToString();
     }
 
+    /// <summary>
+    /// 将字符串中的汉字转换为拼音首字母（非汉字字符原样保留）
+    /// </summary>
+    /// <param name="text">原始文本</param>
+    /// <returns>拼音首字母字符串</returns>
     public static string ToPinyinInitials(string text)
     {
         if (string.IsNullOrEmpty(text)) return text;

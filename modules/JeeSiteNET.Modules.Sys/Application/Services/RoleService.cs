@@ -6,21 +6,29 @@ using JeeSiteNET.Modules.Sys.Domain.Interfaces;
 
 namespace JeeSiteNET.Modules.Sys.Application.Services;
 
+/// <summary>角色管理服务，负责角色的增删改查及列表查询。</summary>
 public class RoleService
 {
     private readonly IRoleRepository _roleRepository;
 
+    /// <summary>依赖注入构造函数。</summary>
     public RoleService(IRoleRepository roleRepository)
     {
         _roleRepository = roleRepository;
     }
 
+    /// <summary>根据角色编码获取角色信息。</summary>
+    /// <param name="roleCode">角色编码。</param>
+    /// <returns>角色 DTO，不存在时返回 null。</returns>
     public async Task<RoleDto?> GetAsync(string roleCode)
     {
         var role = await _roleRepository.GetAsync(roleCode);
         return role == null ? null : MapToDto(role);
     }
 
+    /// <summary>按条件分页查询角色列表，按 RoleSort 升序排序。</summary>
+    /// <param name="request">分页及过滤条件（角色名、类型、状态）。</param>
+    /// <returns>角色分页结果。</returns>
     public async Task<PageResult<RoleDto>> FindPageAsync(PageRequest<Role> request)
     {
         var query = _roleRepository.Query()
@@ -47,12 +55,17 @@ public class RoleService
         };
     }
 
+    /// <summary>获取全部可用角色列表，用于用户授权下拉。</summary>
+    /// <returns>角色 DTO 列表。</returns>
     public async Task<List<RoleDto>> FindListAsync()
     {
         var list = await _roleRepository.FindListAsync();
         return list.Select(MapToDto).ToList();
     }
 
+    /// <summary>新增或更新角色：有 RoleCode 时为更新；无 RoleCode 时为新增（IsSys 未传默认普通角色）。</summary>
+    /// <param name="dto">角色保存信息。</param>
+    /// <returns>保存后的角色 DTO。</returns>
     public async Task<ApiResult> SaveAsync(RoleSaveDto dto)
     {
         var now = DateTime.Now;
@@ -72,6 +85,7 @@ public class RoleService
         }
         else
         {
+            // 新增角色默认非系统角色（IsSys = "0"），避免误将普通角色标记为系统内置
             role = new Role
             {
                 RoleCode = IdGenerator.NewId(),
@@ -89,6 +103,9 @@ public class RoleService
         return ApiResult.Ok(MapToDto(role));
     }
 
+    /// <summary>删除角色。</summary>
+    /// <param name="roleCode">角色编码。</param>
+    /// <returns>操作结果。</returns>
     public async Task<ApiResult> DeleteAsync(string roleCode)
     {
         var role = await _roleRepository.GetAsync(roleCode);
@@ -97,6 +114,7 @@ public class RoleService
         return ApiResult.Ok();
     }
 
+    /// <summary>实体到 DTO 的转换映射。</summary>
     private static RoleDto MapToDto(Role role) => new()
     {
         RoleCode = role.RoleCode,

@@ -2,6 +2,7 @@ using JeeSiteNET.Modules.Sys.Domain.Interfaces;
 
 namespace JeeSiteNET.Modules.Sys.Application.Services;
 
+/// <summary>首页仪表板统计 DTO。</summary>
 public class DashboardStats
 {
     public int UserCount { get; set; }
@@ -14,6 +15,7 @@ public class DashboardStats
     public List<RecentLogin> RecentLogins { get; set; } = [];
 }
 
+/// <summary>最近登录记录 DTO。</summary>
 public class RecentLogin
 {
     public string? UserName { get; set; }
@@ -22,6 +24,7 @@ public class RecentLogin
     public string? IpAddress { get; set; }
 }
 
+/// <summary>仪表板服务，负责首页各业务模块的统计数据聚合。</summary>
 public class DashboardService
 {
     private readonly IUserRepository _userRepo;
@@ -32,6 +35,7 @@ public class DashboardService
     private readonly IDictTypeRepository _dictRepo;
     private readonly ILogRepository _logRepo;
 
+    /// <summary>依赖注入构造函数。</summary>
     public DashboardService(
         IUserRepository userRepo,
         IRoleRepository roleRepo,
@@ -50,6 +54,8 @@ public class DashboardService
         _logRepo = logRepo;
     }
 
+    /// <summary>获取首页综合统计（用户/角色/菜单/机构/岗位/字典总量 + 今日日志 + 最近 10 次登录）。</summary>
+    /// <returns>仪表板统计对象。</returns>
     public async Task<DashboardStats> GetStatsAsync()
     {
         var today = DateTime.Today;
@@ -63,7 +69,9 @@ public class DashboardService
             OrgCount = (await _orgRepo.FindListAsync()).Count,
             PostCount = (await _postRepo.FindListAsync()).Count,
             DictCount = (await _dictRepo.FindListAsync()).Count,
+            // 今日日志数量（CreateDate >= 今天 0 点）
             LogCountToday = _logRepo.Query().Count(l => l.CreateDate >= today),
+            // 最近 10 条登录日志，按时间倒序
             RecentLogins = _logRepo.Query()
                 .Where(l => l.LogType == "login" && l.CreateDate != null)
                 .OrderByDescending(l => l.CreateDate)

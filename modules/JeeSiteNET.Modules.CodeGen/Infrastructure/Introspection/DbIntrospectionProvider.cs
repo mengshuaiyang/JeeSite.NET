@@ -1,58 +1,81 @@
+// 引入命名空间：System.Data
 using System.Data;
+// 引入命名空间：System.Data.Common
 using System.Data.Common;
+// 引入命名空间：JeeSiteNET.Modules.CodeGen.Application.DTOs
 using JeeSiteNET.Modules.CodeGen.Application.DTOs;
+// 引入命名空间：Microsoft.EntityFrameworkCore
 using Microsoft.EntityFrameworkCore;
 
+// 定义命名空间：JeeSiteNET.Modules.CodeGen.Infrastructure.Introspection
 namespace JeeSiteNET.Modules.CodeGen.Infrastructure.Introspection;
 
+// 定义接口：IDbIntrospectionProvider
 public interface IDbIntrospectionProvider
 {
     Task<List<DbTableInfo>> FindDbTablesAsync();
     Task<List<ColumnInfo>> FindDbColumnsAsync(string tableName);
 }
 
+// 定义类：DbIntrospectionProvider
 public class DbIntrospectionProvider : IDbIntrospectionProvider
 {
+    // 字段：_db
     private readonly DbContext _db;
 
+    // 构造函数：DbIntrospectionProvider
     public DbIntrospectionProvider(DbContext db) => _db = db;
 
+    // 方法：FindDbTablesAsync
     public async Task<List<DbTableInfo>> FindDbTablesAsync()
     {
         using var conn = _db.Database.GetDbConnection();
+        // await 异步等待
         await conn.OpenAsync();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = GetListTablesSql();
         using var reader = await cmd.ExecuteReaderAsync();
+        // 创建 List实例并赋给 tables
         var tables = new List<DbTableInfo>();
+        // while 循环
         while (await reader.ReadAsync())
         {
+            // 集合操作：添加元素
             tables.Add(new DbTableInfo
             {
                 TableName = reader.GetString(0),
                 TableComment = reader.IsDBNull(1) ? null : reader.GetString(1)
             });
         }
+        // return 返回结果
         return tables;
     }
 
+    // 方法：FindDbColumnsAsync
     public async Task<List<ColumnInfo>> FindDbColumnsAsync(string tableName)
     {
         using var conn = _db.Database.GetDbConnection();
+        // await 异步等待
         await conn.OpenAsync();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = GetListColumnsSql();
         AddParameter(cmd, "tableName", tableName);
         using var reader = await cmd.ExecuteReaderAsync();
+        // 创建 List实例并赋给 columns
         var columns = new List<ColumnInfo>();
 
+        // if 条件判断
         if (conn.GetType().Name == "SqliteConnection")
         {
             // PRAGMA table_info returns: cid, name, type, notnull, dflt_value, pk
+            // while 循环
             while (await reader.ReadAsync())
             {
+                // 声明并初始化变量：colName
                 var colName = reader.GetString(1);
+                // 调用 ToLower
                 var dataType = reader.IsDBNull(2) ? "text" : reader.GetString(2).ToLower();
+                // 集合操作：添加元素
                 columns.Add(new ColumnInfo
                 {
                     ColumnName = colName,
@@ -64,11 +87,15 @@ public class DbIntrospectionProvider : IDbIntrospectionProvider
                 });
             }
         }
+        // else 否则分支
         else
         {
+            // while 循环
             while (await reader.ReadAsync())
             {
+                // 调用 ToLower
                 var dataType = reader.GetString(2).ToLower();
+                // 集合操作：添加元素
                 columns.Add(new ColumnInfo
                 {
                     ColumnName = reader.GetString(0),
@@ -76,16 +103,21 @@ public class DbIntrospectionProvider : IDbIntrospectionProvider
                     ColumnType = dataType,
                     NetType = MapToNetType(dataType),
                     IsNullable = reader.GetString(3) == "YES" ? "1" : "0",
+                    // 读取配置项
                     MaxLength = reader.IsDBNull(4) ? null : (int?)Convert.ToInt32(reader.GetValue(4))
                 });
             }
         }
+        // return 返回结果
         return columns;
     }
 
+    // 方法：GetListTablesSql
     private string GetListTablesSql()
     {
+        // 声明并初始化变量：connType
         var connType = _db.Database.GetDbConnection().GetType().Name;
+        // return 返回结果
         return connType switch
         {
             "SqlConnection" => @"
@@ -114,9 +146,12 @@ public class DbIntrospectionProvider : IDbIntrospectionProvider
         };
     }
 
+    // 方法：GetListColumnsSql
     private string GetListColumnsSql()
     {
+        // 声明并初始化变量：connType
         var connType = _db.Database.GetDbConnection().GetType().Name;
+        // return 返回结果
         return connType switch
         {
             "SqlConnection" => @"
@@ -145,17 +180,23 @@ public class DbIntrospectionProvider : IDbIntrospectionProvider
         };
     }
 
+    // 方法：AddParameter
     private static void AddParameter(DbCommand cmd, string name, object value)
     {
+        // 声明并初始化变量：param
         var param = cmd.CreateParameter();
         param.ParameterName = name;
         param.Value = value;
+        // 集合操作：添加元素
         cmd.Parameters.Add(param);
     }
 
+    // 方法：MapToNetType
     private static string MapToNetType(string sqlType)
     {
+        // 调用 Split
         var type = sqlType.ToLowerInvariant().Split('(')[0].Trim();
+        // return 返回结果
         return type switch
         {
             "bigint" or "int8" => "long",

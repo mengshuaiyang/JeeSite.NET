@@ -5,18 +5,23 @@ using Microsoft.Extensions.Configuration;
 
 namespace JeeSiteNET.Modules.Sys.Application.Services;
 
+/// <summary>验证码服务，负责短信/邮件验证码的生成、发送、校验与限频（缓存 5 分钟有效，一次使用即失效）。</summary>
 public class ValidCodeService
 {
     private readonly IFusionCache _cache;
     private readonly IConfiguration _config;
 
+    /// <summary>依赖注入构造函数。</summary>
     public ValidCodeService(IFusionCache cache, IConfiguration config)
     {
         _cache = cache;
         _config = config;
     }
 
-    /// <summary>生成并发送验证码。scene: login / register / reset。target: 手机号或邮箱</summary>
+    /// <summary>生成并发送验证码：根据目标自动选择邮件或短信通道。</summary>
+    /// <param name="target">手机号或邮箱地址。</param>
+    /// <param name="scene">业务场景（login / register / reset）。</param>
+    /// <returns>操作结果。</returns>
     public async Task<ApiResult> GenerateAndSendAsync(string target, string scene)
     {
         if (string.IsNullOrWhiteSpace(target)) return ApiResult.Fail(400, "请输入手机号或邮箱");
@@ -68,6 +73,10 @@ public class ValidCodeService
     }
 
     /// <summary>校验验证码。校验成功后会立即删除缓存，不可复用。</summary>
+    /// <param name="target">手机号或邮箱地址。</param>
+    /// <param name="scene">业务场景（login / register / reset）。</param>
+    /// <param name="code">用户输入的验证码。</param>
+    /// <returns>操作结果。</returns>
     public async Task<ApiResult> VerifyAsync(string target, string scene, string code)
     {
         if (string.IsNullOrWhiteSpace(target) || string.IsNullOrWhiteSpace(code))
@@ -81,12 +90,16 @@ public class ValidCodeService
         if (!string.Equals(cached, code, StringComparison.Ordinal))
             return ApiResult.Fail(400, "验证码错误");
 
-        // 一次使用后立即删除
+        // 一次使用后立即删除，防止重放
         await _cache.RemoveAsync(codeKey);
         return ApiResult.Ok("验证成功");
     }
 
-    /// <summary>内部方法：校验验证码（不暴露错误细节，供登录流程使用）。</summary>
+    /// <summary>内部方法：静默校验验证码（不返回错误细节，供登录流程使用）。</summary>
+    /// <param name="target">手机号或邮箱地址。</param>
+    /// <param name="scene">业务场景。</param>
+    /// <param name="code">用户输入的验证码。</param>
+    /// <returns>true 表示校验通过，false 表示失败（过期/错误/参数缺失）。</returns>
     public async Task<bool> VerifySilentAsync(string target, string scene, string code)
     {
         if (string.IsNullOrWhiteSpace(target) || string.IsNullOrWhiteSpace(code)) return false;

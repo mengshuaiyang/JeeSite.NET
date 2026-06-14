@@ -8,17 +8,22 @@ using Microsoft.EntityFrameworkCore;
 
 namespace JeeSiteNET.Modules.Sys.Application.Services;
 
+/// <summary>员工管理服务，负责员工基础信息、岗位绑定与附属机构维护。</summary>
 public class EmployeeService
 {
     private readonly IEmployeeRepository _empRepo;
     private readonly JeeSiteDbContext _db;
 
+    /// <summary>依赖注入构造函数。</summary>
     public EmployeeService(IEmployeeRepository empRepo, JeeSiteDbContext db)
     {
         _empRepo = empRepo;
         _db = db;
     }
 
+    /// <summary>根据员工编码获取员工信息，包含关联岗位与附属机构列表。</summary>
+    /// <param name="empCode">员工编码。</param>
+    /// <returns>员工 DTO，不存在时返回 null。</returns>
     public async Task<EmployeeDto?> GetAsync(string empCode)
     {
         var emp = await _empRepo.GetAsync(empCode);
@@ -26,6 +31,7 @@ public class EmployeeService
         var posts = await _empRepo.GetPostsAsync(empCode);
         var offices = await _empRepo.GetOfficesAsync(empCode);
         var officeCodes = offices.Select(o => o.OfficeCode).Where(c => !string.IsNullOrEmpty(c)).Distinct().ToList();
+        // 一次性读取关联机构名称，避免逐行查询
         var orgs = officeCodes.Count > 0
             ? await _db.Set<Organization>().Where(o => officeCodes.Contains(o.OrgCode)).AsNoTracking().ToDictionaryAsync(o => o.OrgCode, o => o.OrgName)
             : [];
@@ -40,6 +46,9 @@ public class EmployeeService
         return emp.ToDto(posts.Select(p => p.PostCode).ToList(), officeDtos);
     }
 
+    /// <summary>按条件分页查询员工列表，批量加载岗位与机构信息以避免 N+1。</summary>
+    /// <param name="request">分页及过滤条件（员工名、工号）。</param>
+    /// <returns>分页结果。</returns>
     public async Task<PageResult<EmployeeDto>> FindPageAsync(PageRequest<Employee> request)
     {
         var query = _empRepo.Query()
@@ -56,6 +65,7 @@ public class EmployeeService
             .ToListAsync();
 
         var codes = list.Select(e => e.EmpCode).ToList();
+        // 批量读取岗位、机构与机构名称，降低数据往返次数
         var posts = await _db.Set<EmployeePost>()
             .Where(p => codes.Contains(p.EmpCode))
             .ToListAsync();
@@ -87,6 +97,9 @@ public class EmployeeService
         };
     }
 
+    /// <summary>新增或更新员工信息，同时重置岗位与附属机构关联。</summary>
+    /// <param name="dto">员工保存信息（包含岗位列表与机构列表）。</param>
+    /// <returns>操作结果。</returns>
     public async Task<ApiResult> SaveAsync(EmployeeSaveDto dto)
     {
         var now = DateTime.Now;
@@ -112,7 +125,7 @@ public class EmployeeService
             await _empRepo.AddAsync(emp);
         }
 
-        // 更新岗位
+        // 先清除旧的员工-岗位关系，再按当前提交重新写入
         await _empRepo.DeletePostsAsync(emp.EmpCode);
         if (dto.PostCodes != null)
         {
@@ -126,7 +139,7 @@ public class EmployeeService
             }
         }
 
-        // 更新附属机构
+        // 先清除旧的员工-附属机构关系，再按当前提交重新写入
         await _empRepo.DeleteOfficesAsync(emp.EmpCode);
         if (dto.Offices != null)
         {
@@ -146,6 +159,9 @@ public class EmployeeService
         return ApiResult.Ok();
     }
 
+    /// <summary>删除员工。</summary>
+    /// <param name="empCode">员工编码。</param>
+    /// <returns>操作结果。</returns>
     public async Task<ApiResult> DeleteAsync(string empCode)
     {
         var emp = await _empRepo.GetAsync(empCode);

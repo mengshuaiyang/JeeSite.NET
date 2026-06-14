@@ -1,11 +1,23 @@
+    // 引入 JeeSiteNET.Modules.CodeGen.Domain.Entities 命名空间
+// 引入命名空间：JeeSiteNET.Modules.CodeGen.Domain.Entities
 using JeeSiteNET.Modules.CodeGen.Domain.Entities;
+    // 引入 Microsoft.EntityFrameworkCore 命名空间
+// 引入命名空间：Microsoft.EntityFrameworkCore
 using Microsoft.EntityFrameworkCore;
+    // 引入 Microsoft.EntityFrameworkCore.Metadata.Builders 命名空间
+// 引入命名空间：Microsoft.EntityFrameworkCore.Metadata.Builders
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
+// 定义 JeeSiteNET.Modules.CodeGen.Infrastructure.EntityConfigurations 命名空间
+// 定义命名空间：JeeSiteNET.Modules.CodeGen.Infrastructure.EntityConfigurations
 namespace JeeSiteNET.Modules.CodeGen.Infrastructure.EntityConfigurations;
 
+// 定义class GenTableColumnConfiguration
+// 定义类：GenTableColumnConfiguration
 public class GenTableColumnConfiguration : IEntityTypeConfiguration<GenTableColumn>
 {
+    // 方法 Configure
+    // 方法：Configure
     public void Configure(EntityTypeBuilder<GenTableColumn> builder)
     {
         builder.ToTable("CodeGen_TableColumn");

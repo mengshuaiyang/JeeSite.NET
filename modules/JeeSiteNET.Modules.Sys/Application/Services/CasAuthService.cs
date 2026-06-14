@@ -1,26 +1,46 @@
+    // 引入 System.IdentityModel.Tokens.Jwt 命名空间
 using System.IdentityModel.Tokens.Jwt;
+    // 引入 System.Security.Claims 命名空间
 using System.Security.Claims;
+    // 引入 System.Text 命名空间
 using System.Text;
+    // 引入 System.Net 命名空间
 using System.Net;
+    // 引入 JeeSiteNET.Core 命名空间
 using JeeSiteNET.Core;
+    // 引入 JeeSiteNET.Core.Security 命名空间
 using JeeSiteNET.Core.Security;
+    // 引入 JeeSiteNET.Core.Utils 命名空间
 using JeeSiteNET.Core.Utils;
+    // 引入 JeeSiteNET.Modules.Sys.Application.DTOs 命名空间
 using JeeSiteNET.Modules.Sys.Application.DTOs;
+    // 引入 JeeSiteNET.Modules.Sys.Domain.Entities 命名空间
 using JeeSiteNET.Modules.Sys.Domain.Entities;
+    // 引入 JeeSiteNET.Modules.Sys.Domain.Interfaces 命名空间
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
+    // 引入 Microsoft.Extensions.Configuration 命名空间
 using Microsoft.Extensions.Configuration;
+    // 引入 Microsoft.IdentityModel.Tokens 命名空间
 using Microsoft.IdentityModel.Tokens;
 
+// 定义 JeeSiteNET.Modules.Sys.Application.Services 命名空间
 namespace JeeSiteNET.Modules.Sys.Application.Services;
 
+// 定义class CasAuthService
 public class CasAuthService
 {
+    // 字段 _userRepository
     private readonly IUserRepository _userRepository;
+    // 字段 _userRoleRepository
     private readonly IUserRoleRepository _userRoleRepository;
+    // 字段 _menuRepository
     private readonly IMenuRepository _menuRepository;
+    // 字段 _configuration
     private readonly IConfiguration _configuration;
+    // 字段 _casCreateUsers
     private readonly IEnumerable<ICasCreateUser> _casCreateUsers;
 
+    // 构造函数 CasAuthService
     public CasAuthService(
         IUserRepository userRepository,
         IUserRoleRepository userRoleRepository,
@@ -35,6 +55,7 @@ public class CasAuthService
         _casCreateUsers = casCreateUsers;
     }
 
+    // 方法 CasLoginAsync
     public async Task<ApiResult<LoginResultDto>> CasLoginAsync(string ticket, string serviceUrl)
     {
         var section = _configuration.GetSection("Cas");
@@ -98,6 +119,7 @@ public class CasAuthService
         });
     }
 
+    // 方法 CreateUserFromCasAsync
     private async Task<User?> CreateUserFromCasAsync(CasValidateResult result, string loginCode, string userType)
     {
         var attrs = result.Attributes;
@@ -140,6 +162,7 @@ public class CasAuthService
         return null;
     }
 
+    // 方法 GenerateToken
     private string GenerateToken(User user)
     {
         var jwtSection = _configuration.GetSection("Jwt");

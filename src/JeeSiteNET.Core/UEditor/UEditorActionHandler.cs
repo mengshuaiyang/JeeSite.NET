@@ -7,21 +7,37 @@ using System.Text.Json;
 namespace JeeSiteNET.Core.UEditor;
 
 /// <summary>
-/// UEditor 协议处理入口 — 处理 config/uploadimage/uploadscrawl/uploadvideo/uploadfile/catchimage/listimage/listfile 所有 action。
-/// 
-/// 使用示例（在 Controller 中）:
-/// <code>
-/// var result = await _handler.HandleAsync(HttpContext);
-/// return Content(result, "application/json; charset=utf-8");
-/// </code>
+/// UEditor 协议处理器：解析 action -> 分派到具体 upload/catchimage/listimage 等逻辑并返回 JSON 字符串。
+/// 推荐在 Controller 中通过 DI 获取实例并调用 HandleAsync。
 /// </summary>
 public sealed class UEditorActionHandler
 {
+    /// <summary>
+    /// 运行配置（等价于 config.json）
+    /// </summary>
     private readonly UEditorOptions _opts;
+
+    /// <summary>
+    /// 文件存储接口（本地文件/OSS 等）
+    /// </summary>
     private readonly IUEditorUploadStore _store;
+
+    /// <summary>
+    /// 可选的 HTTP 客户端工厂，用于 catchimage 等远程抓取操作
+    /// </summary>
     private readonly IHttpClientFactory? _httpFactory;
+
+    /// <summary>
+    /// 速率限制桶（防止高频抓图）
+    /// </summary>
     private static readonly ConcurrentDictionary<string, DateTimeOffset> _rateLimitBucket = new();
 
+    /// <summary>
+    /// 构造函数
+    /// </summary>
+    /// <param name="options">UEditor 配置</param>
+    /// <param name="store">上传存储实现</param>
+    /// <param name="httpFactory">可选 IHttpClientFactory（用于远程抓图）</param>
     public UEditorActionHandler(UEditorOptions options, IUEditorUploadStore store, IHttpClientFactory? httpFactory = null)
     {
         _opts = options ?? throw new ArgumentNullException(nameof(options));
@@ -30,9 +46,10 @@ public sealed class UEditorActionHandler
     }
 
     /// <summary>
-    /// 根据 HttpContext.Request.Query["action"] 分派处理器。
-    /// 返回 UEditor 要求的 JSON 字符串。
+    /// 按 HttpContext.Request.Query["action"] 分派处理并返回 JSON 字符串。
     /// </summary>
+    /// <param name="context">当前 HttpContext</param>
+    /// <returns>UEditor 要求的 JSON 响应字符串（失败时含错误信息）</returns>
     public async Task<string> HandleAsync(HttpContext context)
     {
         var action = UEditorActionMap.Parse(context.Request.Query["action"]);
@@ -59,11 +76,15 @@ public sealed class UEditorActionHandler
         }
     }
 
-    /* ============== 核心处理器 ============== */
+    /* ============= 核心处理器 ============= */
 
+    /// <summary>
+    /// 返回 config.json 内容（以 C# 对象表达，序列化为 JSON）
+    /// </summary>
+    /// <param name="context">当前 HttpContext</param>
+    /// <returns>JSON 字符串</returns>
     private string HandleConfig(HttpContext context)
     {
-        // 返回 UEditor 要求的 config.json 内容
         var config = new
         {
             imageActionName = _opts.ImageActionName,
@@ -121,6 +142,11 @@ public sealed class UEditorActionHandler
         return JsonSerializer.Serialize(config);
     }
 
+    /// <summary>
+    /// 上传图片：扩展名 / 大小 / 内容签名 校验，再交由 _store 持久化
+    /// </summary>
+    /// <param name="context">当前 HttpContext</param>
+    /// <returns>JSON 字符串</returns>
     private async Task<string> HandleUploadImage(HttpContext context)
     {
         var file = context.Request.Form.Files.GetFile(_opts.ImageFieldName);
@@ -130,7 +156,6 @@ public sealed class UEditorActionHandler
             return JsonError("不允许的图片扩展名");
         if (file.Length > _opts.ImageMaxSize) return JsonError("图片大小超出限制");
 
-        // ---- 安全校验: 文件名清洗 + 文件签名 ----
         var safeFileName = FileSecurityUtil.SanitizeFileName(file.FileName);
 
         using var ms = new MemoryStream();
@@ -156,9 +181,13 @@ public sealed class UEditorActionHandler
         });
     }
 
+    /// <summary>
+    /// 上传涂鸦：base64 PNG 文本 → 字节 → 内容校验 → 存储
+    /// </summary>
+    /// <param name="context">当前 HttpContext</param>
+    /// <returns>JSON 字符串</returns>
     private async Task<string> HandleUploadScrawl(HttpContext context)
     {
-        // scrawl 是经过 base64 编码的 PNG 字符串
         var form = context.Request.Form;
         var base64 = form[_opts.ScrawlFieldName].ToString();
         if (string.IsNullOrWhiteSpace(base64)) return JsonError("请粘贴涂鸦内容");
@@ -169,7 +198,7 @@ public sealed class UEditorActionHandler
 
         if (bytes.Length > _opts.ScrawlMaxSize) return JsonError("涂鸦大小超出限制");
 
-        // ---- 安全校验: PNG magic number (89 50 4E 47 0D 0A 1A 0A) ----
+        // 校验 PNG magic number (89 50 4E 47 0D 0A 1A 0A)
         if (!FileSecurityUtil.IsFileContentSafe(bytes, ".png"))
             return JsonError("涂鸦内容不是合法的图片");
 
@@ -189,6 +218,11 @@ public sealed class UEditorActionHandler
         });
     }
 
+    /// <summary>
+    /// 上传视频：扩展名 / 大小 / 内容签名 校验
+    /// </summary>
+    /// <param name="context">当前 HttpContext</param>
+    /// <returns>JSON 字符串</returns>
     private async Task<string> HandleUploadVideo(HttpContext context)
     {
         var file = context.Request.Form.Files.GetFile(_opts.VideoFieldName);
@@ -223,6 +257,11 @@ public sealed class UEditorActionHandler
         });
     }
 
+    /// <summary>
+    /// 上传附件
+    /// </summary>
+    /// <param name="context">当前 HttpContext</param>
+    /// <returns>JSON 字符串</returns>
     private async Task<string> HandleUploadFile(HttpContext context)
     {
         var file = context.Request.Form.Files.GetFile(_opts.FileFieldName);
@@ -257,6 +296,11 @@ public sealed class UEditorActionHandler
         });
     }
 
+    /// <summary>
+    /// 抓取远程图片（批量）：对每个源 URL 执行 SSRF 防护 → 下载 → 校验 → 存储
+    /// </summary>
+    /// <param name="context">当前 HttpContext</param>
+    /// <returns>JSON 字符串</returns>
     private async Task<string> HandleCatchImage(HttpContext context)
     {
         var sources = context.Request.Form[_opts.CatcherFieldName].ToList();
@@ -271,7 +315,7 @@ public sealed class UEditorActionHandler
             if (string.IsNullOrWhiteSpace(src)) continue;
             try
             {
-                // ---- SSRF 防护: 只允许 http/https, 拒绝内网 IP, file:// 等 ----
+                // SSRF 防护：仅允许 http/https 协议；拒绝内网地址/localhost/常见私有段
                 if (!Uri.TryCreate(src, UriKind.Absolute, out var uri) ||
                     (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
                 {
@@ -314,6 +358,11 @@ public sealed class UEditorActionHandler
         return JsonSerializer.Serialize(new UEditorCatcherResult { State = "SUCCESS", List = list });
     }
 
+    /// <summary>
+    /// 列出图片（分页）
+    /// </summary>
+    /// <param name="context">当前 HttpContext</param>
+    /// <returns>JSON 字符串</returns>
     private async Task<string> HandleListImage(HttpContext context)
     {
         int start = int.TryParse(context.Request.Query["start"], out var s) ? s : 0;
@@ -329,6 +378,11 @@ public sealed class UEditorActionHandler
         });
     }
 
+    /// <summary>
+    /// 列出附件（分页）
+    /// </summary>
+    /// <param name="context">当前 HttpContext</param>
+    /// <returns>JSON 字符串</returns>
     private async Task<string> HandleListFile(HttpContext context)
     {
         int start = int.TryParse(context.Request.Query["start"], out var s) ? s : 0;
@@ -344,14 +398,25 @@ public sealed class UEditorActionHandler
         });
     }
 
-    /* ============== 辅助 ============== */
+    /* ============= 辅助方法 ============= */
 
+    /// <summary>
+    /// 统一构造错误响应 JSON（state = message）
+    /// </summary>
+    /// <param name="message">错误描述</param>
+    /// <returns>JSON 字符串</returns>
     private static string JsonError(string message) =>
         JsonSerializer.Serialize(new UEditorResult { State = message });
 
+    /// <summary>
+    /// 依据文件首字节的 magic number 推断图片扩展名；若无匹配，则依据 URL 扩展名推断
+    /// </summary>
+    /// <param name="header">文件字节（至少前 8 字节）</param>
+    /// <param name="url">资源 URL</param>
+    /// <returns>".png" / ".jpg" / 等扩展名字符串</returns>
     private static string GuessImageExtension(byte[] header, string url)
     {
-        // 先根据 magic number 判断
+        // 先按 magic number 推断
         if (header.Length >= 4)
         {
             if (header[0] == 0x89 && header[1] == 0x50 && header[2] == 0x4E && header[3] == 0x47) return ".png";
@@ -361,7 +426,7 @@ public sealed class UEditorActionHandler
             if (header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F' &&
                 header[8] == 'W' && header[9] == 'E' && header[10] == 'B' && header[11] == 'P') return ".webp";
         }
-        // fallback: 按 URL 判断
+        // 回退：按 URL 后缀推断
         var ext = Path.GetExtension(url).ToLowerInvariant();
         if (string.IsNullOrEmpty(ext)) ext = ".png";
         return ext;

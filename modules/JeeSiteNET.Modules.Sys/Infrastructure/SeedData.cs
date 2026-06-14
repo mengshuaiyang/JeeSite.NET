@@ -7,8 +7,18 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace JeeSiteNET.Modules.Sys.Infrastructure;
 
+/// <summary>
+/// 系统模块数据初始化。
+/// 首次运行时写入默认角色（系统管理员/普通用户）、
+/// 默认用户（admin）、菜单、机构与租户等种子数据，保证系统可用。
+/// </summary>
 public static class SeedData
 {
+    /// <summary>
+    /// 初始化种子数据：确保数据库已创建 → 检查是否为空 → 写入默认数据。
+    /// </summary>
+    /// <param name="serviceProvider">服务提供程序，用于解析 DbContext。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public static async Task InitializeAsync(IServiceProvider serviceProvider)
     {
         using var scope = serviceProvider.CreateScope();

@@ -12,6 +12,7 @@ namespace JeeSiteNET.Modules.Sys.Controllers;
 [ApiController]
 [Route("api/v1/sys/menu")]
 public class MenuController : ControllerBase
+
 {
     private readonly MenuService _menuService;
 
@@ -23,6 +24,7 @@ public class MenuController : ControllerBase
     public async Task<ApiResult<PageResult<MenuDto>>> List([FromBody] PageRequest<Menu> request)
     {
         var result = await _menuService.FindPageAsync(request);
+
         return ApiResult<PageResult<MenuDto>>.Ok(result);
     }
 
@@ -32,6 +34,7 @@ public class MenuController : ControllerBase
     public async Task<ApiResult<List<MenuDto>>> Tree([FromQuery] string? moduleCode = null)
     {
         var tree = await _menuService.FindTreeAsync(moduleCode);
+
         return ApiResult<List<MenuDto>>.Ok(tree);
     }
 
@@ -41,7 +44,9 @@ public class MenuController : ControllerBase
     public async Task<ApiResult<MenuDto?>> Get([FromQuery] string menuCode)
     {
         var menu = await _menuService.GetAsync(menuCode);
+
         if (menu == null) return ApiResult<MenuDto?>.NotFound("菜单不存在");
+
         return ApiResult<MenuDto?>.Ok(menu);
     }
 
@@ -67,6 +72,7 @@ public class MenuController : ControllerBase
     public async Task<ApiResult<List<MenuDto>>> UserMenus([FromQuery] string? sysCode = null)
     {
         var tree = await _menuService.GetUserMenusAsync(sysCode);
+
         return ApiResult<List<MenuDto>>.Ok(tree);
     }
 
@@ -76,6 +82,7 @@ public class MenuController : ControllerBase
     public async Task<ApiResult<List<string>>> SysCodes()
     {
         var codes = await _menuService.GetSysCodesAsync();
+
         return ApiResult<List<string>>.Ok(codes);
     }
 
@@ -85,11 +92,15 @@ public class MenuController : ControllerBase
     public async Task<ApiResult> FixTree()
     {
         var result = await _menuService.FixTreeDataAsync();
+
         return result;
     }
 }
 
+/// <summary>菜单删除请求 DTO。</summary>
+
 public class DeleteMenuRequest
+
 {
     public string MenuCode { get; set; } = string.Empty;
 }

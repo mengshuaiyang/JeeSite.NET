@@ -2,8 +2,16 @@ using System.Text.RegularExpressions;
 
 namespace JeeSiteNET.Core.Utils;
 
+/// <summary>
+/// HTTP User-Agent 解析工具类，从 UA 字符串中推断浏览器、操作系统、设备类型
+/// </summary>
 public static partial class UserAgentUtil
 {
+    /// <summary>
+    /// 根据 User-Agent 解析浏览器名称
+    /// </summary>
+    /// <param name="userAgent">HTTP User-Agent 请求头</param>
+    /// <returns>Edge / Chrome / Safari / Firefox / IE / Opera / Other</returns>
     public static string ParseBrowser(string userAgent)
     {
         if (string.IsNullOrEmpty(userAgent)) return "Unknown";
@@ -16,6 +24,11 @@ public static partial class UserAgentUtil
         return "Other";
     }
 
+    /// <summary>
+    /// 根据 User-Agent 解析操作系统名称
+    /// </summary>
+    /// <param name="userAgent">HTTP User-Agent 请求头</param>
+    /// <returns>Windows 10/11/8.1/8/7 / macOS / iOS / Android / Linux / Other</returns>
     public static string ParseOS(string userAgent)
     {
         if (string.IsNullOrEmpty(userAgent)) return "Unknown";
@@ -33,6 +46,11 @@ public static partial class UserAgentUtil
         return "Other";
     }
 
+    /// <summary>
+    /// 根据 User-Agent 解析设备类型
+    /// </summary>
+    /// <param name="userAgent">HTTP User-Agent 请求头</param>
+    /// <returns>Mobile / Tablet / Bot / TV / Desktop</returns>
     public static string ParseDevice(string userAgent)
     {
         if (string.IsNullOrEmpty(userAgent)) return "Unknown";
