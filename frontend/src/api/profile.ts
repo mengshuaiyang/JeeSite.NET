@@ -5,5 +5,6 @@ export const profileApi = {
   get: () => get<UserDto>('/sys/profile'),
   update: (data: any) => post('/sys/profile/update', data),
   changePassword: (data: { oldPassword: string; newPassword: string }) => post('/sys/profile/password', data),
-  updateAvatar: (avatarUrl: string) => post<string>('/sys/profile/avatar', { avatarUrl })
+  updateAvatar: (avatarUrl: string) => post<string>('/sys/profile/avatar', { avatarUrl }),
+  desktop: () => get<any>('/sys/profile/desktop')
 }

@@ -1,6 +1,11 @@
 <template>
   <div class="ai-chat-layout">
     <a-card title="AI 智能助手" style="flex:1;display:flex;flex-direction:column">
+      <a-tabs v-model:activeKey="activeTab" size="small" style="margin-bottom:8px">
+        <a-tab-pane key="chat" tab="对话" />
+        <a-tab-pane key="json" tab="JSON 提取" />
+        <a-tab-pane key="entity" tab="实体抽取" />
+      </a-tabs>
       <div class="chat-messages" ref="messagesRef">
         <div v-for="(msg, i) in messages" :key="i" :class="['message', msg.role]">
           <a-avatar :icon="msg.role === 'user' ? 'user' : 'robot'" :style="{ background: msg.role === 'user' ? '#1890ff' : '#52c41a' }" />
@@ -16,8 +21,18 @@
           <div class="bubble"><a-spin size="small" /> 思考中...</div>
         </div>
       </div>
+      <div v-if="jsonResult" class="json-result">
+        <a-divider>结构化结果</a-divider>
+        <pre>{{ JSON.stringify(jsonResult, null, 2) }}</pre>
+      </div>
       <a-divider style="margin:12px 0" />
       <div class="chat-input">
+        <a-input
+          v-if="activeTab === 'entity'"
+          v-model:value="entityType"
+          placeholder="实体类型"
+          style="width:200px;margin-right:8px;margin-bottom:8px"
+        />
         <a-input-search
           v-model:value="input"
           placeholder="输入您的问题..."
@@ -33,12 +48,15 @@
 
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
-import { post } from '@/api/request'
+import { aiChatApi } from '@/api'
 
 interface ChatMsg { role: string; content: string; sources?: string[] }
 
 const input = ref('')
 const loading = ref(false)
+const activeTab = ref('chat')
+const entityType = ref('object')
+const jsonResult = ref<any>(null)
 const messages = ref<ChatMsg[]>([
   { role: 'assistant', content: '您好！我是 JeeSite CMS 智能助手，可以回答关于网站内容的问题。' }
 ])
@@ -59,19 +77,38 @@ async function send() {
 
   messages.value.push({ role: 'user', content: msg })
   loading.value = true
+  jsonResult.value = null
   scrollToBottom()
 
   try {
-    const res = await post<any>('/cms/ai/chat', {
-      message: msg,
-      history: messages.value.slice(0, -1).map(m => ({ role: m.role, content: m.content }))
-    })
-    if (res.code === 200 && res.data) {
-      messages.value.push({
-        role: 'assistant',
-        content: res.data.reply || '抱歉，我暂时无法回答这个问题。',
-        sources: res.data.sourceArticles,
+    let res: any
+    if (activeTab.value === 'json') {
+      res = await aiChatApi.chatJson({
+        message: msg,
+        history: messages.value.slice(0, -1).map(m => ({ role: m.role, content: m.content }))
       })
+    } else if (activeTab.value === 'entity') {
+      res = await aiChatApi.chatEntity({
+        message: msg,
+        entityType: entityType.value
+      })
+    } else {
+      res = await aiChatApi.chat({
+        message: msg,
+        history: messages.value.slice(0, -1).map(m => ({ role: m.role, content: m.content }))
+      })
+    }
+    if (res.code === 200 && res.data) {
+      if (activeTab.value !== 'chat') {
+        jsonResult.value = res.data
+        messages.value.push({ role: 'assistant', content: '结构化提取完成，请查看下方结果。' })
+      } else {
+        messages.value.push({
+          role: 'assistant',
+          content: res.data.reply || '抱歉，我暂时无法回答这个问题。',
+          sources: res.data.sourceArticles,
+        })
+      }
     } else {
       messages.value.push({ role: 'assistant', content: '服务异常，请稍后再试。' })
     }
@@ -99,4 +136,6 @@ function scrollToBottom() {
 .sources { font-size: 12px; color: #1890ff; margin-bottom: 4px; }
 .sources a { margin-right: 8px; }
 .chat-input { padding: 0 8px; }
+.json-result { padding: 8px; max-height: 300px; overflow-y: auto; }
+.json-result pre { background: #f6f8fa; padding: 12px; border-radius: 6px; font-size: 13px; overflow-x: auto; }
 </style>
