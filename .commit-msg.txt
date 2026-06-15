@@ -1,0 +1,12 @@
+feat(auth): 完成短信/邮件验证码登录与重置密码全流程
+
+- 后端：重构 ValidCodeService 限频逻辑（60s 最小间隔 + 10min 5次防刷），
+  支持 login/register/reset 三场景；SmsService/EmailService 清理注释，
+  统一使用 /// <summary> XML 文档
+- 前端：Login.vue 新增「手机/邮箱验证码登录」Tab（含60s倒计时+正则校验）；
+  ForgotPassword.vue 改造为「密保问题」和「验证码」双 Tab 流程
+- API：account.ts 新增 sendValidCode/verifyValidCode/loginByValidCode/
+  resetPasswordByCode；auth.ts 新增 getAuthInfo/getMenuRoute/loginByCode
+- Store：user.ts 提取 saveLogin() 统一登录后 token/权限/菜单加载逻辑
+
+refs: project-code-features-plan.md P2-1

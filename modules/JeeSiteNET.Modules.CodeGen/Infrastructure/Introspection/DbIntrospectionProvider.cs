@@ -1,81 +1,87 @@
-// 引入命名空间：System.Data
 using System.Data;
-// 引入命名空间：System.Data.Common
 using System.Data.Common;
-// 引入命名空间：JeeSiteNET.Modules.CodeGen.Application.DTOs
 using JeeSiteNET.Modules.CodeGen.Application.DTOs;
-// 引入命名空间：Microsoft.EntityFrameworkCore
 using Microsoft.EntityFrameworkCore;
 
-// 定义命名空间：JeeSiteNET.Modules.CodeGen.Infrastructure.Introspection
 namespace JeeSiteNET.Modules.CodeGen.Infrastructure.Introspection;
 
-// 定义接口：IDbIntrospectionProvider
+// ================================================================
+// 数据库自省（Introspection）提供者
+//
+// 用途：代码生成器通过此服务连上已有数据库，读取表结构和列信息，
+//       自动生成实体类、仓储、服务、控制器和 Vue 页面的脚手架代码。
+//
+// 数据库支持：
+//   ① SQL Server（SqlConnection）
+//   ② SQLite（SqliteConnection）
+//   ③ PostgreSQL / GaussDB / KingbaseES（NpgsqlConnection）
+//
+// 根据 conn.GetType().Name 自动判断数据库类型，选择对应的 SQL 语句。
+// 因为代码生成器需要连用户指定的数据库读取结构，所以注入 DbContext 基类，
+// 通过 _db.Database.GetDbConnection() 获取原生连接直接执行 SQL。
+//
+// 调用链路：
+//   CodeGenService → IDbIntrospectionProvider.FindDbTablesAsync / FindDbColumnsAsync
+//   → GenTableController（导入表、预览、生成、下载 ZIP）
+//
+// 注册位置：CodeGenModuleInstaller.cs（AddScoped<IDbIntrospectionProvider, DbIntrospectionProvider>）
+// ================================================================
+
 public interface IDbIntrospectionProvider
 {
+    /// <summary>查询数据库中所有用户表的列表（表名 + 注释）。</summary>
     Task<List<DbTableInfo>> FindDbTablesAsync();
+
+    /// <summary>查询指定表的所有列信息（列名 + 类型 + 注释 + 可空 + 长度）。</summary>
     Task<List<ColumnInfo>> FindDbColumnsAsync(string tableName);
 }
 
-// 定义类：DbIntrospectionProvider
+/// <summary>数据库自省实现。根据连接类型自动选择 SQL 方言。</summary>
 public class DbIntrospectionProvider : IDbIntrospectionProvider
 {
-    // 字段：_db
     private readonly DbContext _db;
 
-    // 构造函数：DbIntrospectionProvider
     public DbIntrospectionProvider(DbContext db) => _db = db;
 
-    // 方法：FindDbTablesAsync
+    /// <summary>查询数据库中所有用户表。</summary>
     public async Task<List<DbTableInfo>> FindDbTablesAsync()
     {
         using var conn = _db.Database.GetDbConnection();
-        // await 异步等待
         await conn.OpenAsync();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = GetListTablesSql();
         using var reader = await cmd.ExecuteReaderAsync();
-        // 创建 List实例并赋给 tables
         var tables = new List<DbTableInfo>();
-        // while 循环
         while (await reader.ReadAsync())
         {
-            // 集合操作：添加元素
             tables.Add(new DbTableInfo
             {
                 TableName = reader.GetString(0),
                 TableComment = reader.IsDBNull(1) ? null : reader.GetString(1)
             });
         }
-        // return 返回结果
         return tables;
     }
 
-    // 方法：FindDbColumnsAsync
+    /// <summary>查询指定表的所有列信息。</summary>
     public async Task<List<ColumnInfo>> FindDbColumnsAsync(string tableName)
     {
         using var conn = _db.Database.GetDbConnection();
-        // await 异步等待
         await conn.OpenAsync();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = GetListColumnsSql();
         AddParameter(cmd, "tableName", tableName);
         using var reader = await cmd.ExecuteReaderAsync();
-        // 创建 List实例并赋给 columns
         var columns = new List<ColumnInfo>();
 
-        // if 条件判断
+        // SQLite 使用 PRAGMA table_info 返回格式不同
         if (conn.GetType().Name == "SqliteConnection")
         {
-            // PRAGMA table_info returns: cid, name, type, notnull, dflt_value, pk
-            // while 循环
+            // PRAGMA table_info 列顺序：cid, name, type, notnull, dflt_value, pk
             while (await reader.ReadAsync())
             {
-                // 声明并初始化变量：colName
                 var colName = reader.GetString(1);
-                // 调用 ToLower
                 var dataType = reader.IsDBNull(2) ? "text" : reader.GetString(2).ToLower();
-                // 集合操作：添加元素
                 columns.Add(new ColumnInfo
                 {
                     ColumnName = colName,
@@ -87,15 +93,12 @@ public class DbIntrospectionProvider : IDbIntrospectionProvider
                 });
             }
         }
-        // else 否则分支
         else
         {
-            // while 循环
+            // SQL Server / PostgreSQL 使用 INFORMATION_SCHEMA 列顺序一致
             while (await reader.ReadAsync())
             {
-                // 调用 ToLower
                 var dataType = reader.GetString(2).ToLower();
-                // 集合操作：添加元素
                 columns.Add(new ColumnInfo
                 {
                     ColumnName = reader.GetString(0),
@@ -103,23 +106,20 @@ public class DbIntrospectionProvider : IDbIntrospectionProvider
                     ColumnType = dataType,
                     NetType = MapToNetType(dataType),
                     IsNullable = reader.GetString(3) == "YES" ? "1" : "0",
-                    // 读取配置项
                     MaxLength = reader.IsDBNull(4) ? null : (int?)Convert.ToInt32(reader.GetValue(4))
                 });
             }
         }
-        // return 返回结果
         return columns;
     }
 
-    // 方法：GetListTablesSql
+    /// <summary>根据数据库类型返回查询表列表的 SQL。</summary>
     private string GetListTablesSql()
     {
-        // 声明并初始化变量：connType
         var connType = _db.Database.GetDbConnection().GetType().Name;
-        // return 返回结果
         return connType switch
         {
+            // SQL Server：从 INFORMATION_SCHEMA 查表，左连 sys.extended_properties 获取表注释
             "SqlConnection" => @"
                 SELECT t.TABLE_NAME, ISNULL(ep.value, '') AS TABLE_COMMENT
                 FROM INFORMATION_SCHEMA.TABLES t
@@ -129,6 +129,7 @@ public class DbIntrospectionProvider : IDbIntrospectionProvider
                 WHERE t.TABLE_TYPE = 'BASE TABLE' AND t.TABLE_SCHEMA = 'dbo'
                 ORDER BY t.TABLE_NAME",
 
+            // SQLite：从 sqlite_master 查表定义
             "SqliteConnection" => @"
                 SELECT m.name AS TABLE_NAME, COALESCE(s.sql, '') AS TABLE_COMMENT
                 FROM sqlite_master m
@@ -136,7 +137,7 @@ public class DbIntrospectionProvider : IDbIntrospectionProvider
                 WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%' AND m.name NOT LIKE '__EFMigrations%'
                 ORDER BY m.name",
 
-            // NpgsqlConnection for PostgreSQL / GaussDB / KingbaseES
+            // PostgreSQL 系列：通过 pg_catalog.obj_description 获取注释
             _ => @"
                 SELECT t.table_name, COALESCE(pg_catalog.obj_description(c.oid), '') AS TABLE_COMMENT
                 FROM information_schema.tables t
@@ -146,12 +147,10 @@ public class DbIntrospectionProvider : IDbIntrospectionProvider
         };
     }
 
-    // 方法：GetListColumnsSql
+    /// <summary>根据数据库类型返回查询列信息的 SQL。</summary>
     private string GetListColumnsSql()
     {
-        // 声明并初始化变量：connType
         var connType = _db.Database.GetDbConnection().GetType().Name;
-        // return 返回结果
         return connType switch
         {
             "SqlConnection" => @"
@@ -165,10 +164,8 @@ public class DbIntrospectionProvider : IDbIntrospectionProvider
                 WHERE c.TABLE_NAME = @tableName AND c.TABLE_SCHEMA = 'dbo'
                 ORDER BY c.ORDINAL_POSITION",
 
-            "SqliteConnection" => @"
-                PRAGMA table_info(@tableName)",
+            "SqliteConnection" => @"PRAGMA table_info(@tableName)",
 
-            // NpgsqlConnection for PostgreSQL / GaussDB / KingbaseES
             _ => @"
                 SELECT c.column_name, COALESCE(pg_catalog.col_description(c.oid, a.attnum), '') AS COLUMN_COMMENT,
                        c.data_type, c.is_nullable, c.character_maximum_length
@@ -180,23 +177,19 @@ public class DbIntrospectionProvider : IDbIntrospectionProvider
         };
     }
 
-    // 方法：AddParameter
+    /// <summary>给 DbCommand 添加参数。</summary>
     private static void AddParameter(DbCommand cmd, string name, object value)
     {
-        // 声明并初始化变量：param
         var param = cmd.CreateParameter();
         param.ParameterName = name;
         param.Value = value;
-        // 集合操作：添加元素
         cmd.Parameters.Add(param);
     }
 
-    // 方法：MapToNetType
+    /// <summary>将 SQL 数据库类型映射为 C# 类型名称。</summary>
     private static string MapToNetType(string sqlType)
     {
-        // 调用 Split
         var type = sqlType.ToLowerInvariant().Split('(')[0].Trim();
-        // return 返回结果
         return type switch
         {
             "bigint" or "int8" => "long",

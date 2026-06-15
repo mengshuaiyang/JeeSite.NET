@@ -3,17 +3,36 @@ using System.Text;
 
 namespace JeeSiteNET.Core.Utils;
 
-/// <summary>
-/// RSA 非对称加密工具类。默认密钥长度 2048 位，加密填充使用 OAEP SHA-256，
-/// 与传统 PKCS#1 v1.5 相比具备更强的可证明安全性。
-/// </summary>
+// ================================================================
+// RSA 非对称加密工具类
+//
+// 用途：密钥交换、数字签名、数据加密
+// 密钥：2048 位 RSA（可配置）
+// 填充：加密用 OAEP-SHA256（抗 CCA），签名用 PKCS#1 v1.5
+//
+// 加密链路对比：
+//   对称加密：Sm4Util  ← 适合大批量数据加密
+//   非对称加密：RsaUtil ← 适合小数据加密 + 签名（如密钥交换、身份验证）
+//   国密签名：Sm2Util  ← 国密合规的椭圆曲线签名
+//
+// 使用示例：
+//   var (pub, pri) = RsaUtil.GenerateKeyPair();
+//   var encrypted = RsaUtil.Encrypt(pub, "你好世界");
+//   var decrypted = RsaUtil.Decrypt(pri, encrypted);
+//   var sig = RsaUtil.Sign(pri, "数据");
+//   var ok = RsaUtil.Verify(pub, "数据", sig);
+// ================================================================
+
+/// <summary>RSA 非对称加密工具。默认 2048 位密钥，OAEP-SHA256 加密，PKCS#1 v1.5 签名。</summary>
 public static class RsaUtil
 {
     /// <summary>
-    /// 生成 RSA 密钥对，返回 (PrivateKey, PublicKey) 的小写 hex 格式。
+    /// 生成 RSA 密钥对。
+    /// 公钥格式：PKCS#1 DER（"MIIBCg..." 式 hex）
+    /// 私钥格式：PKCS#8 DER
     /// </summary>
-    /// <param name="keySize">密钥长度（位），默认 2048。</param>
-    /// <returns>(PrivateKey = PKCS#8 DER hex, PublicKey = PKCS#1 DER hex)。</returns>
+    /// <param name="keySize">密钥长度，默认 2048 位（推荐）</param>
+    /// <returns>(PublicKey, PrivateKey) 大写 hex 字符串</returns>
     public static (string PublicKey, string PrivateKey) GenerateKeyPair(int keySize = 2048)
     {
         using var rsa = RSA.Create(keySize);
@@ -23,27 +42,21 @@ public static class RsaUtil
     }
 
     /// <summary>
-    /// 使用 RSA 公钥加密明文。对于 2048 位密钥，明文最大长度约 190 字节（受 OAEP 填充开销限制）。
+    /// 公钥加密。OAEP-SHA256 填充，比 PKCS#1 v1.5 更安全。
+    /// 2048 位密钥下，明文最大约 190 字节。
     /// </summary>
-    /// <param name="publicKeyHex">PKCS#1 DER hex 公钥。</param>
-    /// <param name="plainText">明文字符串（UTF-8 编码）。</param>
-    /// <returns>密文 hex（小写）。</returns>
     public static string Encrypt(string publicKeyHex, string plainText)
     {
         using var rsa = RSA.Create();
         rsa.ImportRSAPublicKey(Convert.FromHexString(publicKeyHex), out _);
         var data = Encoding.UTF8.GetBytes(plainText);
-        // OAEP SHA-256 可防御选择密文攻击（CCA），比 PKCS#1 v1.5 更安全
         var encrypted = rsa.Encrypt(data, RSAEncryptionPadding.OaepSHA256);
         return Convert.ToHexString(encrypted);
     }
 
     /// <summary>
-    /// 使用 RSA 私钥解密密文。
+    /// 私钥解密。与 Encrypt 配对使用。
     /// </summary>
-    /// <param name="privateKeyHex">PKCS#8 DER hex 私钥。</param>
-    /// <param name="cipherText">密文 hex。</param>
-    /// <returns>解密后的 UTF-8 明文字符串。</returns>
     public static string Decrypt(string privateKeyHex, string cipherText)
     {
         using var rsa = RSA.Create();
@@ -54,11 +67,9 @@ public static class RsaUtil
     }
 
     /// <summary>
-    /// 使用 RSA 私钥对数据签名（SHA-256 + PKCS#1 v1.5 签名填充）。
+    /// 私钥签名（SHA-256 + PKCS#1 v1.5）。
+    /// 签名可用于验证数据完整性和来源。
     /// </summary>
-    /// <param name="privateKeyHex">PKCS#8 DER hex 私钥。</param>
-    /// <param name="data">待签名的字符串（UTF-8 编码）。</param>
-    /// <returns>签名 hex（小写）。</returns>
     public static string Sign(string privateKeyHex, string data)
     {
         using var rsa = RSA.Create();
@@ -68,12 +79,8 @@ public static class RsaUtil
     }
 
     /// <summary>
-    /// 使用 RSA 公钥验证签名。
+    /// 公钥验签。与 Sign 配对使用。
     /// </summary>
-    /// <param name="publicKeyHex">PKCS#1 DER hex 公钥。</param>
-    /// <param name="data">原始字符串（UTF-8 编码）。</param>
-    /// <param name="signatureHex">签名 hex。</param>
-    /// <returns>true = 验证通过；false = 签名无效。</returns>
     public static bool Verify(string publicKeyHex, string data, string signatureHex)
     {
         using var rsa = RSA.Create();
