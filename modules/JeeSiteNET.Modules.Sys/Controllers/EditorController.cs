@@ -16,6 +16,9 @@ using Microsoft.AspNetCore.Hosting;
     // 引入 Microsoft.AspNetCore.Http 命名空间
 // 引入命名空间：Microsoft.AspNetCore.Http
 using Microsoft.AspNetCore.Http;
+    // 引入 Microsoft.Extensions.Http 命名空间
+// 引入命名空间：Microsoft.Extensions.Http
+using Microsoft.Extensions.Http;
     // 引入 Microsoft.AspNetCore.Mvc 命名空间
 // 引入命名空间：Microsoft.AspNetCore.Mvc
 using Microsoft.AspNetCore.Mvc;
@@ -43,14 +46,14 @@ public class EditorController : ControllerBase
     // 方法 EditorController
     // 构造函数：EditorController
 
-    public EditorController(FileService fileService, IWebHostEnvironment env)
+    public EditorController(FileService fileService, IWebHostEnvironment env, IHttpClientFactory httpClientFactory)
     {
         // null 合并操作 ??（若为 null 则使用右侧值）
         _fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
         // 声明并初始化变量：webRoot
         var webRoot = env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
         // 创建 UEditorActionHandler实例并赋给 _ueditor
-        _ueditor = new UEditorActionHandler(new UEditorOptions(), new LocalFileUploadStore(webRoot, "/"));
+        _ueditor = new UEditorActionHandler(new UEditorOptions(), new LocalFileUploadStore(webRoot, "/"), httpClientFactory);
     }
 
     /// <summary>原上传接口，兼容 Vditor 与 UEditor 两种响应格式</summary>

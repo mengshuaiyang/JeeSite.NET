@@ -116,8 +116,29 @@ const typeForm = reactive({ dictTypeCode: '', dictName: '', isSysBool: '0' as st
 const dataModalVisible = ref(false); const dataModalTitle = ref('新增字典数据')
 const dataForm = reactive({ dictCode: undefined as string | undefined, dictType: '', dictLabel: '', dictValue: '', parentCode: undefined as string | undefined, sort: 0 })
 
-async function loadType() { loading.value = true; const r = await dictApi.typeList({ pageNo: typeData.pageNo, pageSize: typeData.pageSize, entity: {} as any }); if (r.data) { typeData.list = r.data.list; typeData.total = r.data.total } loading.value = false }
-async function loadData() { if (!dataQuery.dictType) { dataData.list = []; dataData.total = 0; return } loadingData.value = true; const r = await dictApi.dataList({ pageNo: dataData.pageNo, pageSize: dataData.pageSize, entity: { dictType: dataQuery.dictType, dictLabel: dataQuery.dictLabel } as any }); if (r.data) { dataData.list = r.data.list; dataData.total = r.data.total } loadingData.value = false }
+async function loadType() {
+  loading.value = true
+  try {
+    const r = await dictApi.typeList({ pageNo: typeData.pageNo, pageSize: typeData.pageSize, entity: {} as any })
+    if (r.data) { typeData.list = r.data.list; typeData.total = r.data.total }
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
+}
+async function loadData() {
+  if (!dataQuery.dictType) { dataData.list = []; dataData.total = 0; return }
+  loadingData.value = true
+  try {
+    const r = await dictApi.dataList({ pageNo: dataData.pageNo, pageSize: dataData.pageSize, entity: { dictType: dataQuery.dictType, dictLabel: dataQuery.dictLabel } as any })
+    if (r.data) { dataData.list = r.data.list; dataData.total = r.data.total }
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loadingData.value = false
+  }
+}
 function onTypePageChange(p: number, s: number) { typeData.pageNo = p; typeData.pageSize = s; loadType() }
 function onDataPageChange(p: number, s: number) { dataData.pageNo = p; dataData.pageSize = s; loadData() }
 function selectTypeAndSwitch(code: string) { dataQuery.dictType = code; activeTab.value = 'data'; loadData() }

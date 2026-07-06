@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 
 namespace JeeSiteNET.Core.Utils.ExcelFieldTypes;
@@ -13,11 +14,11 @@ public class RoleListFieldType : IExcelFieldType
     /// <summary>目标属性类型：List{string}（角色编码列表）。</summary>
     public Type ValueType => typeof(List<string>);
 
-    /// <summary>编码 → 名称 映射。</summary>
-    private static readonly Dictionary<string, string> _codeToName = new();
+    /// <summary>编码 → 名称 映射。使用 ConcurrentDictionary 保证并发读写线程安全（原 Dictionary 在并发下会抛异常）。</summary>
+    private static readonly ConcurrentDictionary<string, string> _codeToName = new();
 
-    /// <summary>名称 → 编码 映射。</summary>
-    private static readonly Dictionary<string, string> _nameToCode = new();
+    /// <summary>名称 → 编码 映射。使用 ConcurrentDictionary 保证并发读写线程安全。</summary>
+    private static readonly ConcurrentDictionary<string, string> _nameToCode = new();
 
     /// <summary>线程锁。</summary>
     private static readonly object _lock = new();

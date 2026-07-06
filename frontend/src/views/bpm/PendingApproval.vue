@@ -19,8 +19,10 @@
 import { ref, onMounted } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { leaveApi } from '@/api'
+import { useUserStore } from '@/stores/user'
 
-const currentUser = localStorage.getItem('loginCode') || 'admin'
+const userStore = useUserStore()
+const currentUser = userStore.user?.loginCode || ''
 const loading = ref(false); const list = ref<any[]>([])
 
 const typeMap: Record<string,string> = { annual: '年假', sick: '病假', personal: '事假', marriage: '婚假' }
@@ -34,7 +36,17 @@ const columns = [
   { title: '操作', key: 'action' }
 ]
 
-async function loadData() { loading.value = true; const res = await leaveApi.pending(currentUser); if (res.data) list.value = res.data; loading.value = false }
+async function loadData() {
+  loading.value = true
+  try {
+    const res = await leaveApi.pending(currentUser)
+    if (res.data) list.value = res.data
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
+}
 async function handleApprove(record: any, result: string) {
   const step = record.status === 'pending' ? 'manager' : 'hr'
   await leaveApi.approve({ leaveRequestId: record.leaveRequestId, step, result, operator: currentUser, nextAssigneeName: '管理员' })

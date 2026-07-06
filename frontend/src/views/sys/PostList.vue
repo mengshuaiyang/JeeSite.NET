@@ -27,8 +27,15 @@ const data = reactive({ list: [] as PostDto[], total: 0, pageNo: 1, pageSize: 20
 const form = reactive({ postName: '' })
 const columns = [{ title: '编码', dataIndex: 'postCode' }, { title: '名称', dataIndex: 'postName' }, { title: '排序', dataIndex: 'sort' }, { title: '操作', key: 'action' }]
 async function loadData() {
-  loading.value = true; const res = await postApi.list({ pageNo: data.pageNo, pageSize: data.pageSize, entity: {} as any })
-  if (res.data) { data.list = res.data.list; data.total = res.data.total } loading.value = false
+  loading.value = true
+  try {
+    const res = await postApi.list({ pageNo: data.pageNo, pageSize: data.pageSize, entity: {} as any })
+    if (res.data) { data.list = res.data.list; data.total = res.data.total }
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 function onPageChange(p: number, s: number) { data.pageNo = p; data.pageSize = s; loadData() }
 function showAdd() { editItem.value = null; form.postName=''; modalOpen.value = true }

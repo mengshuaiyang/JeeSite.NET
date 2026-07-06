@@ -43,6 +43,12 @@ public class GenTableColumnRepository : IGenTableColumnRepository
     // 方法 DeleteAsync
     // 方法：DeleteAsync
     public async Task DeleteAsync(GenTableColumn entity) { _db.Set<GenTableColumn>().Remove(entity); await _db.SaveChangesAsync(); }
+
+    // 方法 RemoveAsync：仅标记删除，不提交
+    public Task RemoveAsync(GenTableColumn entity) { _db.Set<GenTableColumn>().Remove(entity); return Task.CompletedTask; }
+
+    // 方法 SaveChangesAsync：统一提交挂起的变更
+    public Task SaveChangesAsync() => _db.SaveChangesAsync();
     // 方法 FindByTableNameAsync
     // 方法：FindByTableNameAsync
     public async Task<List<GenTableColumn>> FindByTableNameAsync(string tableName)

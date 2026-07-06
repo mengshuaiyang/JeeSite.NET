@@ -32,7 +32,8 @@ public static class QueryableExtensions
     /// <returns>实体列表</returns>
     public static async Task<List<T>> ToListAsync<T>(this IQueryable<T> query)
     {
-        return await Task.FromResult(query.ToList());
+        // 将同步枚举卸载到线程池，真正让出调用线程（区别于 Task.FromResult 的伪异步）
+        return await Task.Run(() => query.ToList());
     }
 
     /// <summary>
@@ -43,7 +44,8 @@ public static class QueryableExtensions
     /// <returns>记录总数</returns>
     public static async Task<int> CountAsync<T>(this IQueryable<T> query)
     {
-        return await Task.FromResult(query.Count());
+        // 将同步计数卸载到线程池，真正让出调用线程（区别于 Task.FromResult 的伪异步）
+        return await Task.Run(() => query.Count());
     }
 
     /// <summary>
@@ -59,7 +61,7 @@ public static class QueryableExtensions
     {
         // 先统计总数，再 Skip/Take 取当前页，避免重复查询
         var total = await query.CountAsync();
-        var list = await Task.FromResult(
+        var list = await Task.Run(() =>
             query.Skip((request.PageNo - 1) * request.PageSize)
                  .Take(request.PageSize)
                  .ToList());

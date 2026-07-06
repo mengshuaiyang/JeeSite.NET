@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace JeeSiteNET.Core.Utils.ExcelFieldTypes;
 
 /// <summary>
@@ -11,11 +13,11 @@ public class OfficeFieldType : IExcelFieldType
     /// <summary>目标属性类型：string（机构编码）。</summary>
     public Type ValueType => typeof(string);
 
-    /// <summary>编码 → 名称 映射。</summary>
-    private static readonly Dictionary<string, string> _codeToName = new();
+    /// <summary>编码 → 名称 映射。使用 ConcurrentDictionary 保证并发读写线程安全。</summary>
+    private static readonly ConcurrentDictionary<string, string> _codeToName = new();
 
-    /// <summary>名称 → 编码 映射。</summary>
-    private static readonly Dictionary<string, string> _nameToCode = new();
+    /// <summary>名称 → 编码 映射。使用 ConcurrentDictionary 保证并发读写线程安全。</summary>
+    private static readonly ConcurrentDictionary<string, string> _nameToCode = new();
 
     /// <summary>线程锁。</summary>
     private static readonly object _lock = new();

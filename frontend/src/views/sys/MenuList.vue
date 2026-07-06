@@ -34,8 +34,15 @@ const columns = [
   { title: '排序', dataIndex: 'treeSort' }, { title: '操作', key: 'action' }
 ]
 async function loadData() {
-  loading.value = true; const res = await menuApi.tree()
-  if (res.data) treeData.value = res.data; loading.value = false
+  loading.value = true
+  try {
+    const res = await menuApi.tree()
+    if (res.data) treeData.value = res.data
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 function showAdd() { editItem.value = null; form.parentCode='0'; form.menuName=''; form.menuHref=''; form.permission=''; form.menuIcon=''; modalOpen.value = true }
 function showAddChild(parent: MenuDto) { editItem.value = null; form.parentCode=parent.menuCode; form.menuName=''; form.menuHref=''; form.permission=''; form.menuIcon=''; modalOpen.value = true }

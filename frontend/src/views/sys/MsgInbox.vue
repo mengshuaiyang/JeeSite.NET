@@ -35,9 +35,14 @@ const columns = [
 ]
 async function loadData() {
   loading.value = true
-  const res = await msgApi.inbox({ pageNo: data.pageNo, pageSize: data.pageSize, entity: { msgTitle: query.msgTitle } as any })
-  if (res.data) { data.list = res.data.list; data.total = res.data.total }
-  loading.value = false
+  try {
+    const res = await msgApi.inbox({ pageNo: data.pageNo, pageSize: data.pageSize, entity: { msgTitle: query.msgTitle } as any })
+    if (res.data) { data.list = res.data.list; data.total = res.data.total }
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 function onPageChange(page: number, size: number) { data.pageNo = page; data.pageSize = size; loadData() }
 function rowClickHandler(record: MsgInnerDto) {

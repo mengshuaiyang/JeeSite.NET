@@ -42,9 +42,14 @@ const columns = [
 ]
 async function loadData() {
   loading.value = true
-  const res = await employeeApi.list({ pageNo: data.pageNo, pageSize: data.pageSize, entity: { empName: query.empName } as any })
-  if (res.data) { data.list = res.data.list; data.total = res.data.total }
-  loading.value = false
+  try {
+    const res = await employeeApi.list({ pageNo: data.pageNo, pageSize: data.pageSize, entity: { empName: query.empName } as any })
+    if (res.data) { data.list = res.data.list; data.total = res.data.total }
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 function onPageChange(page: number, size: number) { data.pageNo = page; data.pageSize = size; loadData() }
 function showAdd() { editItem.value = null; form.empNo=''; form.empName=''; form.email=''; form.phone=''; form.mobile=''; modalOpen.value = true }

@@ -14,4 +14,10 @@ namespace JeeSiteNET.Modules.CodeGen.Domain.Interfaces;
 public interface IGenTableColumnRepository : IRepository<GenTableColumn>
 {
     Task<List<GenTableColumn>> FindByTableNameAsync(string tableName);
+
+    /// <summary>仅将实体标记为已删除（不提交），由调用方在合适时机统一提交。</summary>
+    Task RemoveAsync(GenTableColumn entity);
+
+    /// <summary>统一提交挂起的变更（用于批量删除后一次性 SaveChanges）。</summary>
+    Task SaveChangesAsync();
 }

@@ -28,8 +28,15 @@ const treeData = ref<OrganizationDto[]>([])
 const form = reactive({ orgName: '', orgType: '', parentCode: '0', treeSort: 1000 })
 const columns = [{ title: '名称', dataIndex: 'orgName' }, { title: '类型', dataIndex: 'orgType' }, { title: '类型名', dataIndex: 'orgTypeName' }, { title: '操作', key: 'action' }]
 async function loadData() {
-  loading.value = true; const res = await orgApi.tree()
-  if (res.data) treeData.value = res.data; loading.value = false
+  loading.value = true
+  try {
+    const res = await orgApi.tree()
+    if (res.data) treeData.value = res.data
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 function showAdd() { editItem.value = null; form.parentCode='0'; form.orgName=''; form.orgType=''; modalOpen.value = true }
 function showAddChild(parent: OrganizationDto) { editItem.value = null; form.parentCode=parent.orgCode; form.orgName=''; form.orgType=''; modalOpen.value = true }

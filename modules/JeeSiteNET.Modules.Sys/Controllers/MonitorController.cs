@@ -21,8 +21,8 @@ public class MonitorController : ControllerBase
 
     /// <summary>HTTP GET - 获取服务器 CPU、内存、磁盘等运行状态信息。</summary>
     [HttpGet("server")]
-    public ApiResult<ServerInfo> GetServerInfo()
+    public async Task<ApiResult<ServerInfo>> GetServerInfo()
     {
-        return ApiResult<ServerInfo>.Ok(_monitorService.GetServerInfo());
+        return ApiResult<ServerInfo>.Ok(await _monitorService.GetServerInfoAsync());
     }
 }

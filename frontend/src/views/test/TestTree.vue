@@ -28,8 +28,15 @@ const treeData = ref<any[]>([])
 const form = reactive({ treeName: '', treeSort: 1000, parentCode: '0' })
 const columns = [{ title: '名称', dataIndex: 'treeName' }, { title: '排序', dataIndex: 'treeSort' }, { title: '状态', dataIndex: 'status' }, { title: '操作', key: 'action' }]
 async function loadData() {
-  loading.value = true; const res = await api.tree()
-  if (res.data) treeData.value = res.data; loading.value = false
+  loading.value = true
+  try {
+    const res = await api.tree()
+    if (res.data) treeData.value = res.data
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 function showAdd() { editItem.value = null; form.parentCode='0'; form.treeName=''; modalOpen.value = true }
 function showAddChild(parent: any) { editItem.value = null; form.parentCode=parent.treeCode; form.treeName=''; modalOpen.value = true }

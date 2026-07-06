@@ -60,8 +60,10 @@
 import { ref, reactive, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
 import { leaveApi } from '@/api'
+import { useUserStore } from '@/stores/user'
 
-const currentUser = localStorage.getItem('loginCode') || 'admin'
+const userStore = useUserStore()
+const currentUser = userStore.user?.loginCode || ''
 const loading = ref(false); const submitting = ref(false); const submitOpen = ref(false); const detailOpen = ref(false)
 const list = ref<any[]>([]); const detail = ref<any>({ history: [] })
 const form = reactive({ leaveType: 'annual', startDate: '', endDate: '', reason: '', managerApprover: 'admin', hrApprover: 'admin' })
@@ -76,7 +78,17 @@ const columns = [
   { title: '提交时间', dataIndex: 'submitDate', customRender: ({ text }: any) => text?.slice(0,16) || '-' },
   { title: '操作', key: 'action' }
 ]
-async function loadData() { loading.value = true; const res = await leaveApi.myLeaves(currentUser); if (res.data) list.value = res.data; loading.value = false }
+async function loadData() {
+  loading.value = true
+  try {
+    const res = await leaveApi.myLeaves(currentUser)
+    if (res.data) list.value = res.data
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
+}
 function showSubmit() { form.leaveType = 'annual'; form.startDate = ''; form.endDate = ''; form.reason = ''; form.managerApprover = 'admin'; form.hrApprover = 'admin'; submitOpen.value = true }
 async function handleSubmit() {
   submitting.value = true; await leaveApi.submit({ applicant: currentUser, ...form, managerName: '管理员', hrName: '管理员' })

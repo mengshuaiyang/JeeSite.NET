@@ -21,7 +21,8 @@ public class SmsService : ISmsSender
     {
         var section = _configuration.GetSection("Sms");
         var url = section["Url"] ?? "";
-        var data = section["Data"] ?? "";
+        // 凭证优先取自环境变量 JEE_SITE_SMS_DATA，回退到配置（配置中应为占位空串，避免明文弱凭证入库）。
+        var data = Environment.GetEnvironmentVariable("JEE_SITE_SMS_DATA") ?? section["Data"] ?? "";
         var prefix = section["Prefix"] ?? "";
         var suffix = section["Suffix"] ?? "";
 

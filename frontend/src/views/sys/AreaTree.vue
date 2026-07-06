@@ -34,8 +34,15 @@ const treeData = ref<AreaDto[]>([])
 const form = reactive({ areaName: '', areaType: 'district', parentCode: '0', treeSort: 1000 })
 const columns = [{ title: '区域编码', dataIndex: 'areaCode' }, { title: '区域名称', dataIndex: 'areaName' }, { title: '区域类型', dataIndex: 'areaType' }, { title: '状态', dataIndex: 'status' }, { title: '操作', key: 'action' }]
 async function loadData() {
-  loading.value = true; const res = await areaApi.tree()
-  if (res.data) treeData.value = res.data; loading.value = false
+  loading.value = true
+  try {
+    const res = await areaApi.tree()
+    if (res.data) treeData.value = res.data
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 function showAdd() { editItem.value = null; form.parentCode='0'; form.areaName=''; form.areaType='district'; modalOpen.value = true }
 function showAddChild(parent: AreaDto) { editItem.value = null; form.parentCode=parent.areaCode; form.areaName=''; form.areaType='district'; modalOpen.value = true }

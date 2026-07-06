@@ -63,8 +63,15 @@ const columns = [
 ]
 
 async function loadData() {
-  loading.value = true; const res = await categoryApi.tree()
-  if (res.data) treeData.value = res.data; loading.value = false
+  loading.value = true
+  try {
+    const res = await categoryApi.tree()
+    if (res.data) treeData.value = res.data
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 function showAdd() { isEdit.value = false; form.categoryCode = undefined; form.categoryName = ''; form.categoryType = 'article'; form.treeSort = 1000; form.parentCode = '0'; form.link = ''; form.keywords = ''; form.description = ''; form.isShowBool = '1'; modalOpen.value = true }
 function showEdit(r: CategoryDto) { isEdit.value = true; form.categoryCode = r.categoryCode; form.categoryName = r.categoryName; form.categoryType = r.categoryType || 'article'; form.treeSort = r.treeSort; form.parentCode = r.parentCode; form.link = r.link || ''; form.keywords = r.keywords || ''; form.description = r.description || ''; form.isShowBool = r.isShow || '1'; modalOpen.value = true }

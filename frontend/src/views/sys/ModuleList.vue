@@ -31,7 +31,17 @@ const data = reactive({ list: [] as ModuleDto[], total: 0, pageNo: 1, pageSize: 
 const columns = [{ title: '编码', dataIndex: 'moduleCode' }, { title: '名称', dataIndex: 'moduleName' }, { title: '版本', dataIndex: 'moduleVersion' }, { title: '启用', dataIndex: 'isEnabled' }, { title: '操作', key: 'action' }]
 const modalVisible = ref(false); const modalTitle = ref('新增模块'); const isEdit = ref(false)
 const form = reactive({ moduleCode: '', moduleName: '', moduleVersion: '', isEnabledBool: '1' as string | boolean })
-async function loadData() { loading.value = true; const r = await moduleApi.list({ pageNo: data.pageNo, pageSize: data.pageSize, entity: {} as any }); if (r.data) { data.list = r.data.list; data.total = r.data.total } loading.value = false }
+async function loadData() {
+  loading.value = true
+  try {
+    const r = await moduleApi.list({ pageNo: data.pageNo, pageSize: data.pageSize, entity: {} as any })
+    if (r.data) { data.list = r.data.list; data.total = r.data.total }
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
+}
 function onPageChange(p: number, s: number) { data.pageNo = p; data.pageSize = s; loadData() }
 function showAdd() { isEdit.value = false; modalTitle.value = '新增模块'; form.moduleCode = ''; form.moduleName = ''; form.moduleVersion = ''; form.isEnabledBool = '1'; modalVisible.value = true }
 function showEdit(r: ModuleDto) { isEdit.value = true; modalTitle.value = '编辑模块'; form.moduleCode = r.moduleCode; form.moduleName = r.moduleName; form.moduleVersion = r.moduleVersion || ''; form.isEnabledBool = r.isEnabled || '1'; modalVisible.value = true }

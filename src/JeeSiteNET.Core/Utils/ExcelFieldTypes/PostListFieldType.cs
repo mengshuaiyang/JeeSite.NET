@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 
 namespace JeeSiteNET.Core.Utils.ExcelFieldTypes;
@@ -16,14 +17,14 @@ public class PostListFieldType : IExcelFieldType
     public Type ValueType => typeof(List<string>);
 
     /// <summary>
-    /// 岗位编码 → 岗位名称 的映射表
+    /// 岗位编码 → 岗位名称 的映射表。使用 ConcurrentDictionary 保证并发读写线程安全。
     /// </summary>
-    private static readonly Dictionary<string, string> _codeToName = new();
+    private static readonly ConcurrentDictionary<string, string> _codeToName = new();
 
     /// <summary>
-    /// 岗位名称 → 岗位编码 的反向映射表
+    /// 岗位名称 → 岗位编码 的反向映射表。使用 ConcurrentDictionary 保证并发读写线程安全。
     /// </summary>
-    private static readonly Dictionary<string, string> _nameToCode = new();
+    private static readonly ConcurrentDictionary<string, string> _nameToCode = new();
 
     /// <summary>
     /// 用于并发读写静态映射表的锁对象

@@ -114,8 +114,8 @@ const showCaptcha = ref(false)
 const captchaKey = ref('')
 const captchaSrc = ref('')
 
-// 账号密码表单
-const form = reactive({ loginCode: 'admin', password: 'admin', validCode: '' })
+// 账号密码表单（不预填凭证，避免硬编码默认账号密码）
+const form = reactive({ loginCode: '', password: '', validCode: '' })
 
 // 短信/邮件验证码登录
 const codeForm = reactive({ target: '', code: '' })

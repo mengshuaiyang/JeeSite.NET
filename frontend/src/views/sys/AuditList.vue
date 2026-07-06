@@ -18,6 +18,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { auditApi } from '@/api/audit'
+import request from '@/api/request'
 import { message } from 'ant-design-vue'
 
 const loading = ref(false)
@@ -36,12 +37,17 @@ const columns: Array<{ title: string; dataIndex?: string; key?: string; width?: 
 
 async function loadData() {
   loading.value = true
-  const r = await auditApi.list({
-    pageNo: data.pageNo, pageSize: data.pageSize,
-    entity: { auditType: query.auditType || undefined, loginCode: query.loginCode || undefined }
-  })
-  if (r.data) { data.list = r.data.list; data.total = r.data.total }
-  loading.value = false
+  try {
+    const r = await auditApi.list({
+      pageNo: data.pageNo, pageSize: data.pageSize,
+      entity: { auditType: query.auditType || undefined, loginCode: query.loginCode || undefined }
+    })
+    if (r.data) { data.list = r.data.list; data.total = r.data.total }
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 function onPageChange(p: number, s: number) { data.pageNo = p; data.pageSize = s; loadData() }
@@ -53,12 +59,8 @@ async function exportData() {
     if (query.auditType) params.auditType = query.auditType
     if (query.loginCode) params.loginCode = query.loginCode
     const qs = new URLSearchParams(params).toString()
-    const res = await fetch(`/api/v1/sys/audit/export${qs ? '?' + qs : ''}`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
-    if (!res.ok) throw new Error('导出失败')
-    const blob = await res.blob()
+    const res = await request.post(`/sys/audit/export${qs ? '?' + qs : ''}`, null, { responseType: 'blob' })
+    const blob = res.data as Blob
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -67,7 +69,7 @@ async function exportData() {
     URL.revokeObjectURL(url)
     message.success('导出成功')
   } catch (e: any) {
-    message.error(e.message || '导出失败')
+    message.error(e?.message || '导出失败')
   }
 }
 </script>

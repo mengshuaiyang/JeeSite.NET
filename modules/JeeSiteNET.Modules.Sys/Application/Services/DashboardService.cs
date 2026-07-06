@@ -1,5 +1,9 @@
 using JeeSiteNET.Modules.Sys.Domain.Interfaces;
 
+using Microsoft.EntityFrameworkCore;
+
+using ZiggyCreatures.Caching.Fusion;
+
 namespace JeeSiteNET.Modules.Sys.Application.Services;
 
 /// <summary>首页仪表板统计 DTO。</summary>
@@ -34,6 +38,7 @@ public class DashboardService
     private readonly IPostRepository _postRepo;
     private readonly IDictTypeRepository _dictRepo;
     private readonly ILogRepository _logRepo;
+    private readonly IFusionCache _cache;
 
     /// <summary>依赖注入构造函数。</summary>
     public DashboardService(
@@ -43,7 +48,8 @@ public class DashboardService
         IOrganizationRepository orgRepo,
         IPostRepository postRepo,
         IDictTypeRepository dictRepo,
-        ILogRepository logRepo)
+        ILogRepository logRepo,
+        IFusionCache cache)
     {
         _userRepo = userRepo;
         _roleRepo = roleRepo;
@@ -52,31 +58,36 @@ public class DashboardService
         _postRepo = postRepo;
         _dictRepo = dictRepo;
         _logRepo = logRepo;
+        _cache = cache;
     }
 
     /// <summary>获取首页综合统计（用户/角色/菜单/机构/岗位/字典总量 + 今日日志 + 最近 10 次登录）。</summary>
     /// <returns>仪表板统计对象。</returns>
     public async Task<DashboardStats> GetStatsAsync()
     {
-        var today = DateTime.Today;
-        var users = await _userRepo.FindListAsync();
+        // 统计结果短期缓存（60 秒），避免每次首页访问都对整表计数
+        var cached = await _cache.GetOrDefaultAsync<DashboardStats>("Dashboard:Stats");
+        if (cached is not null)
+            return cached;
 
-        return new DashboardStats
+        var today = DateTime.Today;
+
+        var stats = new DashboardStats
         {
-            UserCount = users.Count,
-            RoleCount = (await _roleRepo.FindListAsync()).Count,
-            MenuCount = (await _menuRepo.FindListAsync()).Count,
-            OrgCount = (await _orgRepo.FindListAsync()).Count,
-            PostCount = (await _postRepo.FindListAsync()).Count,
-            DictCount = (await _dictRepo.FindListAsync()).Count,
+            // 计数下推数据库，使用 CountAsync 而非 ToList().Count()
+            UserCount = await _userRepo.Query().CountAsync(),
+            RoleCount = await _roleRepo.Query().CountAsync(),
+            MenuCount = await _menuRepo.Query().CountAsync(),
+            OrgCount = await _orgRepo.Query().CountAsync(),
+            PostCount = await _postRepo.Query().CountAsync(),
+            DictCount = await _dictRepo.Query().CountAsync(),
             // 今日日志数量（CreateDate >= 今天 0 点）
-            LogCountToday = _logRepo.Query().Count(l => l.CreateDate >= today),
+            LogCountToday = await _logRepo.Query().CountAsync(l => l.CreateDate >= today),
             // 最近 10 条登录日志，按时间倒序
             RecentLogins = _logRepo.Query()
                 .Where(l => l.LogType == "login" && l.CreateDate != null)
                 .OrderByDescending(l => l.CreateDate)
                 .Take(10)
-                .ToList()
                 .Select(l => new RecentLogin
                 {
                     UserName = l.UserName,
@@ -86,5 +97,8 @@ public class DashboardService
                 })
                 .ToList()
         };
+
+        await _cache.SetAsync("Dashboard:Stats", stats, TimeSpan.FromSeconds(60));
+        return stats;
     }
 }

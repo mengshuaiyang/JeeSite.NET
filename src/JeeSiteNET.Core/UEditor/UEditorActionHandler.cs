@@ -23,9 +23,9 @@ public sealed class UEditorActionHandler
     private readonly IUEditorUploadStore _store;
 
     /// <summary>
-    /// 可选的 HTTP 客户端工厂，用于 catchimage 等远程抓取操作
+    /// HTTP 客户端工厂，用于 catchimage 等远程抓取操作（强制注入，避免 new HttpClient() 泄漏）
     /// </summary>
-    private readonly IHttpClientFactory? _httpFactory;
+    private readonly IHttpClientFactory _httpFactory;
 
     /// <summary>
     /// 速率限制桶（防止高频抓图）
@@ -37,12 +37,12 @@ public sealed class UEditorActionHandler
     /// </summary>
     /// <param name="options">UEditor 配置</param>
     /// <param name="store">上传存储实现</param>
-    /// <param name="httpFactory">可选 IHttpClientFactory（用于远程抓图）</param>
-    public UEditorActionHandler(UEditorOptions options, IUEditorUploadStore store, IHttpClientFactory? httpFactory = null)
+    /// <param name="httpFactory">IHttpClientFactory（用于远程抓图，强制注入）</param>
+    public UEditorActionHandler(UEditorOptions options, IUEditorUploadStore store, IHttpClientFactory httpFactory)
     {
         _opts = options ?? throw new ArgumentNullException(nameof(options));
         _store = store ?? throw new ArgumentNullException(nameof(store));
-        _httpFactory = httpFactory;
+        _httpFactory = httpFactory ?? throw new ArgumentNullException(nameof(httpFactory));
     }
 
     /// <summary>
@@ -306,7 +306,7 @@ public sealed class UEditorActionHandler
         var sources = context.Request.Form[_opts.CatcherFieldName].ToList();
         if (sources.Count == 0) return JsonError("缺少 source 参数");
 
-        var httpClient = _httpFactory != null ? _httpFactory.CreateClient() : new HttpClient();
+        var httpClient = _httpFactory.CreateClient();
         httpClient.Timeout = TimeSpan.FromSeconds(15);
 
         var list = new List<UEditorCatcherEntry>();

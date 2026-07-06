@@ -32,8 +32,15 @@ const columns = [
   { title: '操作', key: 'action' }
 ]
 async function loadData() {
-  loading.value = true; const res = await bizCategoryApi.tree()
-  if (res.data) treeData.value = res.data; loading.value = false
+  loading.value = true
+  try {
+    const res = await bizCategoryApi.tree()
+    if (res.data) treeData.value = res.data
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 function showAdd() { editItem.value = null; form.parentCode='0'; form.categoryName=''; form.viewCode=''; modalOpen.value = true }
 function showAddChild(parent: BizCategoryDto) { editItem.value = null; form.parentCode=parent.categoryCode; form.categoryName=''; form.viewCode=''; modalOpen.value = true }

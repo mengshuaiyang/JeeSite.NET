@@ -30,8 +30,15 @@ const columns = [
   { title: '状态', dataIndex: 'status' }, { title: '操作', key: 'action' }
 ]
 async function loadData() {
-  loading.value = true; const res = await appFeedbackApi.commentList()
-  if (res.data) list.value = res.data; loading.value = false
+  loading.value = true
+  try {
+    const res = await appFeedbackApi.commentList()
+    if (res.data) list.value = res.data
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 function openReply(row: AppCommentDto) { replyForm.id = row.id; replyForm.replyContent = row.replyContent || ''; modalOpen.value = true }
 async function handleReply() { saving.value = true; await appFeedbackApi.commentReply(replyForm.id, replyForm.replyContent); message.success('回复成功'); modalOpen.value = false; loadData(); saving.value = false }

@@ -52,14 +52,19 @@ const columns = [
 ]
 async function loadData() {
   loading.value = true
-  if (query.langType) {
-    const res = await langApi.getByType(query.langType)
-    if (res.data) data.value = res.data
-  } else {
-    const res = await langApi.list()
-    if (res.data) data.value = res.data
+  try {
+    if (query.langType) {
+      const res = await langApi.getByType(query.langType)
+      if (res.data) data.value = res.data
+    } else {
+      const res = await langApi.list()
+      if (res.data) data.value = res.data
+    }
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
   }
-  loading.value = false
 }
 function showAdd() { editItem.value = null; form.moduleCode=''; form.langCode=''; form.langText=''; form.langType='zh_CN'; modalOpen.value = true }
 function showEdit(row: LangDto) { editItem.value = row; Object.assign(form, row); modalOpen.value = true }

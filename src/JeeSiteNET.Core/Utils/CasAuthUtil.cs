@@ -19,26 +19,16 @@ public static class CasAuthUtil
     private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(10) };
 
     /// <summary>
-    /// 同步验证 CAS 登录票据（serviceValidate 协议）
+    /// 验证 CAS 登录票据（serviceValidate 协议），委托异步版本实现，避免同步阻塞网络调用。
+    /// 注意：返回类型已为 Task，调用方需 await。
     /// </summary>
     /// <param name="casServerUrl">CAS 服务器根地址（如 https://cas.example.com/cas）</param>
     /// <param name="ticket">登录成功后返回的 ST（Service Ticket）</param>
     /// <param name="serviceUrl">当前业务系统的 Service 地址（需与登录时提交一致）</param>
     /// <returns>验证结果对象；验证失败或网络异常返回 null</returns>
-    public static CasValidateResult? ValidateTicket(string casServerUrl, string ticket, string serviceUrl)
+    public static async Task<CasValidateResult?> ValidateTicket(string casServerUrl, string ticket, string serviceUrl)
     {
-        // 拼接 CAS serviceValidate 接口地址，对 ticket 和 service 参数进行 URL 编码
-        var validateUrl = $"{casServerUrl.TrimEnd('/')}/serviceValidate?ticket={WebUtility.UrlEncode(ticket)}&service={WebUtility.UrlEncode(serviceUrl)}";
-
-        try
-        {
-            var response = _httpClient.GetStringAsync(validateUrl).GetAwaiter().GetResult();
-            return ParseResponse(response);
-        }
-        catch
-        {
-            return null;
-        }
+        return await ValidateTicketAsync(casServerUrl, ticket, serviceUrl);
     }
 
     /// <summary>

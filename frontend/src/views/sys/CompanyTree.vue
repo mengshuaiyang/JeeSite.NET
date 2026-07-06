@@ -29,8 +29,15 @@ const treeData = ref<CompanyDto[]>([])
 const form = reactive({ companyName: '', viewCode: '', areaCode: '', parentCode: '0', treeSort: 1000 })
 const columns = [{ title: '公司编码', dataIndex: 'viewCode' }, { title: '公司名称', dataIndex: 'companyName' }, { title: '区域', dataIndex: 'areaName' }, { title: '状态', dataIndex: 'status' }, { title: '操作', key: 'action' }]
 async function loadData() {
-  loading.value = true; const res = await companyApi.tree()
-  if (res.data) treeData.value = res.data; loading.value = false
+  loading.value = true
+  try {
+    const res = await companyApi.tree()
+    if (res.data) treeData.value = res.data
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 function showAdd() { editItem.value = null; form.parentCode='0'; form.companyName=''; form.viewCode=''; form.areaCode=''; modalOpen.value = true }
 function showAddChild(parent: CompanyDto) { editItem.value = null; form.parentCode=parent.companyCode; form.companyName=''; form.viewCode=''; form.areaCode=''; modalOpen.value = true }

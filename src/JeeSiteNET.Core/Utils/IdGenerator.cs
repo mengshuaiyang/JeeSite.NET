@@ -31,8 +31,17 @@ public static class IdGenerator
         {
             var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
+            // 时钟回拨保护：若当前时间早于上次生成时间，说明系统时钟发生了回拨，
+            // 此时若不处理，可能产生与历史 ID 重复的序号。这里直接抛出异常，
+            // 由调用方决定降级（等待、重试或告警），避免静默生成重复 ID。
+            if (timestamp < _lastTimestamp)
+            {
+                throw new InvalidOperationException(
+                    $"时钟回拨：当前时间戳 {timestamp} 小于上次时间戳 {_lastTimestamp}，可能产生重复 ID。");
+            }
+
             // 同一毫秒：序号自增并与 4095 做位与，形成 0-4095 的循环；
-            // 不同毫秒：重置时间戳与序号，避免未来回拨时产生重复。
+            // 不同毫秒（或回拨后系统已追平）：重置时间戳与序号，避免未来回拨时产生重复。
             if (timestamp == _lastTimestamp)
             {
                 _sequence = (_sequence + 1) & 4095;

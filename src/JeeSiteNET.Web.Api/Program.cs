@@ -118,13 +118,18 @@ builder.Services.AddAuthorization(options =>
 });
 
 // --- 2c. CORS：允许 Vue 前端跨域访问 ---
-// 开发环境前端运行在 http://localhost:5173（Vite 默认端口）
-// 生产环境可能运行在 nginx 反向代理后，端口由 nginx 决定
+// Origin 列表由配置 Cors:AllowedOrigins 驱动（逗号分隔），避免 AllowAnyOrigin 带来的凭证泄露风险。
+// 显式列出允许的方法与头，不再使用 AllowAnyHeader/AllowAnyMethod。
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Value?
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    .ToArray() ?? ["http://localhost:5173", "http://localhost:4173", "http://localhost:3000"];
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
-        policy.WithOrigins("http://localhost:5173", "http://localhost:4173", "http://localhost:3000")
-            .AllowAnyHeader().AllowAnyMethod().AllowCredentials());
+        policy.WithOrigins(allowedOrigins)
+            .WithHeaders("Authorization", "Content-Type", "Accept", "X-Requested-With")
+            .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+            .AllowCredentials());
 });
 
 // --- 2d. 速率限制：防止接口被刷 ---

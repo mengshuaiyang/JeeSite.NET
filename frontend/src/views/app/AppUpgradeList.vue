@@ -36,8 +36,15 @@ const columns = [
   { title: '状态', dataIndex: 'status' }, { title: '操作', key: 'action' }
 ]
 async function loadData() {
-  loading.value = true; const res = await appFeedbackApi.upgradeList()
-  if (res.data) list.value = res.data; loading.value = false
+  loading.value = true
+  try {
+    const res = await appFeedbackApi.upgradeList()
+    if (res.data) list.value = res.data
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 function showAdd() { editItem.value = null; form.appCode=''; form.upTitle=''; form.upContent=''; form.upVersion=undefined; form.upType=''; form.apkUrl=''; modalOpen.value = true }
 function showEdit(row: AppUpgradeDto) { editItem.value = row; Object.assign(form, row); modalOpen.value = true }

@@ -42,7 +42,7 @@ public class MonitorService
 {
     /// <summary>获取综合服务器信息（OS、运行时、CPU、内存、磁盘分区）。</summary>
     /// <returns>服务器信息对象。</returns>
-    public ServerInfo GetServerInfo()
+    public async Task<ServerInfo> GetServerInfoAsync()
     {
         var process = Process.GetCurrentProcess();
         var startTime = process.StartTime;
@@ -65,7 +65,7 @@ public class MonitorService
             GcTotalMemory = GC.GetTotalMemory(false),
             ThreadCount = process.Threads.Count,
             HandleCount = process.HandleCount,
-            CpuUsagePercent = GetCpuUsage(process),
+            CpuUsagePercent = await GetCpuUsageAsync(process),
             Disks = GetDiskInfo()
         };
 
@@ -75,14 +75,14 @@ public class MonitorService
     /// <summary>采样当前进程的 CPU 使用率（两次读取 TotalProcessorTime 求差值，耗时约 500ms）。</summary>
     /// <param name="process">当前进程。</param>
     /// <returns>CPU 使用率百分比（0-100）。</returns>
-    private static double GetCpuUsage(Process process)
+    private static async Task<double> GetCpuUsageAsync(Process process)
     {
         try
         {
             var startTime = DateTime.UtcNow;
             var startCpu = process.TotalProcessorTime;
-            // 阻塞 500ms 采样，这是得到稳定 CPU 使用率的必要窗口
-            Thread.Sleep(500);
+            // 非阻塞等待 500ms 采样，这是得到稳定 CPU 使用率的必要窗口
+            await Task.Delay(500);
             var endTime = DateTime.UtcNow;
             var endCpu = process.TotalProcessorTime;
             var cpuUsedMs = (endCpu - startCpu).TotalMilliseconds;

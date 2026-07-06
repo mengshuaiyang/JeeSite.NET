@@ -38,9 +38,14 @@ const columns = [
 ]
 async function loadData() {
   loading.value = true
-  const res = await guestbookApi.list({ pageNo: data.pageNo, pageSize: data.pageSize, entity: { name: query.name } as any })
-  if (res.data) { data.list = res.data.list; data.total = res.data.total }
-  loading.value = false
+  try {
+    const res = await guestbookApi.list({ pageNo: data.pageNo, pageSize: data.pageSize, entity: { name: query.name } as any })
+    if (res.data) { data.list = res.data.list; data.total = res.data.total }
+  } catch (e: any) {
+    message.error(e?.message || '加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 function onPageChange(page: number, size: number) { data.pageNo = page; data.pageSize = size; loadData() }
 function openReply(row: GuestbookDto) { replyForm.gbCode = row.gbCode; replyForm.reContent = row.reContent || ''; modalOpen.value = true }

@@ -82,7 +82,10 @@ public class CurrentUser : ICurrentUser
             if (IsSuperAdmin) return [];
             _cachedRoles ??= _cache.GetOrSet(CacheKeys.RoleCodesByUser(UserCode), (ct) =>
             {
-                return _userRoleRepository.GetRoleCodesByUserAsync(UserCode).GetAwaiter().GetResult();
+                // 使用 Task.Run 将异步仓储调用卸载到线程池线程执行，
+                // 避免在当前请求上下文（ASP.NET SynchronizationContext）中直接 GetResult 造成死锁。
+                // 保持同步属性契约不变，不破坏 PermissionAttribute / 数据权限等大量同步调用方。
+                return Task.Run(() => _userRoleRepository.GetRoleCodesByUserAsync(UserCode)).GetAwaiter().GetResult();
             }, TimeSpan.FromMinutes(10));
             return _cachedRoles;
         }
@@ -99,7 +102,10 @@ public class CurrentUser : ICurrentUser
             if (IsSuperAdmin) return ["*"];
             _cachedPermissions ??= _cache.GetOrSet(CacheKeys.PermissionsByRoles(string.Join(",", RoleCodes)), (ct) =>
             {
-                return _menuRepository.GetPermissionsByRoleCodesAsync(RoleCodes).GetAwaiter().GetResult();
+                // 使用 Task.Run 将异步仓储调用卸载到线程池线程执行，
+                // 避免在当前请求上下文（ASP.NET SynchronizationContext）中直接 GetResult 造成死锁。
+                // 保持同步属性契约不变，不破坏 PermissionAttribute / 数据权限等大量同步调用方。
+                return Task.Run(() => _menuRepository.GetPermissionsByRoleCodesAsync(RoleCodes)).GetAwaiter().GetResult();
             }, TimeSpan.FromMinutes(10));
             return _cachedPermissions;
         }

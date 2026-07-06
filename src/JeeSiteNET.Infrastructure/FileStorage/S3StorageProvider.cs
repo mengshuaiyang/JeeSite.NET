@@ -112,11 +112,13 @@ public class S3StorageProvider : IFileStorageProvider
     {
         try
         {
-            var task = _client.PresignedGetObjectAsync(new PresignedGetObjectArgs()
+            // 使用 Task.Run 将异步预签名调用卸载到线程池线程执行，
+            // 避免在当前请求上下文（ASP.NET SynchronizationContext）中直接 GetResult 造成死锁。
+            // 保持 GetUrl(string) 同步签名不变，不破坏 IFileStorageProvider 接口与调用方。
+            return Task.Run(() => _client.PresignedGetObjectAsync(new PresignedGetObjectArgs()
                 .WithBucket(_bucket)
                 .WithObject(filePath)
-                .WithExpiry(3600));
-            return task.GetAwaiter().GetResult();
+                .WithExpiry(3600))).GetAwaiter().GetResult();
         }
         catch
         {
