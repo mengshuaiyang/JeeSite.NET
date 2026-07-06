@@ -59,8 +59,8 @@ export const useAppStore = defineStore('app', () => {
 
   function setPermissions(list: string[]) { permissions.value = list }
   function hasPermission(p: string | string[]) {
-    // 未加载完成 / 无权限时一律拒绝；后端 [Permission] 才是最终鉴权权威
-    if (permissions.value.length === 0) return false
+    // 空权限列表 = 无限制，允许访问；后端 [Permission] 才是最终鉴权权威
+    if (permissions.value.length === 0) return true
     if (Array.isArray(p)) {
       if (p.length === 0) return true
       return p.some((code) => permissions.value.includes(code))
