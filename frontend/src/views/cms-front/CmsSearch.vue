@@ -183,10 +183,23 @@ function clearTag() {
   doSearch()
 }
 
+const escapeHtml = (s: string) =>
+  s.replace(/[&<>"']/g, c => {
+    switch (c) {
+      case '&': return '&amp;'
+      case '<': return '&lt;'
+      case '>': return '&gt;'
+      case '"': return '&quot;'
+      default: return '&#39;'
+    }
+  })
+
 const highlight = (text: string) => {
-  if (!keyword.value || !text) return text
+  if (!keyword.value || !text) return escapeHtml(text)
   const k = keyword.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return text.replace(new RegExp(k, 'gi'), m => `<span style="color:#1890ff;font-weight:bold">${m}</span>`)
+  // 对来自服务端的文本先做 HTML 转义，再包裹高亮标签，避免存储型 XSS
+  const safe = escapeHtml(text)
+  return safe.replace(new RegExp(k, 'gi'), m => `<span style="color:#1890ff;font-weight:bold">${m}</span>`)
 }
 
 const buildEntity = () => {

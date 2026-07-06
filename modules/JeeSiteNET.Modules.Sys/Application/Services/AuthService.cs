@@ -68,10 +68,10 @@ public class AuthService
         if (user.Password != inputPwd)
             return ApiResult<LoginResultDto>.Fail(400, "登录名或密码错误");
 
-        // 多设备登录控制：新令牌签发后将旧令牌拉入黑名单
+        // 多设备登录控制：新令牌签发后将旧令牌加入黑名单，使旧设备会话失效
         var existingToken = await _cache.GetOrDefaultAsync<string>($"OnlineToken:{user.UserCode}");
         if (!string.IsNullOrEmpty(existingToken))
-            await _cache.RemoveAsync($"TokenBlacklist:{existingToken}");
+            await _cache.SetAsync($"TokenBlacklist:{existingToken}", "revoked", TimeSpan.FromHours(12));
 
         var token = GenerateToken(user);
         await _cache.SetAsync($"OnlineToken:{user.UserCode}", token, TimeSpan.FromHours(12));
@@ -220,10 +220,10 @@ public class AuthService
         if (user.Status == "1")
             return ApiResult<LoginResultDto>.Fail(400, "该账号已被禁用");
 
-        // 多设备登录控制：新令牌签发后将旧令牌拉入黑名单
+        // 多设备登录控制：新令牌签发后将旧令牌加入黑名单，使旧设备会话失效
         var existingToken = await _cache.GetOrDefaultAsync<string>($"OnlineToken:{user.UserCode}");
         if (!string.IsNullOrEmpty(existingToken))
-            await _cache.RemoveAsync($"TokenBlacklist:{existingToken}");
+            await _cache.SetAsync($"TokenBlacklist:{existingToken}", "revoked", TimeSpan.FromHours(12));
 
         var token = GenerateToken(user);
         await _cache.SetAsync($"OnlineToken:{user.UserCode}", token, TimeSpan.FromHours(12));
@@ -266,7 +266,9 @@ public class AuthService
     private string GenerateToken(Domain.Entities.User user)
     {
         var jwtSection = _configuration.GetSection("Jwt");
-        var secret = jwtSection["Secret"] ?? "JeeSiteNET_Default_SuperSecret_Key_2024!";
+        var secret = System.Environment.GetEnvironmentVariable("JEE_SITE_JWT_SECRET") ?? jwtSection["Secret"];
+        if (string.IsNullOrEmpty(secret) || secret.Length < 32)
+            throw new InvalidOperationException("JWT 签名密钥未配置或长度不足 32 字节，请在环境变量 JEE_SITE_JWT_SECRET 或 Jwt:Secret 中设置。");
         var issuer = jwtSection["Issuer"] ?? "JeeSiteNET";
         var audience = jwtSection["Audience"] ?? "JeeSiteNET.Client";
         var expiryHours = int.Parse(jwtSection["ExpiryHours"] ?? "12");

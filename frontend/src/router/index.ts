@@ -79,16 +79,21 @@ const routes: RouteRecordRaw[] = [
 
 const router = createRouter({ history: createWebHistory(), routes })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const token = localStorage.getItem('token')
 
   if (to.meta.public) return
 
   if (!token) return '/login'
 
+  const appStore = useAppStore()
+  // 刷新后权限可能尚未从服务端加载，先等待启动引导完成，避免越权时间窗
+  if (!appStore.ready) await appStore.bootstrap()
+
   if (to.meta.permission) {
-    const appStore = useAppStore()
     if (!appStore.hasPermission(to.meta.permission)) {
+      // 已在 dashboard 时避免重定向死循环
+      if (to.path === '/dashboard') return true
       return '/dashboard'
     }
   }

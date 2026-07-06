@@ -63,7 +63,13 @@ const messages = ref<ChatMsg[]>([
 const messagesRef = ref<HTMLElement>()
 
 function renderMarkdown(text: string) {
-  const escaped = text.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  // 先对全部 HTML 特殊字符转义，再注入受控的安全标签，避免模型内容触发 XSS
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
   return escaped
     .replace(/### (.+)/g, '<h3>$1</h3>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')

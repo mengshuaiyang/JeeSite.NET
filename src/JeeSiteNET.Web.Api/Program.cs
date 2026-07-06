@@ -78,7 +78,9 @@ builder.Services.AddJeeSiteSwagger();
 // 前端后续请求携带 Authorization: Bearer <token>
 // JWT 中间件自动验证签名、有效期、是否被拉黑（TokenBlacklist 缓存键）
 var jwtSection = builder.Configuration.GetSection("Jwt");
-var jwtSecret = jwtSection["Secret"] ?? "JeeSiteNET_Default_SuperSecret_Key_2024!";
+var jwtSecret = System.Environment.GetEnvironmentVariable("JEE_SITE_JWT_SECRET") ?? jwtSection["Secret"];
+if (string.IsNullOrEmpty(jwtSecret) || jwtSecret.Length < 32)
+    throw new InvalidOperationException("JWT 签名密钥未配置或长度不足 32 字节，请在环境变量 JEE_SITE_JWT_SECRET 或 Jwt:Secret 中设置。");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {

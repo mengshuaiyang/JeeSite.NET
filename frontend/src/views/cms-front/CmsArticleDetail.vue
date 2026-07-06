@@ -17,7 +17,7 @@
           <span v-if="article.categoryName"> &nbsp; 栏目: {{ article.categoryName }}</span>
         </div>
         <div v-if="article.summary" class="cms-summary">{{ article.summary }}</div>
-        <div class="cms-content-body" v-html="article.articleData?.content || ''" />
+        <div class="cms-content-body" v-html="sanitize(article.articleData?.content)" />
         <div v-if="article.tags" class="cms-tags">
           <a-tag v-for="tag in article.tags.split(',').map(t=>t.trim()).filter(Boolean)" :key="tag" color="blue">{{ tag }}</a-tag>
         </div>
@@ -43,6 +43,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import DOMPurify from 'dompurify'
 import { cmsFrontApi } from '@/api/cmsFront'
 import type { ArticleDto } from '@/types/api'
 import dayjs from 'dayjs'
@@ -52,6 +53,9 @@ const router = useRouter()
 const article = ref<ArticleDto>()
 const comments = ref<any[]>([])
 const loading = ref(true)
+
+// 服务端返回的文章正文为原始 HTML，渲染前用 DOMPurify 白名单消毒，防止存储型 XSS
+const sanitize = (html?: string) => DOMPurify.sanitize(html || '')
 
 const goBack = () => router.back()
 

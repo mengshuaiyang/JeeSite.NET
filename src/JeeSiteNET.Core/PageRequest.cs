@@ -6,14 +6,24 @@ namespace JeeSiteNET.Core;
 public class PageRequest
 {
     /// <summary>
-    /// 当前页码（从 1 开始），默认值 1
+    /// 当前页码（从 1 开始），默认值 1。设置时自动修正为不小于 1 的值，防止分页 Skip 负值崩溃。
     /// </summary>
-    public int PageNo { get; set; } = 1;
+    private int _pageNo = 1;
+    public int PageNo
+    {
+        get => _pageNo;
+        set => _pageNo = value < 1 ? 1 : value;
+    }
 
     /// <summary>
-    /// 每页记录数，默认值 20
+    /// 每页记录数，默认值 20。设置时自动限制在 [1, 200]，防止异常页大小导致性能或分页异常。
     /// </summary>
-    public int PageSize { get; set; } = 20;
+    private int _pageSize = 20;
+    public int PageSize
+    {
+        get => _pageSize;
+        set => _pageSize = value < 1 ? 1 : (value > 200 ? 200 : value);
+    }
 
     /// <summary>
     /// 排序字段名（如 "CreateDate"）

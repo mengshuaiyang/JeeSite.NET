@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { menuApi } from '@/api/menu'
+import { authApi } from '@/api/auth'
 import type { MenuDto } from '@/types/api'
 
 export interface MenuTreeNode {
@@ -52,9 +53,14 @@ export const useAppStore = defineStore('app', () => {
     loadMenus(code)
   }
 
+  // 权限是否已从服务端加载完成（防止刷新后权限为空被误判为“全部允许”的越权时间窗）
+  const ready = ref(false)
+  let bootstrapping: Promise<void> | null = null
+
   function setPermissions(list: string[]) { permissions.value = list }
   function hasPermission(p: string | string[]) {
-    if (permissions.value.length === 0) return true
+    // 未加载完成 / 无权限时一律拒绝；后端 [Permission] 才是最终鉴权权威
+    if (permissions.value.length === 0) return false
     if (Array.isArray(p)) {
       if (p.length === 0) return true
       return p.some((code) => permissions.value.includes(code))
@@ -62,5 +68,24 @@ export const useAppStore = defineStore('app', () => {
     return permissions.value.includes(p)
   }
 
-  return { collapsed, menus, sysCodes, currentSysCode, permissions, darkMode, toggleCollapsed, toggleDarkMode, loadMenus, loadSysCodes, switchSysCode, setPermissions, hasPermission }
+  // 应用启动时使用已存在的 Token 拉取最新权限，关闭刷新后的越权时间窗
+  function bootstrap() {
+    if (bootstrapping) return bootstrapping
+    bootstrapping = (async () => {
+      if (!localStorage.getItem('token')) { ready.value = true; return }
+      try {
+        const res = await authApi.getAuthInfo()
+        if (res.code === 200 && res.data?.permissions) {
+          permissions.value = res.data.permissions
+        }
+      } catch {
+        // 忽略：前端权限仅用于菜单/按钮显隐，后端才是鉴权权威
+      } finally {
+        ready.value = true
+      }
+    })()
+    return bootstrapping
+  }
+
+  return { collapsed, menus, sysCodes, currentSysCode, permissions, ready, darkMode, toggleCollapsed, toggleDarkMode, loadMenus, loadSysCodes, switchSysCode, setPermissions, hasPermission, bootstrap }
 })
